@@ -179,7 +179,7 @@ function App() {
         deleteElements={deleteElements}
         isOpen={leftPanelOpen}
         setIsOpen={setLeftPanelOpen}
-        centerViewportOnElement={(id) => {
+        centerViewportOnElement={(_id) => {
           // This will be passed to Canvas, but for now we can leave it as a placeholder
           // The actual implementation needs to be in Canvas
         }}

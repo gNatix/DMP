@@ -43,7 +43,6 @@ const TokensTab = ({
   setActiveTool,
   setActiveTokenTemplate
 }: TokensTabProps) => {
-  const _fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedCategory, setSelectedCategory] = useState<TokenCategory | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [selectedColor, setSelectedColor] = useState<ColorType>('red');
