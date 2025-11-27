@@ -125,7 +125,14 @@ function getIconSymbol(icon: IconType): string {
     star: '★',
     diamond: '◆',
     heart: '♥',
-    skull: '☠'
+    skull: '☠',
+    quest: '?',
+    clue: '!',
+    hidden: '👁',
+    door: '🚪',
+    landmark: '📍',
+    footprint: '👣',
+    info: 'ℹ'
   };
   return symbols[icon];
 }

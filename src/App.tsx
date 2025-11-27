@@ -14,8 +14,8 @@ function App() {
 
   // Tool state
   const [activeTool, setActiveTool] = useState<ToolType>('pointer');
-  const [activeColor, setActiveColor] = useState<ColorType>('red');
-  const [activeIcon, setActiveIcon] = useState<IconType>('circle');
+  const [activeColor] = useState<ColorType>('red');
+  const [activeIcon] = useState<IconType>('circle');
 
   // Token library
   const [tokenTemplates, setTokenTemplates] = useState<TokenTemplate[]>([]);
@@ -204,7 +204,7 @@ function App() {
         setActiveTool={setActiveTool}
         activeSceneId={activeSceneId}
         leftPanelOpen={leftPanelOpen}
-        onDoubleClickElement={(elementId) => {
+        onDoubleClickElement={(_elementId) => {
           setLeftPanelOpen(true);
           setLeftPanelOpen(true);
         }}

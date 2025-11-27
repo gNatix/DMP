@@ -38,12 +38,12 @@ const LIBRARY_TOKENS: TokenTemplate[] = [...SHAPE_TOKENS, ...POI_TOKENS];
 const COLORS: ColorType[] = ['red', 'blue', 'green', 'yellow', 'purple', 'orange'];
 
 const TokensTab = ({
-  tokenTemplates,
-  addTokenTemplate,
+  tokenTemplates: _tokenTemplates,
+  addTokenTemplate: _addTokenTemplate,
   setActiveTool,
   setActiveTokenTemplate
 }: TokensTabProps) => {
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const _fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedCategory, setSelectedCategory] = useState<TokenCategory | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [selectedColor, setSelectedColor] = useState<ColorType>('red');

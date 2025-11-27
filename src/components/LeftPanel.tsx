@@ -95,7 +95,7 @@ const LeftPanel = ({
 
     const widgets = selectedElement.widgets || [];
     updateElement(selectedElement.id, {
-      widgets: widgets.map(w => w.id === widgetId ? { ...w, ...updates } : w)
+      widgets: widgets.map(w => w.id === widgetId ? { ...w, ...updates } as Widget : w)
     });
   };
 
@@ -218,7 +218,7 @@ const LeftPanel = ({
   };
 
   // Render widget
-  const renderWidget = (widget: Widget, index: number, totalWidgets: number, allWidgets: Widget[]) => {
+  const renderWidget = (widget: Widget, _index: number, _totalWidgets: number, allWidgets: Widget[]) => {
     const isDragging = draggedWidgetId === widget.id;
     const isDropTarget = dragOverWidgetId === widget.id;
 

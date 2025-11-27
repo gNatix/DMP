@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Bold, Italic, Underline, List, Type, Palette, Highlighter } from 'lucide-react';
+import { Bold, Italic, Underline, List, Type } from 'lucide-react';
 
 interface RichTextEditorProps {
   content: string;
@@ -187,7 +187,7 @@ const RichTextEditor = ({ content, onChange, placeholder }: RichTextEditorProps)
   };
 
   // Handle blur - only close if not clicking within toolbar or editor
-  const handleEditorBlur = (e: React.FocusEvent) => {
+  const handleEditorBlur = (_e: React.FocusEvent) => {
     // Use setTimeout to allow relatedTarget to be set
     setTimeout(() => {
       const activeElement = document.activeElement;
@@ -202,7 +202,7 @@ const RichTextEditor = ({ content, onChange, placeholder }: RichTextEditorProps)
   };
 
   // Handle toolbar blur
-  const handleToolbarBlur = (e: React.FocusEvent) => {
+  const handleToolbarBlur = (_e: React.FocusEvent) => {
     setTimeout(() => {
       const activeElement = document.activeElement;
       const clickedInToolbar = toolbarRef.current?.contains(activeElement);
