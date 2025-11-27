@@ -1,4 +1,4 @@
-import { MousePointer2, Stamp, Undo, Redo, Copy, Trash2, ArrowUp, ArrowDown, Hand, ZoomIn, ZoomOut, Maximize2, Lock } from 'lucide-react';
+import { MousePointer2, Stamp, Undo, Redo, Copy, Trash2, ArrowUp, ArrowDown, Hand, ZoomIn, ZoomOut, Maximize2, Lock, Tag } from 'lucide-react';
 import { ToolType } from '../types';
 
 interface FloatingToolbarProps {
@@ -15,6 +15,9 @@ interface FloatingToolbarProps {
   canUndo: boolean;
   canRedo: boolean;
   hasSelection: boolean;
+  showTokenBadges: boolean;
+  selectedTokenHasBadge: boolean;
+  onToggleBadges: () => void;
 }
 
 const FloatingToolbar = ({
@@ -30,7 +33,10 @@ const FloatingToolbar = ({
   fitToViewLocked,
   canUndo,
   canRedo,
-  hasSelection
+  hasSelection,
+  showTokenBadges,
+  selectedTokenHasBadge,
+  onToggleBadges
 }: FloatingToolbarProps) => {
   return (
     <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50">
@@ -156,6 +162,26 @@ const FloatingToolbar = ({
           title="Layer Down (Ctrl+↓)"
         >
           <ArrowDown size={18} />
+        </button>
+
+        {/* Divider */}
+        <div className="w-px h-6 bg-dm-border mx-1"></div>
+
+        {/* Token Badges Toggle */}
+        <button
+          onClick={onToggleBadges}
+          className={`p-2.5 rounded transition-colors ${
+            showTokenBadges
+              ? 'bg-dm-highlight text-white'
+              : 'bg-dm-dark hover:bg-dm-border text-gray-300 hover:text-white'
+          } ${
+            selectedTokenHasBadge && hasSelection
+              ? 'border-2 border-yellow-500'
+              : ''
+          }`}
+          title={hasSelection ? "Toggle Badge for Selected Token(s)" : "Toggle All Token Badges"}
+        >
+          <Tag size={18} />
         </button>
 
         {/* Divider */}

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Type, Dices } from 'lucide-react';
 import { WidgetType } from '../types';
 
@@ -9,6 +9,25 @@ interface AddWidgetPopupProps {
 
 const AddWidgetPopup = ({ onAdd, onClose }: AddWidgetPopupProps) => {
   const [selectedType, setSelectedType] = useState<WidgetType | null>(null);
+
+  // ESC key handler
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        // Check if a text input is focused - if so, don't close popup
+        const activeEl = document.activeElement as HTMLElement;
+        if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.hasAttribute('contenteditable'))) {
+          return; // Let global handler blur the input first
+        }
+        
+        // Second ESC press - close popup
+        onClose();
+      }
+    };
+
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [onClose]);
 
   const widgets = [
     {
@@ -35,7 +54,7 @@ const AddWidgetPopup = ({ onAdd, onClose }: AddWidgetPopupProps) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose} data-popup="true">
       <div 
         className="bg-dm-panel border border-dm-border rounded-lg shadow-2xl w-[400px] max-h-[600px] overflow-hidden"
         onClick={(e) => e.stopPropagation()}

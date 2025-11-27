@@ -21,6 +21,27 @@ const MapSelectorModal = ({ isOpen, onClose, onSelectMap }: MapSelectorModalProp
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [imageRotations, setImageRotations] = useState<Map<string, boolean>>(new Map());
 
+  // ESC key handler
+  useEffect(() => {
+    if (!isOpen) return;
+    
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        // Check if a text input is focused - if so, don't close modal
+        const activeEl = document.activeElement as HTMLElement;
+        if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.hasAttribute('contenteditable'))) {
+          return; // Let global handler blur the input first
+        }
+        
+        // Second ESC press - close modal
+        onClose();
+      }
+    };
+
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [isOpen, onClose]);
+
   // Load maps from webhotel
   useEffect(() => {
     const loadMapsFromWebhotel = async () => {
@@ -146,7 +167,7 @@ const MapSelectorModal = ({ isOpen, onClose, onSelectMap }: MapSelectorModalProp
   );
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" data-popup="true">
       <div className="bg-dm-panel rounded-xl border border-dm-border w-full max-w-4xl h-[80vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-dm-border flex-shrink-0">

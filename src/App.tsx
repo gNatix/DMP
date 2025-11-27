@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Scene, MapElement, ToolType, TokenTemplate, ColorType, IconType, Collection, CollectionAppearance } from './types';
 import Canvas from './components/Canvas';
 import RightPanel from './components/RightPanel';
@@ -27,6 +27,27 @@ function App() {
 
   // Left panel state
   const [leftPanelOpen, setLeftPanelOpen] = useState(false);
+
+  // Badge state
+  const [showTokenBadges, setShowTokenBadges] = useState(false);
+
+  // Global ESC handler to blur text inputs (first ESC press)
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        const activeEl = document.activeElement as HTMLElement;
+        if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.hasAttribute('contenteditable'))) {
+          activeEl.blur();
+          e.preventDefault();
+          e.stopPropagation();
+        }
+        // If no text field is focused, let the event bubble to close dialogs/popups
+      }
+    };
+
+    document.addEventListener('keydown', handleGlobalKeyDown, true);
+    return () => document.removeEventListener('keydown', handleGlobalKeyDown, true);
+  }, []);
 
   // Get active scene
   const activeScene = scenes.find(s => s.id === activeSceneId) || null;
@@ -204,6 +225,8 @@ function App() {
         setActiveTool={setActiveTool}
         activeSceneId={activeSceneId}
         leftPanelOpen={leftPanelOpen}
+        showTokenBadges={showTokenBadges}
+        setShowTokenBadges={setShowTokenBadges}
         onDoubleClickElement={(_elementId) => {
           setLeftPanelOpen(true);
           setLeftPanelOpen(true);

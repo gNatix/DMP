@@ -21,6 +21,8 @@ interface CanvasProps {
   setActiveTool: (tool: ToolType) => void;
   activeSceneId: string | null;
   leftPanelOpen: boolean;
+  showTokenBadges: boolean;
+  setShowTokenBadges: (show: boolean) => void;
   onDoubleClickElement?: (elementId: string) => void;
 }
 
@@ -42,6 +44,8 @@ const Canvas = ({
   setActiveTool,
   activeSceneId,
   leftPanelOpen,
+  showTokenBadges,
+  setShowTokenBadges,
   onDoubleClickElement
 }: CanvasProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -442,6 +446,13 @@ const Canvas = ({
 
       // Deselect all or return to pointer tool
       if (e.key === 'Escape') {
+        // Check if any modal/dialog/popup is open - if so, don't deselect
+        // Let the modal handlers close them first
+        const hasOpenModal = document.querySelector('[role="dialog"], .fixed.inset-0, [data-popup="true"]');
+        if (hasOpenModal) {
+          return; // Let popup/dialog handlers handle ESC first
+        }
+        
         if (selectedElementId || selectedElementIds.length > 0) {
           // If something is selected, deselect it
           setSelectedElementId(null);
@@ -1066,6 +1077,7 @@ const Canvas = ({
                 element={element}
                 isSelected={selectedElementId === element.id || selectedElementIds.includes(element.id)}
                 viewport={viewport}
+                showTokenBadges={showTokenBadges}
               />
             ))}
 
@@ -1075,6 +1087,7 @@ const Canvas = ({
                 element={tempElement}
                 isSelected={false}
                 viewport={viewport}
+                showTokenBadges={showTokenBadges}
               />
             )}
 
@@ -1158,6 +1171,29 @@ const Canvas = ({
           canUndo={historyIndex > 0}
           canRedo={historyIndex < history.length - 1}
           hasSelection={selectedElementId !== null || selectedElementIds.length > 0}
+          showTokenBadges={showTokenBadges}
+          selectedTokenHasBadge={
+            selectedElementId
+              ? (scene.elements.find(e => e.id === selectedElementId) as any)?.showBadge || false
+              : selectedElementIds.length === 1
+                ? (scene.elements.find(e => e.id === selectedElementIds[0]) as any)?.showBadge || false
+                : false
+          }
+          onToggleBadges={() => {
+            if (selectedElementId || selectedElementIds.length > 0) {
+              const idsToUpdate = selectedElementIds.length > 0 ? selectedElementIds : [selectedElementId!];
+              const updates = new Map<string, Partial<MapElement>>();
+              idsToUpdate.forEach(id => {
+                const element = scene.elements.find(e => e.id === id);
+                if (element && element.type === 'token') {
+                  updates.set(id, { showBadge: !element.showBadge });
+                }
+              });
+              updateElements(updates);
+            } else {
+              setShowTokenBadges(!showTokenBadges);
+            }
+          }}
         />
       )}
 
@@ -1179,9 +1215,10 @@ interface MapElementComponentProps {
   element: MapElement;
   isSelected: boolean;
   viewport: { x: number; y: number; zoom: number };
+  showTokenBadges: boolean;
 }
 
-const MapElementComponent = ({ element, isSelected, viewport }: MapElementComponentProps) => {
+const MapElementComponent = ({ element, isSelected, viewport, showTokenBadges }: MapElementComponentProps) => {
   const colorMap: Record<ColorType, string> = {
     red: '#ef4444',
     blue: '#3b82f6',
@@ -1313,6 +1350,9 @@ const MapElementComponent = ({ element, isSelected, viewport }: MapElementCompon
   }
 
   if (element.type === 'token') {
+    const shouldShowBadge = element.showBadge || (showTokenBadges && element.showBadge !== false);
+    const badgeColor = element.color ? colorMap[element.color] : colorMap.blue;
+
     // POI token rendering (no background circle)
     if (element.isPOI && element.icon) {
       const IconComponent = getLucideIcon(element.icon);
@@ -1337,6 +1377,31 @@ const MapElementComponent = ({ element, isSelected, viewport }: MapElementCompon
             fill="none"
             strokeWidth={2}
           />
+
+          {/* Token Badge */}
+          {shouldShowBadge && element.name && (
+            <div
+              style={{
+                position: 'absolute',
+                left: '50%',
+                top: -(element.size * 0.12),
+                transform: 'translate(-50%, -100%)',
+                backgroundColor: badgeColor,
+                color: 'white',
+                padding: `${element.size * 0.02}px ${element.size * 0.08}px`,
+                borderRadius: `${element.size * 0.08}px`,
+                fontSize: `${element.size * 0.18}px`,
+                fontWeight: '600',
+                whiteSpace: 'nowrap',
+                pointerEvents: 'none',
+                userSelect: 'none',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.4)',
+                letterSpacing: '0.01em'
+              }}
+            >
+              {element.name}
+            </div>
+          )}
 
           {/* Resize Handles */}
           {isSelected && (
@@ -1375,6 +1440,31 @@ const MapElementComponent = ({ element, isSelected, viewport }: MapElementCompon
             strokeWidth={1.5}
             stroke={isSelected ? '#22c55e' : fillColor}
           />
+
+          {/* Token Badge */}
+          {shouldShowBadge && element.name && (
+            <div
+              style={{
+                position: 'absolute',
+                left: '50%',
+                top: -(element.size * 0.12),
+                transform: 'translate(-50%, -100%)',
+                backgroundColor: badgeColor,
+                color: 'white',
+                padding: `${element.size * 0.02}px ${element.size * 0.08}px`,
+                borderRadius: `${element.size * 0.08}px`,
+                fontSize: `${element.size * 0.18}px`,
+                fontWeight: '600',
+                whiteSpace: 'nowrap',
+                pointerEvents: 'none',
+                userSelect: 'none',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.4)',
+                letterSpacing: '0.01em'
+              }}
+            >
+              {element.name}
+            </div>
+          )}
 
           {/* Resize Handles */}
           {isSelected && (
@@ -1424,6 +1514,31 @@ const MapElementComponent = ({ element, isSelected, viewport }: MapElementCompon
             }}
             draggable={false}
           />
+        )}
+
+        {/* Token Badge */}
+        {shouldShowBadge && element.name && (
+          <div
+            style={{
+              position: 'absolute',
+              left: '50%',
+              top: -(element.size * 0.12),
+              transform: 'translate(-50%, -100%)',
+              backgroundColor: badgeColor,
+              color: 'white',
+              padding: `${element.size * 0.02}px ${element.size * 0.08}px`,
+              borderRadius: `${element.size * 0.08}px`,
+              fontSize: `${element.size * 0.18}px`,
+              fontWeight: '600',
+              whiteSpace: 'nowrap',
+              pointerEvents: 'none',
+              userSelect: 'none',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.4)',
+              letterSpacing: '0.01em'
+            }}
+          >
+            {element.name}
+          </div>
         )}
 
         {/* Resize Handles */}

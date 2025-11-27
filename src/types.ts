@@ -39,6 +39,7 @@ export interface TokenElement {
   zIndex?: number; // For layering control
   visible?: boolean; // For hiding elements (default true)
   widgets?: Widget[]; // For properties panel customization
+  showBadge?: boolean; // For displaying name badge above token
 }
 
 export type MapElement = AnnotationElement | TokenElement;

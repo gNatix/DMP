@@ -73,6 +73,13 @@ const ScenesTab = ({
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        // Check if a text input is focused - if so, don't close dialog
+        const activeEl = document.activeElement as HTMLElement;
+        if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.hasAttribute('contenteditable'))) {
+          return; // Let global handler blur the input first
+        }
+        
+        // Second ESC press (no input focused) - close dialogs
         if (gradientPickerCollectionId) {
           setGradientPickerCollectionId(null);
         } else if (showAddDialog) {
@@ -449,6 +456,7 @@ const ScenesTab = ({
                 <div 
                   className="fixed inset-0 z-20"
                   onClick={() => setGradientPickerCollectionId(null)}
+                  data-popup="true"
                 />
                 
                 {/* Gradient Picker */}
@@ -555,7 +563,7 @@ const ScenesTab = ({
 
       {/* Add Map Dialog */}
       {showAddDialog && (
-        <div className="fixed inset-0 flex items-center justify-center z-50">
+        <div className="fixed inset-0 flex items-center justify-center z-50" data-popup="true">
           {/* Background map image with blur */}
           <div 
             className="absolute inset-0 bg-cover bg-center"
