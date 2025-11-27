@@ -6,6 +6,11 @@ dist-ssr
 # Assets (managed in separate repository)
 /assets
 
+# Temp files and zips
+*.zip
+Magic items*/
+Npc AI pics*/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
