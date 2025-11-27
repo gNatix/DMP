@@ -1,0 +1,14 @@
+[
+  {
+    "id": "stock-ravnholm",
+    "name": "Ravnholm",
+    "image": "https://raw.githubusercontent.com/DIT-BRUGERNAVN/dm-planner-assets/main/maps/Ravnholm.jpg",
+    "category": "other"
+  },
+  {
+    "id": "stock-swamp-bridge",
+    "name": "Swamp Bridge",
+    "image": "https://raw.githubusercontent.com/DIT-BRUGERNAVN/dm-planner-assets/main/maps/swamp-bridge.jpg",
+    "category": "outdoors"
+  }
+]

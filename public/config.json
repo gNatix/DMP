@@ -1,0 +1,9 @@
+{
+  "assetMode": "webhotel",
+  "webhotelUrl": "https://dmp.natixlabs.com",
+  "webhotelApiUrl": "https://dmp.natixlabs.com/list-files.php",
+  "assetsPath": "/assets",
+  "githubUser": "gNatix",
+  "assetsRepo": "dm-planner-assets",
+  "branch": "main"
+}

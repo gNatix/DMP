@@ -1,0 +1,20 @@
+[
+  {
+    "id": "token-monster-1",
+    "name": "Monster Token 1",
+    "image": "https://raw.githubusercontent.com/DIT-BRUGERNAVN/dm-planner-assets/main/tokens/monster1.png",
+    "category": "monsters"
+  },
+  {
+    "id": "token-npc-1",
+    "name": "NPC Token 1",
+    "image": "https://raw.githubusercontent.com/DIT-BRUGERNAVN/dm-planner-assets/main/tokens/npc1.png",
+    "category": "npcs"
+  },
+  {
+    "id": "token-other-1",
+    "name": "Other Token 1",
+    "image": "https://raw.githubusercontent.com/DIT-BRUGERNAVN/dm-planner-assets/main/tokens/other1.png",
+    "category": "other"
+  }
+]
