@@ -260,10 +260,26 @@ const Canvas = ({
     const centerX = containerRect.width / 2;
     const centerY = containerRect.height / 2;
 
+    let elementCenterX: number, elementCenterY: number;
+    
+    if (element.type === 'room' && element.vertices) {
+      // Calculate center from vertices
+      const xs = element.vertices.map(v => v.x);
+      const ys = element.vertices.map(v => v.y);
+      elementCenterX = (Math.min(...xs) + Math.max(...xs)) / 2;
+      elementCenterY = (Math.min(...ys) + Math.max(...ys)) / 2;
+    } else if ('x' in element && 'y' in element) {
+      // Other elements with x/y
+      elementCenterX = element.x;
+      elementCenterY = element.y;
+    } else {
+      return; // Can't center on this element
+    }
+
     setViewport(prev => ({
       ...prev,
-      x: centerX - element.x * prev.zoom,
-      y: centerY - element.y * prev.zoom
+      x: centerX - elementCenterX * prev.zoom,
+      y: centerY - elementCenterY * prev.zoom
     }));
   };
 
@@ -426,21 +442,34 @@ const Canvas = ({
       // Calculate offset that ensures no overlap with original
       // Use a fixed offset based on average element size
       const totalSize = toDuplicate.reduce((sum, el) => {
-        if (el.type === 'room') {
-          return sum + Math.max(el.width, el.height);
+        if (el.type === 'room' && el.vertices) {
+          const xs = el.vertices.map(v => v.x);
+          const ys = el.vertices.map(v => v.y);
+          return sum + Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
+        } else if ('size' in el) {
+          return sum + el.size;
         }
-        return sum + el.size;
+        return sum;
       }, 0);
       const avgSize = totalSize / toDuplicate.length;
       const offset = avgSize * 0.7; // 70% of average size ensures no overlap
 
       const duplicates = toDuplicate.map(el => {
-        return {
-          ...el,
-          id: `${el.type}-${Date.now()}-${Math.random()}`,
-          x: el.x + offset,
-          y: el.y + offset
-        };
+        if (el.type === 'room' && el.vertices) {
+          return {
+            ...el,
+            id: `${el.type}-${Date.now()}-${Math.random()}`,
+            vertices: el.vertices.map(v => ({ x: v.x + offset, y: v.y + offset }))
+          };
+        } else if ('x' in el && 'y' in el) {
+          return {
+            ...el,
+            id: `${el.type}-${Date.now()}-${Math.random()}`,
+            x: el.x + offset,
+            y: el.y + offset
+          };
+        }
+        return el; // Fallback
       });
 
       updateScene(activeSceneId, {
@@ -624,20 +653,35 @@ const Canvas = ({
           
           // Use same offset logic as duplicate
           const totalSize = clipboard.reduce((sum, el) => {
-            if (el.type === 'room') {
-              return sum + Math.max(el.width, el.height);
+            if (el.type === 'room' && el.vertices) {
+              const xs = el.vertices.map((v: { x: number }) => v.x);
+              const ys = el.vertices.map((v: { y: number }) => v.y);
+              return sum + Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
+            } else if ('size' in el) {
+              return sum + el.size;
             }
-            return sum + el.size;
+            return sum;
           }, 0);
           const avgSize = totalSize / clipboard.length;
           const offset = avgSize * 0.7;
 
-          const newElements = clipboard.map(el => ({
-            ...el,
-            id: `${el.type}-${Date.now()}-${Math.random()}`,
-            x: el.x + offset,
-            y: el.y + offset
-          }));
+          const newElements = clipboard.map(el => {
+            if (el.type === 'room' && el.vertices) {
+              return {
+                ...el,
+                id: `${el.type}-${Date.now()}-${Math.random()}`,
+                vertices: el.vertices.map((v: { x: number; y: number }) => ({ x: v.x + offset, y: v.y + offset }))
+              };
+            } else if ('x' in el && 'y' in el) {
+              return {
+                ...el,
+                id: `${el.type}-${Date.now()}-${Math.random()}`,
+                x: el.x + offset,
+                y: el.y + offset
+              };
+            }
+            return el; // Fallback
+          });
 
           updateScene(activeSceneId, {
             elements: [...scene.elements, ...newElements]
@@ -934,7 +978,19 @@ const Canvas = ({
           selectedElementIds.forEach(id => {
             const el = scene.elements.find(e => e.id === id);
             if (el) {
-              dragOffsets.set(id, { x: x - el.x, y: y - el.y });
+              let elX, elY;
+              if (el.type === 'room' && el.vertices) {
+                const xs = el.vertices.map(v => v.x);
+                const ys = el.vertices.map(v => v.y);
+                elX = (Math.min(...xs) + Math.max(...xs)) / 2;
+                elY = (Math.min(...ys) + Math.max(...ys)) / 2;
+              } else if ('x' in el && 'y' in el) {
+                elX = el.x;
+                elY = el.y;
+              } else {
+                return; // Skip this element
+              }
+              dragOffsets.set(id, { x: x - elX, y: y - elY });
             }
           });
           setDraggedMultiple({ offsetX: x, offsetY: y, initialOffsets: dragOffsets });
@@ -942,10 +998,27 @@ const Canvas = ({
           // Regular click: Select single and start dragging
           setSelectedElementId(clickedElement.id);
           setSelectedElementIds([]);
+          
+          let offsetX, offsetY;
+          if (clickedElement.type === 'room' && clickedElement.vertices) {
+            const xs = clickedElement.vertices.map(v => v.x);
+            const ys = clickedElement.vertices.map(v => v.y);
+            const centerX = (Math.min(...xs) + Math.max(...xs)) / 2;
+            const centerY = (Math.min(...ys) + Math.max(...ys)) / 2;
+            offsetX = x - centerX;
+            offsetY = y - centerY;
+          } else if ('x' in clickedElement && 'y' in clickedElement) {
+            offsetX = x - clickedElement.x;
+            offsetY = y - clickedElement.y;
+          } else {
+            offsetX = 0;
+            offsetY = 0;
+          }
+          
           setDraggedElement({
             id: clickedElement.id,
-            offsetX: x - clickedElement.x,
-            offsetY: y - clickedElement.y
+            offsetX,
+            offsetY
           });
         }
       } else {
@@ -1097,12 +1170,37 @@ const Canvas = ({
     if (draggedMultiple && scene && selectedElementIds.length > 0) {
       const updates = new Map<string, Partial<MapElement>>();
       selectedElementIds.forEach(id => {
+        const element = scene.elements.find(e => e.id === id);
         const initialOffset = draggedMultiple.initialOffsets?.get(id);
-        if (initialOffset) {
-          updates.set(id, {
-            x: x - initialOffset.x,
-            y: y - initialOffset.y
-          });
+        if (element && initialOffset) {
+          if (element.type === 'room' && element.vertices) {
+            // Calculate current center
+            const xs = element.vertices.map(v => v.x);
+            const ys = element.vertices.map(v => v.y);
+            const currentCenterX = (Math.min(...xs) + Math.max(...xs)) / 2;
+            const currentCenterY = (Math.min(...ys) + Math.max(...ys)) / 2;
+            
+            // Calculate new center
+            const newCenterX = x - initialOffset.x;
+            const newCenterY = y - initialOffset.y;
+            
+            // Calculate delta
+            const dx = newCenterX - currentCenterX;
+            const dy = newCenterY - currentCenterY;
+            
+            // Move all vertices
+            const newVertices = element.vertices.map(v => ({
+              x: v.x + dx,
+              y: v.y + dy
+            }));
+            
+            updates.set(id, { vertices: newVertices });
+          } else if ('x' in element && 'y' in element) {
+            updates.set(id, {
+              x: x - initialOffset.x,
+              y: y - initialOffset.y
+            });
+          }
         }
       });
       if (updates.size > 0) {
@@ -1116,39 +1214,11 @@ const Canvas = ({
       const element = scene.elements.find(e => e.id === resizingElement.id);
       if (element) {
         if (element.type === 'room') {
-          // Handle room resizing (rectangular)
-          const room = element as RoomElement;
-          const handle = resizingElement.handle;
-          
-          let newX = room.x;
-          let newY = room.y;
-          let newWidth = room.width;
-          let newHeight = room.height;
-
-          if (handle === 'nw') {
-            newWidth = room.x + room.width - x;
-            newHeight = room.y + room.height - y;
-            newX = x;
-            newY = y;
-          } else if (handle === 'ne') {
-            newWidth = x - room.x;
-            newHeight = room.y + room.height - y;
-            newY = y;
-          } else if (handle === 'sw') {
-            newWidth = room.x + room.width - x;
-            newHeight = y - room.y;
-            newX = x;
-          } else if (handle === 'se') {
-            newWidth = x - room.x;
-            newHeight = y - room.y;
-          }
-
-          // Enforce minimum size
-          if (newWidth < 20) newWidth = 20;
-          if (newHeight < 20) newHeight = 20;
-
-          updateElement(resizingElement.id, { x: newX, y: newY, width: newWidth, height: newHeight });
-        } else {
+          // TODO: Polygon room resizing not yet implemented
+          // For now, room resizing is disabled for polygon rooms
+          // Would need to move specific vertices based on handle
+          console.log('Room resizing not yet implemented for polygon rooms');
+        } else if ('x' in element && 'y' in element && 'size' in element) {
           // Handle circular element resizing (annotations and tokens)
           const distance = Math.sqrt((x - element.x) ** 2 + (y - element.y) ** 2) * 2;
           updateElement(resizingElement.id, { size: Math.max(10, distance) });
@@ -1191,10 +1261,37 @@ const Canvas = ({
 
     // Handle dragging
     if (draggedElement && scene) {
-      updateElement(draggedElement.id, {
-        x: x - draggedElement.offsetX,
-        y: y - draggedElement.offsetY
-      });
+      const element = scene.elements.find(e => e.id === draggedElement.id);
+      if (element) {
+        if (element.type === 'room' && element.vertices) {
+          // Calculate current center
+          const xs = element.vertices.map(v => v.x);
+          const ys = element.vertices.map(v => v.y);
+          const currentCenterX = (Math.min(...xs) + Math.max(...xs)) / 2;
+          const currentCenterY = (Math.min(...ys) + Math.max(...ys)) / 2;
+          
+          // Calculate new center
+          const newCenterX = x - draggedElement.offsetX;
+          const newCenterY = y - draggedElement.offsetY;
+          
+          // Calculate delta
+          const dx = newCenterX - currentCenterX;
+          const dy = newCenterY - currentCenterY;
+          
+          // Move all vertices
+          const newVertices = element.vertices.map(v => ({
+            x: v.x + dx,
+            y: v.y + dy
+          }));
+          
+          updateElement(draggedElement.id, { vertices: newVertices });
+        } else if ('x' in element && 'y' in element) {
+          updateElement(draggedElement.id, {
+            x: x - draggedElement.offsetX,
+            y: y - draggedElement.offsetY
+          });
+        }
+      }
     }
   };
 
@@ -1222,10 +1319,18 @@ const Canvas = ({
       const minY = Math.min(selectionBox.startY, selectionBox.endY);
       const maxY = Math.max(selectionBox.startY, selectionBox.endY);
 
-      const selected = scene.elements.filter(element => 
-        element.x >= minX && element.x <= maxX &&
-        element.y >= minY && element.y <= maxY
-      ).map(e => e.id);
+      const selected = scene.elements.filter(element => {
+        if (element.type === 'room' && element.vertices) {
+          const xs = element.vertices.map(v => v.x);
+          const ys = element.vertices.map(v => v.y);
+          const centerX = (Math.min(...xs) + Math.max(...xs)) / 2;
+          const centerY = (Math.min(...ys) + Math.max(...ys)) / 2;
+          return centerX >= minX && centerX <= maxX && centerY >= minY && centerY <= maxY;
+        } else if ('x' in element && 'y' in element) {
+          return element.x >= minX && element.x <= maxX && element.y >= minY && element.y <= maxY;
+        }
+        return false;
+      }).map(e => e.id);
 
       setSelectedElementIds(selected);
       setSelectedElementId(null);
@@ -1323,13 +1428,13 @@ const Canvas = ({
     for (let i = elements.length - 1; i >= 0; i--) {
       const element = elements[i];
       
-      // Handle room elements (rectangular)
+      // Handle room elements (polygon-based)
       if (element.type === 'room') {
         const room = element as RoomElement;
-        if (x >= room.x && x <= room.x + room.width && y >= room.y && y <= room.y + room.height) {
+        if (room.vertices && pointInPolygon({ x, y }, room.vertices)) {
           return element;
         }
-      } else {
+      } else if ('x' in element && 'y' in element && 'size' in element) {
         // Handle circular elements (annotations and tokens)
         const distance = Math.sqrt((x - element.x) ** 2 + (y - element.y) ** 2);
         if (distance <= element.size / 2) {
@@ -1346,26 +1451,27 @@ const Canvas = ({
 
     const handleSize = 8 / viewport.zoom;
 
-    // Handle room elements (corner resize handles)
+    // Handle room elements (vertex handles, though resizing is currently disabled)
     if (element.type === 'room') {
       const room = element as RoomElement;
-      const handles = [
-        { name: 'nw', x: room.x, y: room.y },
-        { name: 'ne', x: room.x + room.width, y: room.y },
-        { name: 'sw', x: room.x, y: room.y + room.height },
-        { name: 'se', x: room.x + room.width, y: room.y + room.height }
-      ];
-
-      for (const handle of handles) {
-        const distance = Math.sqrt((x - handle.x) ** 2 + (y - handle.y) ** 2);
+      if (!room.vertices) return null;
+      
+      // Check each vertex as a handle
+      for (let i = 0; i < room.vertices.length; i++) {
+        const v = room.vertices[i];
+        const distance = Math.sqrt((x - v.x) ** 2 + (y - v.y) ** 2);
         if (distance <= handleSize) {
-          return handle.name;
+          return `v${i}`; // Return vertex index as handle name
         }
       }
       return null;
     }
 
     // Handle circular elements (annotations and tokens)
+    if (!('x' in element && 'y' in element && 'size' in element)) {
+      return null;
+    }
+    
     const radius = element.size / 2;
 
     const handles = [
@@ -1507,95 +1613,104 @@ const Canvas = ({
             )}
 
             {/* Temp room preview during drawing */}
-            {tempRoom && tempRoom.id === 'temp' && tempRoom.width > 0 && tempRoom.height > 0 && (
-              <div
-                style={{
-                  position: 'absolute',
-                  left: tempRoom.x,
-                  top: tempRoom.y,
-                  width: tempRoom.width,
-                  height: tempRoom.height,
-                  opacity: 0.7,
-                  pointerEvents: 'none'
-                }}
-              >
-                {/* Floor */}
-                <div
+            {tempRoom && tempRoom.id === 'temp' && tempRoom.vertices && tempRoom.vertices.length >= 3 && (() => {
+              const xs = tempRoom.vertices.map(v => v.x);
+              const ys = tempRoom.vertices.map(v => v.y);
+              const minX = Math.min(...xs);
+              const minY = Math.min(...ys);
+              const maxX = Math.max(...xs);
+              const maxY = Math.max(...ys);
+              const width = maxX - minX;
+              const height = maxY - minY;
+              const polygonPath = tempRoom.vertices.map((v, i) => 
+                `${i === 0 ? 'M' : 'L'}${v.x},${v.y}`
+              ).join(' ') + ' Z';
+              
+              return (
+                <svg
                   style={{
                     position: 'absolute',
-                    inset: tempRoom.showWalls && tempRoom.wallTextureUrl ? `${tempRoom.wallThickness}px` : 0,
-                    backgroundImage: `url("${tempRoom.floorTextureUrl}")`,
-                    backgroundSize: `${tempRoom.tileSize}px ${tempRoom.tileSize}px`,
-                    backgroundRepeat: 'repeat',
-                    backgroundColor: '#1a1a1a'
+                    left: minX,
+                    top: minY,
+                    width,
+                    height,
+                    opacity: 0.7,
+                    pointerEvents: 'none',
+                    overflow: 'visible'
                   }}
-                />
-                
-                {/* Walls */}
-                {tempRoom.showWalls && tempRoom.wallTextureUrl && (
-                  <>
-                    {/* Top wall */}
-                    <div
-                      style={{
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        height: tempRoom.wallThickness,
-                        backgroundImage: `url("${tempRoom.wallTextureUrl}")`,
-                        backgroundSize: `${tempRoom.wallThickness}px ${tempRoom.wallThickness}px`,
-                        backgroundRepeat: 'repeat'
-                      }}
-                    />
-                    <div
-                      style={{
-                        position: 'absolute',
-                        top: 0,
-                        right: 0,
-                        bottom: 0,
-                        width: tempRoom.wallThickness,
-                        backgroundImage: `url("${tempRoom.wallTextureUrl}")`,
-                        backgroundSize: `${tempRoom.wallThickness}px ${tempRoom.wallThickness}px`,
-                        backgroundRepeat: 'repeat'
-                      }}
-                    />
-                    <div
-                      style={{
-                        position: 'absolute',
-                        bottom: 0,
-                        left: 0,
-                        right: 0,
-                        height: tempRoom.wallThickness,
-                        backgroundImage: `url("${tempRoom.wallTextureUrl}")`,
-                        backgroundSize: `${tempRoom.wallThickness}px ${tempRoom.wallThickness}px`,
-                        backgroundRepeat: 'repeat'
-                      }}
-                    />
-                    <div
-                      style={{
-                        position: 'absolute',
-                        top: 0,
-                        bottom: 0,
-                        left: 0,
-                        width: tempRoom.wallThickness,
-                        backgroundImage: `url("${tempRoom.wallTextureUrl}")`,
-                        backgroundSize: `${tempRoom.wallThickness}px ${tempRoom.wallThickness}px`,
-                        backgroundRepeat: 'repeat'
-                      }}
-                    />
-                  </>
-                )}
-                
-                {/* Preview border */}
-                <div
-                  style={{
-                    position: 'absolute',
-                    inset: -2,
-                    border: '2px dashed #22c55e'
-                  }}
-                />
-              </div>
-            )}
+                >
+                  <defs>
+                    <pattern
+                      id="temp-floor-pattern"
+                      x={minX}
+                      y={minY}
+                      width={tempRoom.tileSize}
+                      height={tempRoom.tileSize}
+                      patternUnits="userSpaceOnUse"
+                    >
+                      <image
+                        href={tempRoom.floorTextureUrl}
+                        x="0"
+                        y="0"
+                        width={tempRoom.tileSize}
+                        height={tempRoom.tileSize}
+                      />
+                    </pattern>
+                    {tempRoom.showWalls && tempRoom.wallTextureUrl && (
+                      <pattern
+                        id="temp-wall-pattern"
+                        x={minX}
+                        y={minY}
+                        width={tempRoom.wallThickness}
+                        height={tempRoom.wallThickness}
+                        patternUnits="userSpaceOnUse"
+                      >
+                        <image
+                          href={tempRoom.wallTextureUrl}
+                          x="0"
+                          y="0"
+                          width={tempRoom.wallThickness}
+                          height={tempRoom.wallThickness}
+                        />
+                      </pattern>
+                    )}
+                  </defs>
+                  
+                  {/* Floor */}
+                  <path
+                    d={polygonPath}
+                    fill="url(#temp-floor-pattern)"
+                    stroke="none"
+                  />
+                  
+                  {/* Walls */}
+                  {tempRoom.showWalls && tempRoom.wallTextureUrl && tempRoom.vertices.map((v, i) => {
+                    const nextV = tempRoom.vertices[(i + 1) % tempRoom.vertices.length];
+                    return (
+                      <line
+                        key={`temp-wall-${i}`}
+                        x1={v.x}
+                        y1={v.y}
+                        x2={nextV.x}
+                        y2={nextV.y}
+                        stroke="url(#temp-wall-pattern)"
+                        strokeWidth={tempRoom.wallThickness}
+                        strokeLinecap="square"
+                      />
+                    );
+                  })}
+                  
+                  {/* Preview border */}
+                  <path
+                    d={polygonPath}
+                    fill="none"
+                    stroke="#22c55e"
+                    strokeWidth={2}
+                    strokeDasharray="5,5"
+                  />
+                </svg>
+              );
+            })()}
 
             {/* Selection box */}
             {selectionBox && (
@@ -2077,264 +2192,174 @@ const MapElementComponent = ({ element, isSelected, viewport, showTokenBadges }:
   }
 
   if (element.type === 'room') {
+    if (!element.vertices || element.vertices.length < 3) {
+      return null; // Invalid polygon
+    }
+
     const hasWalls = element.showWalls && element.wallTextureUrl;
     
+    // Calculate bounding box for container
+    const xs = element.vertices.map(v => v.x);
+    const ys = element.vertices.map(v => v.y);
+    const minX = Math.min(...xs);
+    const minY = Math.min(...ys);
+    const maxX = Math.max(...xs);
+    const maxY = Math.max(...ys);
+    const width = maxX - minX;
+    const height = maxY - minY;
+    
+    // Create SVG path from vertices
+    const polygonPath = element.vertices.map((v, i) => 
+      `${i === 0 ? 'M' : 'L'}${v.x},${v.y}`
+    ).join(' ') + ' Z';
+    
+    // Create pattern ID for floor texture
+    const floorPatternId = `floor-pattern-${element.id}`;
+    const wallPatternId = `wall-pattern-${element.id}`;
+    
     return (
-      <div
+      <svg
         style={{
           position: 'absolute',
-          left: element.x,
-          top: element.y,
-          width: element.width,
-          height: element.height,
+          left: minX,
+          top: minY,
+          width,
+          height,
+          overflow: 'visible',
           pointerEvents: 'none'
         }}
       >
-        {/* Floor - fills entire room area */}
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            backgroundImage: `url("${element.floorTextureUrl}")`,
-            backgroundSize: `${element.tileSize}px ${element.tileSize}px`,
-            backgroundRepeat: 'repeat',
-            backgroundColor: '#1a1a1a'
-          }}
+        <defs>
+          {/* Floor texture pattern */}
+          <pattern
+            id={floorPatternId}
+            x={minX}
+            y={minY}
+            width={element.tileSize}
+            height={element.tileSize}
+            patternUnits="userSpaceOnUse"
+          >
+            <image
+              href={element.floorTextureUrl}
+              x="0"
+              y="0"
+              width={element.tileSize}
+              height={element.tileSize}
+            />
+          </pattern>
+          
+          {/* Wall texture pattern */}
+          {hasWalls && (
+            <pattern
+              id={wallPatternId}
+              x={minX}
+              y={minY}
+              width={element.wallThickness}
+              height={element.wallThickness}
+              patternUnits="userSpaceOnUse"
+            >
+              <image
+                href={element.wallTextureUrl}
+                x="0"
+                y="0"
+                width={element.wallThickness}
+                height={element.wallThickness}
+              />
+            </pattern>
+          )}
+        </defs>
+        
+        {/* Floor fill */}
+        <path
+          d={polygonPath}
+          fill={`url(#${floorPatternId})`}
+          stroke="none"
         />
         
-        {/* Walls using borders */}
-        {hasWalls && (
-          <>
-            {/* Top wall - render segments with gaps */}
-            {(() => {
-              const gaps = (element.wallGaps || []).filter(g => g.wall === 'top');
-              if (gaps.length === 0) {
-                return (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      width: element.width,
-                      height: element.wallThickness,
-                      backgroundImage: `url("${element.wallTextureUrl}")`,
-                      backgroundSize: `${element.wallThickness}px ${element.wallThickness}px`,
-                      backgroundRepeat: 'repeat'
-                    }}
-                  />
-                );
-              }
-              
-              // Sort gaps and create segments
-              const sortedGaps = [...gaps].sort((a, b) => a.start - b.start);
-              const segments: { start: number; end: number }[] = [];
-              let currentPos = 0;
-              
-              sortedGaps.forEach(gap => {
-                if (currentPos < gap.start) {
-                  segments.push({ start: currentPos, end: gap.start });
-                }
-                currentPos = Math.max(currentPos, gap.end);
-              });
-              
-              if (currentPos < element.width) {
-                segments.push({ start: currentPos, end: element.width });
-              }
-              
-              return segments.map((seg, i) => (
-                <div
-                  key={`top-${i}`}
-                  style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: seg.start,
-                    width: seg.end - seg.start,
-                    height: element.wallThickness,
-                    backgroundImage: `url("${element.wallTextureUrl}")`,
-                    backgroundSize: `${element.wallThickness}px ${element.wallThickness}px`,
-                    backgroundRepeat: 'repeat'
-                  }}
-                />
-              ));
-            })()}
+        {/* Walls - draw each edge with openings */}
+        {hasWalls && element.vertices.map((v, i) => {
+          const nextV = element.vertices[(i + 1) % element.vertices.length];
+          const openings = (element.wallOpenings || []).filter(o => o.segmentIndex === i);
+          
+          if (openings.length === 0) {
+            // No openings - draw full wall segment
+            return (
+              <line
+                key={`wall-${i}`}
+                x1={v.x}
+                y1={v.y}
+                x2={nextV.x}
+                y2={nextV.y}
+                stroke={`url(#${wallPatternId})`}
+                strokeWidth={element.wallThickness}
+                strokeLinecap="square"
+              />
+            );
+          }
+          
+          // Has openings - draw wall segments between openings
+          const segments: { start: number; end: number }[] = [];
+          const sortedOpenings = [...openings].sort((a, b) => a.startRatio - b.startRatio);
+          
+          let currentRatio = 0;
+          sortedOpenings.forEach(opening => {
+            if (currentRatio < opening.startRatio) {
+              segments.push({ start: currentRatio, end: opening.startRatio });
+            }
+            currentRatio = Math.max(currentRatio, opening.endRatio);
+          });
+          
+          if (currentRatio < 1) {
+            segments.push({ start: currentRatio, end: 1 });
+          }
+          
+          return segments.map((seg, segIdx) => {
+            const x1 = v.x + (nextV.x - v.x) * seg.start;
+            const y1 = v.y + (nextV.y - v.y) * seg.start;
+            const x2 = v.x + (nextV.x - v.x) * seg.end;
+            const y2 = v.y + (nextV.y - v.y) * seg.end;
             
-            {/* Right wall - render segments with gaps */}
-            {(() => {
-              const gaps = (element.wallGaps || []).filter(g => g.wall === 'right');
-              if (gaps.length === 0) {
-                return (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      top: 0,
-                      right: 0,
-                      width: element.wallThickness,
-                      height: element.height,
-                      backgroundImage: `url("${element.wallTextureUrl}")`,
-                      backgroundSize: `${element.wallThickness}px ${element.wallThickness}px`,
-                      backgroundRepeat: 'repeat'
-                    }}
-                  />
-                );
-              }
-              
-              const sortedGaps = [...gaps].sort((a, b) => a.start - b.start);
-              const segments: { start: number; end: number }[] = [];
-              let currentPos = 0;
-              
-              sortedGaps.forEach(gap => {
-                if (currentPos < gap.start) {
-                  segments.push({ start: currentPos, end: gap.start });
-                }
-                currentPos = Math.max(currentPos, gap.end);
-              });
-              
-              if (currentPos < element.height) {
-                segments.push({ start: currentPos, end: element.height });
-              }
-              
-              return segments.map((seg, i) => (
-                <div
-                  key={`right-${i}`}
-                  style={{
-                    position: 'absolute',
-                    top: seg.start,
-                    right: 0,
-                    width: element.wallThickness,
-                    height: seg.end - seg.start,
-                    backgroundImage: `url("${element.wallTextureUrl}")`,
-                    backgroundSize: `${element.wallThickness}px ${element.wallThickness}px`,
-                    backgroundRepeat: 'repeat'
-                  }}
-                />
-              ));
-            })()}
-            
-            {/* Bottom wall - render segments with gaps */}
-            {(() => {
-              const gaps = (element.wallGaps || []).filter(g => g.wall === 'bottom');
-              if (gaps.length === 0) {
-                return (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      bottom: 0,
-                      left: 0,
-                      width: element.width,
-                      height: element.wallThickness,
-                      backgroundImage: `url("${element.wallTextureUrl}")`,
-                      backgroundSize: `${element.wallThickness}px ${element.wallThickness}px`,
-                      backgroundRepeat: 'repeat'
-                    }}
-                  />
-                );
-              }
-              
-              const sortedGaps = [...gaps].sort((a, b) => a.start - b.start);
-              const segments: { start: number; end: number }[] = [];
-              let currentPos = 0;
-              
-              sortedGaps.forEach(gap => {
-                if (currentPos < gap.start) {
-                  segments.push({ start: currentPos, end: gap.start });
-                }
-                currentPos = Math.max(currentPos, gap.end);
-              });
-              
-              if (currentPos < element.width) {
-                segments.push({ start: currentPos, end: element.width });
-              }
-              
-              return segments.map((seg, i) => (
-                <div
-                  key={`bottom-${i}`}
-                  style={{
-                    position: 'absolute',
-                    bottom: 0,
-                    left: seg.start,
-                    width: seg.end - seg.start,
-                    height: element.wallThickness,
-                    backgroundImage: `url("${element.wallTextureUrl}")`,
-                    backgroundSize: `${element.wallThickness}px ${element.wallThickness}px`,
-                    backgroundRepeat: 'repeat'
-                  }}
-                />
-              ));
-            })()}
-            
-            {/* Left wall - render segments with gaps */}
-            {(() => {
-              const gaps = (element.wallGaps || []).filter(g => g.wall === 'left');
-              if (gaps.length === 0) {
-                return (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      width: element.wallThickness,
-                      height: element.height,
-                      backgroundImage: `url("${element.wallTextureUrl}")`,
-                      backgroundSize: `${element.wallThickness}px ${element.wallThickness}px`,
-                      backgroundRepeat: 'repeat'
-                    }}
-                  />
-                );
-              }
-              
-              const sortedGaps = [...gaps].sort((a, b) => a.start - b.start);
-              const segments: { start: number; end: number }[] = [];
-              let currentPos = 0;
-              
-              sortedGaps.forEach(gap => {
-                if (currentPos < gap.start) {
-                  segments.push({ start: currentPos, end: gap.start });
-                }
-                currentPos = Math.max(currentPos, gap.end);
-              });
-              
-              if (currentPos < element.height) {
-                segments.push({ start: currentPos, end: element.height });
-              }
-              
-              return segments.map((seg, i) => (
-                <div
-                  key={`left-${i}`}
-                  style={{
-                    position: 'absolute',
-                    top: seg.start,
-                    left: 0,
-                    width: element.wallThickness,
-                    height: seg.end - seg.start,
-                    backgroundImage: `url("${element.wallTextureUrl}")`,
-                    backgroundSize: `${element.wallThickness}px ${element.wallThickness}px`,
-                    backgroundRepeat: 'repeat'
-                  }}
-                />
-              ));
-            })()}
-          </>
-        )}
+            return (
+              <line
+                key={`wall-${i}-${segIdx}`}
+                x1={x1}
+                y1={y1}
+                x2={x2}
+                y2={y2}
+                stroke={`url(#${wallPatternId})`}
+                strokeWidth={element.wallThickness}
+                strokeLinecap="square"
+              />
+            );
+          });
+        })}
         
         {/* Selection indicator */}
         {isSelected && (
           <>
-            <div
-              style={{
-                position: 'absolute',
-                inset: -2,
-                border: '2px solid #22c55e',
-                pointerEvents: 'none'
-              }}
+            <path
+              d={polygonPath}
+              fill="none"
+              stroke="#22c55e"
+              strokeWidth={2}
+              strokeDasharray="5,5"
             />
-            {/* Resize Handles for rooms - at corners */}
-            <div style={{ position: 'absolute', left: -4 / viewport.zoom, top: -4 / viewport.zoom, width: 8 / viewport.zoom, height: 8 / viewport.zoom, backgroundColor: 'white', border: '1px solid #22c55e', cursor: 'nwse-resize', pointerEvents: 'auto' }} />
-            <div style={{ position: 'absolute', right: -4 / viewport.zoom, top: -4 / viewport.zoom, width: 8 / viewport.zoom, height: 8 / viewport.zoom, backgroundColor: 'white', border: '1px solid #22c55e', cursor: 'nesw-resize', pointerEvents: 'auto' }} />
-            <div style={{ position: 'absolute', left: -4 / viewport.zoom, bottom: -4 / viewport.zoom, width: 8 / viewport.zoom, height: 8 / viewport.zoom, backgroundColor: 'white', border: '1px solid #22c55e', cursor: 'nesw-resize', pointerEvents: 'auto' }} />
-            <div style={{ position: 'absolute', right: -4 / viewport.zoom, bottom: -4 / viewport.zoom, width: 8 / viewport.zoom, height: 8 / viewport.zoom, backgroundColor: 'white', border: '1px solid #22c55e', cursor: 'nwse-resize', pointerEvents: 'auto' }} />
+            {/* Vertex handles for polygon */}
+            {element.vertices.map((v, i) => (
+              <circle
+                key={`handle-${i}`}
+                cx={v.x}
+                cy={v.y}
+                r={4 / viewport.zoom}
+                fill="white"
+                stroke="#22c55e"
+                strokeWidth={1}
+                style={{ cursor: 'move', pointerEvents: 'auto' }}
+              />
+            ))}
           </>
         )}
-      </div>
+      </svg>
     );
   }
 

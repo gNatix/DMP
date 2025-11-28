@@ -244,13 +244,13 @@ const RoomBuilderPanel = ({
                   <span className="text-sm text-gray-400 w-10 text-right">{currentWallThickness}px</span>
                 </div>
                 
-                {/* Clear all gaps button - only show when a room is selected with gaps */}
-                {selectedRoom && selectedRoom.wallGaps && selectedRoom.wallGaps.length > 0 && (
+                {/* Clear all openings button - only show when a room is selected with openings */}
+                {selectedRoom && selectedRoom.wallOpenings && selectedRoom.wallOpenings.length > 0 && (
                   <button
-                    onClick={() => updateElement(selectedRoom.id, { wallGaps: [] })}
+                    onClick={() => updateElement(selectedRoom.id, { wallOpenings: [] })}
                     className="w-full mt-3 py-1.5 px-3 text-xs rounded bg-dm-panel text-gray-400 hover:text-red-400 hover:bg-dm-dark transition-all"
                   >
-                    Clear All Wall Gaps ({selectedRoom.wallGaps.length})
+                    Clear All Wall Openings ({selectedRoom.wallOpenings.length})
                   </button>
                 )}
               </div>

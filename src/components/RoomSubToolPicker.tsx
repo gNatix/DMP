@@ -51,14 +51,14 @@ const RoomSubToolPicker = ({
       style={pickerStyle}
       className="bg-dm-panel border border-dm-border rounded-lg shadow-xl p-2 flex gap-1"
     >
-      {/* Draw Room Tool */}
+      {/* Draw Rectangle Room Tool */}
       <button
         onClick={() => {
-          setRoomSubTool('draw');
+          setRoomSubTool('rectangle');
           onClose();
         }}
         className={`p-3 rounded transition-all ${
-          roomSubTool === 'draw'
+          roomSubTool === 'rectangle'
             ? 'bg-dm-highlight text-white'
             : 'hover:bg-dm-dark text-gray-400 hover:text-gray-200'
         }`}

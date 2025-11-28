@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Scene, MapElement, ToolType, TokenTemplate, ColorType, IconType, Collection, CollectionAppearance } from './types';
+import { Scene, MapElement, ToolType, TokenTemplate, ColorType, IconType, Collection, CollectionAppearance, RoomSubTool } from './types';
 import Canvas from './components/Canvas';
 import RightPanel from './components/RightPanel';
 import LeftPanel from './components/LeftPanel';
