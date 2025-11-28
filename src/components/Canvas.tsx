@@ -24,6 +24,10 @@ interface CanvasProps {
   showTokenBadges: boolean;
   setShowTokenBadges: (show: boolean) => void;
   onDoubleClickElement?: (elementId: string) => void;
+  recentTokens: TokenTemplate[];
+  onSelectToken: (token: TokenTemplate) => void;
+  selectedColor: ColorType;
+  onColorChange: (color: ColorType) => void;
 }
 
 const Canvas = ({
@@ -46,7 +50,11 @@ const Canvas = ({
   leftPanelOpen,
   showTokenBadges,
   setShowTokenBadges,
-  onDoubleClickElement
+  onDoubleClickElement,
+  recentTokens,
+  onSelectToken,
+  selectedColor,
+  onColorChange
 }: CanvasProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
@@ -134,6 +142,37 @@ const Canvas = ({
       setHistoryIndex(0);
     }
   }, [scene?.id]);
+
+  // Listen for color application from FloatingToolbar
+  useEffect(() => {
+    const handleApplyColor = (e: CustomEvent<{ color: ColorType }>) => {
+      const color = e.detail.color;
+      if (selectedElementIds.length > 0) {
+        // Apply to all selected elements
+        saveToHistory();
+        const updates = new Map<string, Partial<MapElement>>();
+        selectedElementIds.forEach(id => {
+          const element = scene?.elements.find(el => el.id === id);
+          if (element && element.type === 'token') {
+            updates.set(id, { color });
+          }
+        });
+        if (updates.size > 0) {
+          updateElements(updates);
+        }
+      } else if (selectedElementId) {
+        // Apply to single selected element
+        const element = scene?.elements.find(el => el.id === selectedElementId);
+        if (element && element.type === 'token') {
+          saveToHistory();
+          updateElement(selectedElementId, { color });
+        }
+      }
+    };
+
+    window.addEventListener('applyColorToSelection', handleApplyColor as EventListener);
+    return () => window.removeEventListener('applyColorToSelection', handleApplyColor as EventListener);
+  }, [selectedElementId, selectedElementIds, scene, updateElement, updateElements]);
 
   // Helper to check if text input is focused
   const isTextInputFocused = (): boolean => {
@@ -441,6 +480,10 @@ const Canvas = ({
       }
       if (e.key === 'x' || e.key === 'X') {
         setActiveTool('zoom-out');
+        return;
+      }
+      if (e.key === 'f' || e.key === 'F') {
+        setActiveTool('marker');
         return;
       }
 
@@ -1001,7 +1044,17 @@ const Canvas = ({
       green: '#22c55e',
       yellow: '#eab308',
       purple: '#a855f7',
-      orange: '#f97316'
+      orange: '#f97316',
+      pink: '#ec4899',
+      brown: '#92400e',
+      gray: '#6b7280',
+      black: '#000000',
+      white: '#ffffff',
+      cyan: '#06b6d4',
+      magenta: '#d946ef',
+      lime: '#84cc16',
+      indigo: '#6366f1',
+      teal: '#14b8a6'
     };
     return colorMap[color];
   };
@@ -1194,6 +1247,10 @@ const Canvas = ({
               setShowTokenBadges(!showTokenBadges);
             }
           }}
+          recentTokens={recentTokens}
+          onSelectToken={onSelectToken}
+          selectedColor={selectedColor}
+          onColorChange={onColorChange}
         />
       )}
 
@@ -1225,7 +1282,17 @@ const MapElementComponent = ({ element, isSelected, viewport, showTokenBadges }:
     green: '#22c55e',
     yellow: '#eab308',
     purple: '#a855f7',
-    orange: '#f97316'
+    orange: '#f97316',
+    pink: '#ec4899',
+    brown: '#92400e',
+    gray: '#6b7280',
+    black: '#000000',
+    white: '#ffffff',
+    cyan: '#06b6d4',
+    magenta: '#d946ef',
+    lime: '#84cc16',
+    indigo: '#6366f1',
+    teal: '#14b8a6'
   };
 
   const getLucideIcon = (icon: IconType) => {

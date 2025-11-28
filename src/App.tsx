@@ -14,7 +14,7 @@ function App() {
 
   // Tool state
   const [activeTool, setActiveTool] = useState<ToolType>('pointer');
-  const [activeColor] = useState<ColorType>('red');
+  const [activeColor, setActiveColor] = useState<ColorType>('red');
   const [activeIcon] = useState<IconType>('circle');
 
   // Token library
@@ -30,6 +30,9 @@ function App() {
 
   // Badge state
   const [showTokenBadges, setShowTokenBadges] = useState(false);
+
+  // Recent tokens state for quick picker
+  const [recentTokens, setRecentTokens] = useState<TokenTemplate[]>([]);
 
   // Global ESC handler to blur text inputs (first ESC press)
   useEffect(() => {
@@ -189,6 +192,12 @@ function App() {
     setTokenTemplates(prev => [...prev, newTemplate]);
   };
 
+  // Handle token selection from quick picker
+  const handleSelectTokenFromPicker = (token: TokenTemplate) => {
+    setActiveTokenTemplate(token);
+    setActiveTool('token');
+  };
+
   return (
     <div className="flex h-screen w-screen bg-dm-dark text-gray-200">
       {/* Left Panel - Properties */}
@@ -231,6 +240,10 @@ function App() {
           setLeftPanelOpen(true);
           setLeftPanelOpen(true);
         }}
+        recentTokens={recentTokens}
+        onSelectToken={handleSelectTokenFromPicker}
+        selectedColor={activeColor}
+        onColorChange={setActiveColor}
       />
 
       {/* Right Panel */}
@@ -257,6 +270,7 @@ function App() {
         addTokenTemplate={addTokenTemplate}
         setActiveTool={setActiveTool}
         setActiveTokenTemplate={setActiveTokenTemplate}
+        onRecentTokensChange={setRecentTokens}
       />
     </div>
   );

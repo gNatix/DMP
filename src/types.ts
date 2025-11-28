@@ -6,7 +6,7 @@ export type ToolType = "pointer" | "marker" | "token" | "pan" | "zoom-in" | "zoo
 
 export type IconType = "circle" | "square" | "triangle" | "star" | "diamond" | "heart" | "skull" | "quest" | "clue" | "hidden" | "door" | "landmark" | "footprint" | "info";
 
-export type ColorType = "red" | "blue" | "yellow" | "green" | "purple" | "orange";
+export type ColorType = 'red' | 'blue' | 'yellow' | 'green' | 'purple' | 'orange' | 'pink' | 'brown' | 'gray' | 'black' | 'white' | 'cyan' | 'magenta' | 'lime' | 'indigo' | 'teal';
 
 export interface AnnotationElement {
   id: string;

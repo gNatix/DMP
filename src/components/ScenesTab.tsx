@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Scene, Collection, CollectionAppearance, MapElement } from '../types';
-import { Plus, ChevronDown, ChevronRight, Trash2, Palette, Eye, EyeOff } from 'lucide-react';
+import { Plus, ChevronDown, ChevronRight, Trash2, Palette, Eye, EyeOff, Edit2 } from 'lucide-react';
 import MapSelectorModal from './MapSelectorModal';
 
 interface ScenesTabProps {
@@ -283,6 +283,15 @@ const ScenesTab = ({
               )}
             </div>
             <div className="flex gap-1">
+              {!isEditing && (
+                <button
+                  onClick={(e) => handleStartEditScene(scene, e)}
+                  className="p-1 hover:bg-dm-panel rounded transition-colors"
+                  title="Edit name"
+                >
+                  <Edit2 size={14} className="text-gray-400 hover:text-gray-300" />
+                </button>
+              )}
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -488,6 +497,21 @@ const ScenesTab = ({
               </>
             )}
           </div>
+          {!isEditing && (
+            <button
+              onClick={(e) => handleStartEditCollection(collection, e)}
+              className="p-1 hover:bg-dm-panel rounded transition-colors relative z-10"
+              title="Edit name"
+            >
+              <Edit2 
+                size={14} 
+                className="text-gray-100 hover:text-white"
+                style={{ 
+                  filter: hasBackground ? 'drop-shadow(0 0 3px rgba(0, 0, 0, 0.9)) drop-shadow(0 0 6px rgba(0, 0, 0, 0.7))' : 'none'
+                }}
+              />
+            </button>
+          )}
           <button
             onClick={(e) => {
               e.stopPropagation();

@@ -27,6 +27,7 @@ interface RightPanelProps {
   addTokenTemplate: (name: string, imageUrl: string) => void;
   setActiveTool: (tool: ToolType) => void;
   setActiveTokenTemplate: (template: TokenTemplate | null) => void;
+  onRecentTokensChange?: (tokens: TokenTemplate[]) => void;
 }
 
 type TabType = 'properties' | 'scenes' | 'tokens';
@@ -53,7 +54,8 @@ const RightPanel = ({
   tokenTemplates,
   addTokenTemplate,
   setActiveTool,
-  setActiveTokenTemplate
+  setActiveTokenTemplate,
+  onRecentTokensChange
 }: RightPanelProps) => {
   const [activeTab, setActiveTab] = useState<TabType>('properties');
 
@@ -136,6 +138,7 @@ const RightPanel = ({
             addTokenTemplate={addTokenTemplate}
             setActiveTool={setActiveTool}
             setActiveTokenTemplate={setActiveTokenTemplate}
+            onRecentTokensChange={onRecentTokensChange}
           />
         )}
       </div>

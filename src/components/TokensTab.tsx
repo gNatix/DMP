@@ -7,6 +7,7 @@ interface TokensTabProps {
   addTokenTemplate: (name: string, imageUrl: string) => void;
   setActiveTool: (tool: ToolType) => void;
   setActiveTokenTemplate: (template: TokenTemplate | null) => void;
+  onRecentTokensChange?: (tokens: TokenTemplate[]) => void;
 }
 
 type TokenCategory = 'monsters' | 'npcs' | 'items' | 'objects' | 'other' | 'shapes' | 'poi' | 'environment';
@@ -41,7 +42,8 @@ const TokensTab = ({
   tokenTemplates: _tokenTemplates,
   addTokenTemplate: _addTokenTemplate,
   setActiveTool,
-  setActiveTokenTemplate
+  setActiveTokenTemplate,
+  onRecentTokensChange
 }: TokensTabProps) => {
   const [selectedCategory, setSelectedCategory] = useState<TokenCategory | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
@@ -115,6 +117,24 @@ const TokensTab = ({
     setCurrentTemplate(coloredTemplate);
     setActiveTokenTemplate(coloredTemplate);
     setActiveTool('token');
+    
+    // Get category of clicked token
+    const category = template.category || (template.isShape ? 'shapes' : template.isPOI ? 'poi' : 'other');
+    
+    // Get all tokens from the same category (up to 16)
+    const allLibraryTokens = [...driveTokens, ...LIBRARY_TOKENS];
+    const categoryTokens = allLibraryTokens
+      .filter(t => {
+        const tokenCategory = t.category || (t.isShape ? 'shapes' : t.isPOI ? 'poi' : 'other');
+        return tokenCategory === category;
+      })
+      .slice(0, 16)
+      .map(t => ({ ...t, color: selectedColor })); // ALL tokens get color
+    
+    // Notify parent component with tokens from this category
+    if (onRecentTokensChange) {
+      onRecentTokensChange(categoryTokens);
+    }
   };
 
   const handleCategoryClick = (category: TokenCategory) => {
@@ -127,7 +147,17 @@ const TokensTab = ({
     green: '#22c55e',
     yellow: '#eab308',
     purple: '#a855f7',
-    orange: '#f97316'
+    orange: '#f97316',
+    pink: '#ec4899',
+    brown: '#92400e',
+    gray: '#6b7280',
+    black: '#000000',
+    white: '#ffffff',
+    cyan: '#06b6d4',
+    magenta: '#d946ef',
+    lime: '#84cc16',
+    indigo: '#6366f1',
+    teal: '#14b8a6'
   };
 
   const getLucideIcon = (icon: IconType) => {
