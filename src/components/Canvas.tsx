@@ -1065,9 +1065,9 @@ const Canvas = ({
     } else if (effectiveTool === 'room') {
       if (roomSubTool === 'rectangle') {
         // Start creating floor tile area with drag-to-draw rectangle (as polygon)
-        console.log('Room draw start - selectedFloorTexture:', selectedFloorTexture);
+        console.log('[ROOM DRAW] Starting - selectedFloorTexture:', selectedFloorTexture);
         if (!selectedFloorTexture) {
-          console.warn('Cannot draw floor without texture selected');
+          console.warn('[ROOM DRAW] No floor texture selected!');
           // Cannot draw floor without texture selected
           return;
         }
@@ -1093,7 +1093,7 @@ const Canvas = ({
           visible: true,
           widgets: []
         };
-        console.log('Created tempRoom:', tempRoomElement);
+        console.log('[ROOM DRAW] Created tempRoom:', tempRoomElement);
         setTempRoom(tempRoomElement);
       } else if (roomSubTool === 'erase') {
         // Start erasing walls - find all rooms under cursor using point-in-polygon
@@ -1216,11 +1216,18 @@ const Canvas = ({
     if (resizingElement && scene) {
       const element = scene.elements.find(e => e.id === resizingElement.id);
       if (element) {
-        if (element.type === 'room') {
-          // TODO: Polygon room resizing not yet implemented
-          // For now, room resizing is disabled for polygon rooms
-          // Would need to move specific vertices based on handle
-          console.log('Room resizing not yet implemented for polygon rooms');
+        if (element.type === 'room' && element.vertices) {
+          // Polygon room vertex dragging
+          const handleMatch = resizingElement.handle.match(/^v(\d+)$/);
+          if (handleMatch) {
+            const vertexIndex = parseInt(handleMatch[1]);
+            if (vertexIndex >= 0 && vertexIndex < element.vertices.length) {
+              // Update the specific vertex position
+              const newVertices = [...element.vertices];
+              newVertices[vertexIndex] = { x, y };
+              updateElement(resizingElement.id, { vertices: newVertices });
+            }
+          }
         } else if ('x' in element && 'y' in element && 'size' in element) {
           // Handle circular element resizing (annotations and tokens)
           const distance = Math.sqrt((x - element.x) ** 2 + (y - element.y) ** 2) * 2;
@@ -1248,8 +1255,6 @@ const Canvas = ({
       const maxX = Math.max(x, roomDrawStart.x);
       const minY = Math.min(y, roomDrawStart.y);
       const maxY = Math.max(y, roomDrawStart.y);
-      
-      console.log('Updating tempRoom vertices:', { minX, minY, maxX, maxY });
       
       // Update 4 vertices to form rectangle
       setTempRoom({ 
@@ -1618,7 +1623,18 @@ const Canvas = ({
             )}
 
             {/* Temp room preview during drawing */}
-            {tempRoom && tempRoom.id === 'temp' && tempRoom.vertices && tempRoom.vertices.length >= 3 && (() => {
+            {(() => {
+              console.log('[RENDER] TempRoom check:', { 
+                exists: !!tempRoom, 
+                id: tempRoom?.id,
+                hasVertices: !!tempRoom?.vertices,
+                vertexCount: tempRoom?.vertices?.length 
+              });
+              
+              if (!tempRoom || tempRoom.id !== 'temp' || !tempRoom.vertices || tempRoom.vertices.length < 3) {
+                return null;
+              }
+              
               const xs = tempRoom.vertices.map(v => v.x);
               const ys = tempRoom.vertices.map(v => v.y);
               const minX = Math.min(...xs);
@@ -1627,7 +1643,24 @@ const Canvas = ({
               const maxY = Math.max(...ys);
               const width = maxX - minX;
               const height = maxY - minY;
-              const polygonPath = tempRoom.vertices.map((v, i) => 
+              
+              console.log('[RENDER] TempRoom dimensions:', { minX, minY, maxX, maxY, width, height });
+              
+              // Don't render if too small (prevents 0-width SVG issues)
+              if (width < 1 || height < 1) {
+                console.log('[RENDER] TempRoom too small, skipping render');
+                return null;
+              }
+              
+              console.log('[RENDER] Rendering tempRoom SVG!');
+              
+              // Convert vertices to relative coordinates (relative to minX, minY)
+              const relativeVertices = tempRoom.vertices.map(v => ({
+                x: v.x - minX,
+                y: v.y - minY
+              }));
+              
+              const polygonPath = relativeVertices.map((v, i) => 
                 `${i === 0 ? 'M' : 'L'}${v.x},${v.y}`
               ).join(' ') + ' Z';
               
@@ -1647,8 +1680,8 @@ const Canvas = ({
                   <defs>
                     <pattern
                       id="temp-floor-pattern"
-                      x={minX}
-                      y={minY}
+                      x="0"
+                      y="0"
                       width={tempRoom.tileSize}
                       height={tempRoom.tileSize}
                       patternUnits="userSpaceOnUse"
@@ -1664,8 +1697,8 @@ const Canvas = ({
                     {tempRoom.showWalls && tempRoom.wallTextureUrl && (
                       <pattern
                         id="temp-wall-pattern"
-                        x={minX}
-                        y={minY}
+                        x="0"
+                        y="0"
                         width={tempRoom.wallThickness}
                         height={tempRoom.wallThickness}
                         patternUnits="userSpaceOnUse"
@@ -1689,8 +1722,8 @@ const Canvas = ({
                   />
                   
                   {/* Walls */}
-                  {tempRoom.showWalls && tempRoom.wallTextureUrl && tempRoom.vertices.map((v, i) => {
-                    const nextV = tempRoom.vertices[(i + 1) % tempRoom.vertices.length];
+                  {tempRoom.showWalls && tempRoom.wallTextureUrl && relativeVertices.map((v, i) => {
+                    const nextV = relativeVertices[(i + 1) % relativeVertices.length];
                     return (
                       <line
                         key={`temp-wall-${i}`}
