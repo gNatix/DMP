@@ -1065,7 +1065,9 @@ const Canvas = ({
     } else if (effectiveTool === 'room') {
       if (roomSubTool === 'rectangle') {
         // Start creating floor tile area with drag-to-draw rectangle (as polygon)
+        console.log('Room draw start - selectedFloorTexture:', selectedFloorTexture);
         if (!selectedFloorTexture) {
+          console.warn('Cannot draw floor without texture selected');
           // Cannot draw floor without texture selected
           return;
         }
@@ -1091,6 +1093,7 @@ const Canvas = ({
           visible: true,
           widgets: []
         };
+        console.log('Created tempRoom:', tempRoomElement);
         setTempRoom(tempRoomElement);
       } else if (roomSubTool === 'erase') {
         // Start erasing walls - find all rooms under cursor using point-in-polygon
@@ -1245,6 +1248,8 @@ const Canvas = ({
       const maxX = Math.max(x, roomDrawStart.x);
       const minY = Math.min(y, roomDrawStart.y);
       const maxY = Math.max(y, roomDrawStart.y);
+      
+      console.log('Updating tempRoom vertices:', { minX, minY, maxX, maxY });
       
       // Update 4 vertices to form rectangle
       setTempRoom({ 
