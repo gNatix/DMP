@@ -1,5 +1,5 @@
-import { MousePointer2, Stamp, Undo, Redo, Copy, Trash2, ArrowUp, ArrowDown, Hand, ZoomIn, ZoomOut, Maximize2, Lock, Tag, Circle, Square, Triangle, Star, Diamond, Heart, Skull, MapPin, Search, Eye, DoorOpen, Landmark as LandmarkIcon, Footprints, Info, Paintbrush } from 'lucide-react';
-import { ToolType, TokenTemplate, IconType, ColorType } from '../types';
+import { MousePointer2, Stamp, Undo, Redo, Copy, Trash2, ArrowUp, ArrowDown, Hand, ZoomIn, ZoomOut, Maximize2, Lock, Tag, Circle, Square, Triangle, Star, Diamond, Heart, Skull, MapPin, Search, Eye, DoorOpen, Landmark as LandmarkIcon, Footprints, Info, Paintbrush, LayoutGrid, Eraser } from 'lucide-react';
+import { ToolType, TokenTemplate, IconType, ColorType, RoomSubTool } from '../types';
 import { useState, useRef, useEffect } from 'react';
 
 interface FloatingToolbarProps {
@@ -23,6 +23,8 @@ interface FloatingToolbarProps {
   onSelectToken: (token: TokenTemplate) => void;
   selectedColor: ColorType;
   onColorChange: (color: ColorType) => void;
+  roomSubTool: RoomSubTool;
+  setRoomSubTool: (subTool: RoomSubTool) => void;
 }
 
 const FloatingToolbar = ({
@@ -45,16 +47,21 @@ const FloatingToolbar = ({
   recentTokens,
   onSelectToken,
   selectedColor,
-  onColorChange
+  onColorChange,
+  roomSubTool,
+  setRoomSubTool
 }: FloatingToolbarProps) => {
   const [showTokenPicker, setShowTokenPicker] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
+  const [showRoomSubToolPicker, setShowRoomSubToolPicker] = useState(false);
   const tokenButtonRef = useRef<HTMLButtonElement>(null);
   const colorButtonRef = useRef<HTMLButtonElement>(null);
+  const roomButtonRef = useRef<HTMLButtonElement>(null);
   const pickerRef = useRef<HTMLDivElement>(null);
   const colorPickerRef = useRef<HTMLDivElement>(null);
+  const roomSubToolPickerRef = useRef<HTMLDivElement>(null);
 
-  // Close picker when clicking outside
+  // Close picker when clicking outside (only for token and color pickers)
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (
@@ -109,16 +116,27 @@ const FloatingToolbar = ({
     setShowTokenPicker(false);
   };
 
+  // Auto-open room sub-tool picker when room tool is active and reset to draw mode
+  useEffect(() => {
+    if (activeTool === 'room') {
+      setShowRoomSubToolPicker(true);
+      // Reset to draw mode when activating room tool (don't remember eraser)
+      setRoomSubTool('draw');
+    } else {
+      setShowRoomSubToolPicker(false);
+    }
+  }, [activeTool, setRoomSubTool]);
+
   // Keyboard handler for B key to open token picker
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Check if we're in a text input
+      const activeEl = document.activeElement as HTMLElement;
+      if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.hasAttribute('contenteditable'))) {
+        return; // Don't interfere with text input
+      }
+      
       if (e.key === 'b' || e.key === 'B') {
-        // Check if we're in a text input
-        const activeEl = document.activeElement as HTMLElement;
-        if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.hasAttribute('contenteditable'))) {
-          return; // Don't interfere with text input
-        }
-        
         // If token tool is active and we have recent tokens, toggle picker
         if (activeTool === 'token' && recentTokens.length > 0) {
           e.preventDefault();
@@ -277,6 +295,57 @@ const FloatingToolbar = ({
                     </div>
                   </button>
                 ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="relative">
+          <button
+            ref={roomButtonRef}
+            onClick={() => setActiveTool('room')}
+            className={`p-2.5 rounded transition-colors ${
+              activeTool === 'room'
+                ? 'bg-dm-highlight text-white'
+                : 'bg-dm-dark hover:bg-dm-border text-gray-300 hover:text-white'
+            }`}
+            title="Room Tool (R)"
+          >
+            <LayoutGrid size={18} />
+          </button>
+
+          {/* Room Sub-Tool Picker */}
+          {showRoomSubToolPicker && (
+            <div
+              ref={roomSubToolPickerRef}
+              className="absolute bottom-full mb-2 left-0 bg-dm-panel border border-dm-border rounded-lg shadow-2xl p-2 z-[100]"
+            >
+              <div className="flex gap-1">
+                {/* Draw Room Tool */}
+                <button
+                  onClick={() => setRoomSubTool('draw')}
+                  className={`p-3 rounded transition-all ${
+                    roomSubTool === 'draw'
+                      ? 'bg-dm-highlight text-white'
+                      : 'hover:bg-dm-dark text-gray-400 hover:text-gray-200'
+                  }`}
+                  title="Draw Room (Rectangle)"
+                >
+                  <Square size={20} />
+                </button>
+
+                {/* Wall Eraser Tool */}
+                <button
+                  onClick={() => setRoomSubTool('erase')}
+                  className={`p-3 rounded transition-all ${
+                    roomSubTool === 'erase'
+                      ? 'bg-dm-highlight text-white'
+                      : 'hover:bg-dm-dark text-gray-400 hover:text-gray-200'
+                  }`}
+                  title="Wall Eraser (Paint over walls to remove)"
+                >
+                  <Eraser size={20} />
+                </button>
               </div>
             </div>
           )}

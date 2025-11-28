@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from 'react';
-import { Scene, MapElement, ToolType, TokenTemplate, ColorType, IconType, AnnotationElement, TokenElement } from '../types';
+import { Scene, MapElement, AnnotationElement, TokenElement, RoomElement, ToolType, IconType, ColorType, TokenTemplate, RoomSubTool } from '../types';
 import { Circle, Square, Triangle, Star, Diamond, Heart, Skull, MapPin, Search, Eye, DoorOpen, Landmark, Footprints, Info } from 'lucide-react';
 import FloatingToolbar from './FloatingToolbar';
 
@@ -28,6 +28,13 @@ interface CanvasProps {
   onSelectToken: (token: TokenTemplate) => void;
   selectedColor: ColorType;
   onColorChange: (color: ColorType) => void;
+  selectedFloorTexture: string | null;
+  tileSize: number;
+  showWalls: boolean;
+  selectedWallTexture: string | null;
+  wallThickness: number;
+  roomSubTool: RoomSubTool;
+  setRoomSubTool: (subTool: RoomSubTool) => void;
 }
 
 const Canvas = ({
@@ -54,7 +61,14 @@ const Canvas = ({
   recentTokens,
   onSelectToken,
   selectedColor,
-  onColorChange
+  onColorChange,
+  selectedFloorTexture,
+  tileSize,
+  showWalls,
+  selectedWallTexture,
+  wallThickness,
+  roomSubTool,
+  setRoomSubTool
 }: CanvasProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
@@ -67,17 +81,19 @@ const Canvas = ({
   const [createStart, setCreateStart] = useState<{ x: number; y: number } | null>(null);
   const [tempElement, setTempElement] = useState<MapElement | null>(null);
   const [resizingElement, setResizingElement] = useState<{ id: string; handle: string } | null>(null);
-  const [isCtrlPressed, setIsCtrlPressed] = useState(false);
   const [isSpacePressed, setIsSpacePressed] = useState(false);
   const [selectionBox, setSelectionBox] = useState<{ startX: number; startY: number; endX: number; endY: number } | null>(null);
   const [draggedMultiple, setDraggedMultiple] = useState<{ offsetX: number; offsetY: number; initialOffsets?: Map<string, {x: number, y: number}> } | null>(null);
   const [cursorPosition, setCursorPosition] = useState<{ x: number; y: number } | null>(null);
   const [hasInitializedViewport, setHasInitializedViewport] = useState(false);
   const [lastClickTime, setLastClickTime] = useState<number>(0);
+  const [roomDrawStart, setRoomDrawStart] = useState<{ x: number; y: number } | null>(null);
+  const [tempRoom, setTempRoom] = useState<RoomElement | null>(null);
   const [lastClickedElement, setLastClickedElement] = useState<string | null>(null);
   const [fitToViewLocked, setFitToViewLocked] = useState(false);
   const [zoomLimitError, setZoomLimitError] = useState(false);
   const [shouldRotateMap, setShouldRotateMap] = useState(false);
+  const [isErasing, setIsErasing] = useState(false);
 
   // Auto-apply fit to view when locked and panel opens/closes OR when map dimensions change
   useEffect(() => {
@@ -370,8 +386,14 @@ const Canvas = ({
       saveToHistory();
       
       // Calculate offset that ensures no overlap with original
-      // Use a fixed offset based on average token size
-      const avgSize = toDuplicate.reduce((sum, el) => sum + el.size, 0) / toDuplicate.length;
+      // Use a fixed offset based on average element size
+      const totalSize = toDuplicate.reduce((sum, el) => {
+        if (el.type === 'room') {
+          return sum + Math.max(el.width, el.height);
+        }
+        return sum + el.size;
+      }, 0);
+      const avgSize = totalSize / toDuplicate.length;
       const offset = avgSize * 0.7; // 70% of average size ensures no overlap
 
       const duplicates = toDuplicate.map(el => {
@@ -416,7 +438,13 @@ const Canvas = ({
     const updatedElements = scene.elements.map(el => {
       if (selectedIds.includes(el.id)) {
         const currentZ = (el as any).zIndex || 0;
-        return { ...el, zIndex: currentZ + 1 };
+        const newZ = currentZ + 1;
+        // Rooms stay in range -200 to -1, tokens/others stay in range 0+
+        if (el.type === 'room') {
+          return { ...el, zIndex: Math.min(newZ, -1) };
+        } else {
+          return { ...el, zIndex: Math.max(newZ, 0) };
+        }
       }
       return el;
     });
@@ -438,7 +466,13 @@ const Canvas = ({
     const updatedElements = scene.elements.map(el => {
       if (selectedIds.includes(el.id)) {
         const currentZ = (el as any).zIndex || 0;
-        return { ...el, zIndex: currentZ - 1 };
+        const newZ = currentZ - 1;
+        // Rooms stay in range -200 to -1, tokens/others stay in range 0+
+        if (el.type === 'room') {
+          return { ...el, zIndex: Math.max(newZ, -200) };
+        } else {
+          return { ...el, zIndex: Math.max(newZ, 0) };
+        }
       }
       return el;
     });
@@ -452,8 +486,7 @@ const Canvas = ({
       // Skip ALL shortcuts and preventDefault if text input is focused
       if (isTextInputFocused()) return;
 
-      // Always track Control and Space
-      if (e.key === 'Control') setIsCtrlPressed(true);
+      // Always track Space
       if (e.key === ' ') {
         e.preventDefault();
         setIsSpacePressed(true);
@@ -486,9 +519,20 @@ const Canvas = ({
         setActiveTool('marker');
         return;
       }
+      if (e.key === 'r' || e.key === 'R') {
+        setActiveTool('room');
+        return;
+      }
 
       // Deselect all or return to pointer tool
       if (e.key === 'Escape') {
+        // Cancel room drawing if in progress
+        if (roomDrawStart || tempRoom) {
+          setRoomDrawStart(null);
+          setTempRoom(null);
+          return;
+        }
+        
         // Check if any modal/dialog/popup is open - if so, don't deselect
         // Let the modal handlers close them first
         const hasOpenModal = document.querySelector('[role="dialog"], .fixed.inset-0, [data-popup="true"]');
@@ -541,7 +585,13 @@ const Canvas = ({
           saveToHistory();
           
           // Use same offset logic as duplicate
-          const avgSize = clipboard.reduce((sum, el) => sum + el.size, 0) / clipboard.length;
+          const totalSize = clipboard.reduce((sum, el) => {
+            if (el.type === 'room') {
+              return sum + Math.max(el.width, el.height);
+            }
+            return sum + el.size;
+          }, 0);
+          const avgSize = totalSize / clipboard.length;
           const offset = avgSize * 0.7;
 
           const newElements = clipboard.map(el => ({
@@ -623,7 +673,17 @@ const Canvas = ({
         const updatedElements = scene.elements.map(el => {
           if (selectedIds.includes(el.id)) {
             const currentZ = (el as any).zIndex || 0;
-            return { ...el, zIndex: currentZ + direction };
+            const newZ = currentZ + direction;
+            // Rooms stay in range -200 to -1, tokens/others stay in range 0+
+            if (el.type === 'room') {
+              if (direction > 0) {
+                return { ...el, zIndex: Math.min(newZ, -1) };
+              } else {
+                return { ...el, zIndex: Math.max(newZ, -200) };
+              }
+            } else {
+              return { ...el, zIndex: Math.max(newZ, 0) };
+            }
           }
           return el;
         });
@@ -634,7 +694,6 @@ const Canvas = ({
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key === 'Control') setIsCtrlPressed(false);
       if (e.key === ' ') {
         e.preventDefault();
         setIsSpacePressed(false);
@@ -650,6 +709,74 @@ const Canvas = ({
       window.removeEventListener('keyup', handleKeyUp);
     };
   }, [selectedElementId, selectedElementIds, deleteElements, scene, activeSceneId, activeTool, clipboard, history, historyIndex, viewport]);
+
+  const handleWallErase = (room: RoomElement, clickX: number, clickY: number) => {
+    // Determine which wall was clicked and create a gap
+    const { x, y, width, height, wallThickness, wallGaps } = room;
+    const brushSize = 10; // Small brush for painting effect
+
+    let newGap: { wall: 'top' | 'right' | 'bottom' | 'left'; start: number; end: number } | null = null;
+
+    // Check if click is within wall bounds
+    const isInTopWall = clickY >= y && clickY <= y + wallThickness && clickX >= x && clickX <= x + width;
+    const isInBottomWall = clickY >= y + height - wallThickness && clickY <= y + height && clickX >= x && clickX <= x + width;
+    const isInLeftWall = clickX >= x && clickX <= x + wallThickness && clickY >= y && clickY <= y + height;
+    const isInRightWall = clickX >= x + width - wallThickness && clickX <= x + width && clickY >= y && clickY <= y + height;
+
+    if (isInTopWall) {
+      // Top wall - gap is measured along x-axis from left edge
+      const position = clickX - x;
+      const start = Math.max(0, position - brushSize / 2);
+      const end = Math.min(width, position + brushSize / 2);
+      newGap = { wall: 'top', start, end };
+    } else if (isInBottomWall) {
+      // Bottom wall - gap is measured along x-axis from left edge
+      const position = clickX - x;
+      const start = Math.max(0, position - brushSize / 2);
+      const end = Math.min(width, position + brushSize / 2);
+      newGap = { wall: 'bottom', start, end };
+    } else if (isInLeftWall) {
+      // Left wall - gap is measured along y-axis from top edge
+      const position = clickY - y;
+      const start = Math.max(0, position - brushSize / 2);
+      const end = Math.min(height, position + brushSize / 2);
+      newGap = { wall: 'left', start, end };
+    } else if (isInRightWall) {
+      // Right wall - gap is measured along y-axis from top edge
+      const position = clickY - y;
+      const start = Math.max(0, position - brushSize / 2);
+      const end = Math.min(height, position + brushSize / 2);
+      newGap = { wall: 'right', start, end };
+    }
+
+    if (newGap) {
+      // Merge overlapping gaps for the same wall
+      const existingGaps = (wallGaps || []).filter(g => g.wall !== newGap!.wall);
+      const sameWallGaps = (wallGaps || []).filter(g => g.wall === newGap!.wall);
+      
+      // Add new gap and merge overlapping ones
+      sameWallGaps.push(newGap);
+      sameWallGaps.sort((a, b) => a.start - b.start);
+      
+      const mergedGaps: typeof sameWallGaps = [];
+      let current = sameWallGaps[0];
+      
+      for (let i = 1; i < sameWallGaps.length; i++) {
+        const next = sameWallGaps[i];
+        if (next.start <= current.end) {
+          // Overlapping or adjacent, merge
+          current = { wall: current.wall, start: current.start, end: Math.max(current.end, next.end) };
+        } else {
+          mergedGaps.push(current);
+          current = next;
+        }
+      }
+      mergedGaps.push(current);
+      
+      const updatedGaps = [...existingGaps, ...mergedGaps];
+      updateElement(room.id, { wallGaps: updatedGaps });
+    }
+  };
 
   const handleMouseDown = (e: React.MouseEvent) => {
     // Right click for panning
@@ -727,8 +854,9 @@ const Canvas = ({
       return;
     }
 
-    // Effective tool (CTRL overrides to pointer)
-    const effectiveTool = isCtrlPressed ? 'pointer' : activeTool;
+    // Effective tool (CTRL or ALT overrides to pointer, even in room mode)
+    // Use e.ctrlKey directly from the mouse event to be accurate
+    const effectiveTool = (e.ctrlKey || e.altKey) ? 'pointer' : activeTool;
 
     if (effectiveTool === 'pointer') {
       if (clickedElement) {
@@ -813,6 +941,52 @@ const Canvas = ({
         color: activeTokenTemplate.color
       };
       setTempElement(tempToken);
+    } else if (effectiveTool === 'room') {
+      if (roomSubTool === 'draw') {
+        // Start creating floor tile area with drag-to-draw rectangle
+        if (!selectedFloorTexture) {
+          // Cannot draw floor without texture selected
+          return;
+        }
+        setRoomDrawStart({ x, y });
+        const tempRoomElement: RoomElement = {
+          id: 'temp',
+          type: 'room',
+          x,
+          y,
+          width: 0,
+          height: 0,
+          floorTextureUrl: selectedFloorTexture,
+          tileSize: tileSize,
+          showWalls: showWalls,
+          wallTextureUrl: selectedWallTexture || '',
+          wallThickness: wallThickness,
+          wallGaps: [],
+          name: 'Floor',
+          notes: '',
+          zIndex: -100,
+          visible: true,
+          widgets: []
+        };
+        setTempRoom(tempRoomElement);
+      } else if (roomSubTool === 'erase') {
+        // Start erasing walls - find all rooms under cursor
+        const roomsUnderCursor = scene.elements.filter(el => {
+          if (el.type !== 'room') return false;
+          const room = el as RoomElement;
+          return x >= room.x && x <= room.x + room.width && y >= room.y && y <= room.y + room.height;
+        });
+        
+        if (roomsUnderCursor.length > 0) {
+          setIsErasing(true);
+          // Erase on all rooms under cursor
+          roomsUnderCursor.forEach(room => {
+            if (room.type === 'room') {
+              handleWallErase(room as RoomElement, x, y);
+            }
+          });
+        }
+      }
     }
   };
 
@@ -831,6 +1005,22 @@ const Canvas = ({
       setCursorPosition({ x, y });
     } else {
       setCursorPosition(null);
+    }
+
+    // Handle wall erasing (paint-style) - erase on all rooms under cursor
+    if (isErasing && scene) {
+      const roomsUnderCursor = scene.elements.filter(el => {
+        if (el.type !== 'room') return false;
+        const room = el as RoomElement;
+        return x >= room.x && x <= room.x + room.width && y >= room.y && y <= room.y + room.height;
+      });
+      
+      roomsUnderCursor.forEach(room => {
+        if (room.type === 'room') {
+          handleWallErase(room as RoomElement, x, y);
+        }
+      });
+      return;
     }
 
     if (isPanning) {
@@ -875,8 +1065,44 @@ const Canvas = ({
     if (resizingElement && scene) {
       const element = scene.elements.find(e => e.id === resizingElement.id);
       if (element) {
-        const distance = Math.sqrt((x - element.x) ** 2 + (y - element.y) ** 2) * 2;
-        updateElement(resizingElement.id, { size: Math.max(10, distance) });
+        if (element.type === 'room') {
+          // Handle room resizing (rectangular)
+          const room = element as RoomElement;
+          const handle = resizingElement.handle;
+          
+          let newX = room.x;
+          let newY = room.y;
+          let newWidth = room.width;
+          let newHeight = room.height;
+
+          if (handle === 'nw') {
+            newWidth = room.x + room.width - x;
+            newHeight = room.y + room.height - y;
+            newX = x;
+            newY = y;
+          } else if (handle === 'ne') {
+            newWidth = x - room.x;
+            newHeight = room.y + room.height - y;
+            newY = y;
+          } else if (handle === 'sw') {
+            newWidth = room.x + room.width - x;
+            newHeight = y - room.y;
+            newX = x;
+          } else if (handle === 'se') {
+            newWidth = x - room.x;
+            newHeight = y - room.y;
+          }
+
+          // Enforce minimum size
+          if (newWidth < 20) newWidth = 20;
+          if (newHeight < 20) newHeight = 20;
+
+          updateElement(resizingElement.id, { x: newX, y: newY, width: newWidth, height: newHeight });
+        } else {
+          // Handle circular element resizing (annotations and tokens)
+          const distance = Math.sqrt((x - element.x) ** 2 + (y - element.y) ** 2) * 2;
+          updateElement(resizingElement.id, { size: Math.max(10, distance) });
+        }
       }
       return;
     }
@@ -885,7 +1111,21 @@ const Canvas = ({
     if (isCreating && createStart && tempElement) {
       const distance = Math.sqrt((x - createStart.x) ** 2 + (y - createStart.y) ** 2) * 2;
       const size = Math.max(10, distance);
-      setTempElement({ ...tempElement, size });
+      
+      // Only update size for elements that have a size property (not rooms)
+      if (tempElement.type !== 'room') {
+        setTempElement({ ...tempElement, size });
+      }
+      return;
+    }
+
+    // Handle room drawing
+    if (roomDrawStart && tempRoom) {
+      const width = Math.abs(x - roomDrawStart.x);
+      const height = Math.abs(y - roomDrawStart.y);
+      const newX = Math.min(x, roomDrawStart.x);
+      const newY = Math.min(y, roomDrawStart.y);
+      setTempRoom({ ...tempRoom, x: newX, y: newY, width, height });
       return;
     }
 
@@ -902,6 +1142,12 @@ const Canvas = ({
     // Save to history if we were dragging or resizing
     if (draggedElement || resizingElement || draggedMultiple) {
       saveToHistory();
+    }
+
+    // Stop erasing
+    if (isErasing) {
+      saveToHistory();
+      setIsErasing(false);
     }
 
     setIsPanning(false);
@@ -935,6 +1181,21 @@ const Canvas = ({
       setSelectedElementId(finalElement.id);
       setSelectedElementIds([]);
       // No viewport centering when placing tokens
+    }
+
+    // Finalize room creation
+    if (roomDrawStart && tempRoom && tempRoom.id === 'temp') {
+      // Only create room if it has some size (at least 20x20)
+      if (tempRoom.width >= 20 && tempRoom.height >= 20) {
+        saveToHistory();
+        const finalRoom = { ...tempRoom, id: `room-${Date.now()}`, tileSize, showWalls, wallTextureUrl: selectedWallTexture || '', wallThickness };
+        addElement(finalRoom);
+        setSelectedElementId(finalRoom.id);
+        setSelectedElementIds([]);
+      }
+      setRoomDrawStart(null);
+      setTempRoom(null);
+      return;
     }
 
     setIsCreating(false);
@@ -995,9 +1256,19 @@ const Canvas = ({
   const findElementAtPosition = (x: number, y: number, elements: MapElement[]): MapElement | null => {
     for (let i = elements.length - 1; i >= 0; i--) {
       const element = elements[i];
-      const distance = Math.sqrt((x - element.x) ** 2 + (y - element.y) ** 2);
-      if (distance <= element.size / 2) {
-        return element;
+      
+      // Handle room elements (rectangular)
+      if (element.type === 'room') {
+        const room = element as RoomElement;
+        if (x >= room.x && x <= room.x + room.width && y >= room.y && y <= room.y + room.height) {
+          return element;
+        }
+      } else {
+        // Handle circular elements (annotations and tokens)
+        const distance = Math.sqrt((x - element.x) ** 2 + (y - element.y) ** 2);
+        if (distance <= element.size / 2) {
+          return element;
+        }
       }
     }
     return null;
@@ -1008,6 +1279,27 @@ const Canvas = ({
     if (!element) return null;
 
     const handleSize = 8 / viewport.zoom;
+
+    // Handle room elements (corner resize handles)
+    if (element.type === 'room') {
+      const room = element as RoomElement;
+      const handles = [
+        { name: 'nw', x: room.x, y: room.y },
+        { name: 'ne', x: room.x + room.width, y: room.y },
+        { name: 'sw', x: room.x, y: room.y + room.height },
+        { name: 'se', x: room.x + room.width, y: room.y + room.height }
+      ];
+
+      for (const handle of handles) {
+        const distance = Math.sqrt((x - handle.x) ** 2 + (y - handle.y) ** 2);
+        if (distance <= handleSize) {
+          return handle.name;
+        }
+      }
+      return null;
+    }
+
+    // Handle circular elements (annotations and tokens)
     const radius = element.size / 2;
 
     const handles = [
@@ -1032,6 +1324,10 @@ const Canvas = ({
     if (isPanning || isSpacePressed || activeTool === 'pan') return 'cursor-grab';
     if (activeTool === 'marker') return 'cursor-copy';
     if (activeTool === 'token' && scene) return 'cursor-none'; // Hide default cursor for token mode only when scene exists
+    if (activeTool === 'room') {
+      // Show cell cursor (precision cursor) when in erase mode, otherwise crosshair for drawing
+      return roomSubTool === 'erase' ? 'cursor-cell' : 'cursor-crosshair';
+    }
     if (activeTool === 'zoom-in') return 'cursor-zoom-in';
     if (activeTool === 'zoom-out') return 'cursor-zoom-out';
     return 'cursor-default';
@@ -1144,6 +1440,97 @@ const Canvas = ({
               />
             )}
 
+            {/* Temp room preview during drawing */}
+            {tempRoom && tempRoom.id === 'temp' && tempRoom.width > 0 && tempRoom.height > 0 && (
+              <div
+                style={{
+                  position: 'absolute',
+                  left: tempRoom.x,
+                  top: tempRoom.y,
+                  width: tempRoom.width,
+                  height: tempRoom.height,
+                  opacity: 0.7,
+                  pointerEvents: 'none'
+                }}
+              >
+                {/* Floor */}
+                <div
+                  style={{
+                    position: 'absolute',
+                    inset: tempRoom.showWalls && tempRoom.wallTextureUrl ? `${tempRoom.wallThickness}px` : 0,
+                    backgroundImage: `url("${tempRoom.floorTextureUrl}")`,
+                    backgroundSize: `${tempRoom.tileSize}px ${tempRoom.tileSize}px`,
+                    backgroundRepeat: 'repeat',
+                    backgroundColor: '#1a1a1a'
+                  }}
+                />
+                
+                {/* Walls */}
+                {tempRoom.showWalls && tempRoom.wallTextureUrl && (
+                  <>
+                    {/* Top wall */}
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        height: tempRoom.wallThickness,
+                        backgroundImage: `url("${tempRoom.wallTextureUrl}")`,
+                        backgroundSize: `${tempRoom.wallThickness}px ${tempRoom.wallThickness}px`,
+                        backgroundRepeat: 'repeat'
+                      }}
+                    />
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        right: 0,
+                        bottom: 0,
+                        width: tempRoom.wallThickness,
+                        backgroundImage: `url("${tempRoom.wallTextureUrl}")`,
+                        backgroundSize: `${tempRoom.wallThickness}px ${tempRoom.wallThickness}px`,
+                        backgroundRepeat: 'repeat'
+                      }}
+                    />
+                    <div
+                      style={{
+                        position: 'absolute',
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        height: tempRoom.wallThickness,
+                        backgroundImage: `url("${tempRoom.wallTextureUrl}")`,
+                        backgroundSize: `${tempRoom.wallThickness}px ${tempRoom.wallThickness}px`,
+                        backgroundRepeat: 'repeat'
+                      }}
+                    />
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        bottom: 0,
+                        left: 0,
+                        width: tempRoom.wallThickness,
+                        backgroundImage: `url("${tempRoom.wallTextureUrl}")`,
+                        backgroundSize: `${tempRoom.wallThickness}px ${tempRoom.wallThickness}px`,
+                        backgroundRepeat: 'repeat'
+                      }}
+                    />
+                  </>
+                )}
+                
+                {/* Preview border */}
+                <div
+                  style={{
+                    position: 'absolute',
+                    inset: -2,
+                    border: '2px dashed #22c55e'
+                  }}
+                />
+              </div>
+            )}
+
             {/* Selection box */}
             {selectionBox && (
               <div
@@ -1251,6 +1638,8 @@ const Canvas = ({
           onSelectToken={onSelectToken}
           selectedColor={selectedColor}
           onColorChange={onColorChange}
+          roomSubTool={roomSubTool}
+          setRoomSubTool={setRoomSubTool}
         />
       )}
 
@@ -1615,6 +2004,268 @@ const MapElementComponent = ({ element, isSelected, viewport, showTokenBadges }:
             <div style={{ position: 'absolute', right: 0, top: 0, width: 8 / viewport.zoom, height: 8 / viewport.zoom, backgroundColor: 'white', border: '1px solid #22c55e', cursor: 'nesw-resize', pointerEvents: 'auto' }} />
             <div style={{ position: 'absolute', left: 0, bottom: 0, width: 8 / viewport.zoom, height: 8 / viewport.zoom, backgroundColor: 'white', border: '1px solid #22c55e', cursor: 'nesw-resize', pointerEvents: 'auto' }} />
             <div style={{ position: 'absolute', right: 0, bottom: 0, width: 8 / viewport.zoom, height: 8 / viewport.zoom, backgroundColor: 'white', border: '1px solid #22c55e', cursor: 'nwse-resize', pointerEvents: 'auto' }} />
+          </>
+        )}
+      </div>
+    );
+  }
+
+  if (element.type === 'room') {
+    const hasWalls = element.showWalls && element.wallTextureUrl;
+    
+    return (
+      <div
+        style={{
+          position: 'absolute',
+          left: element.x,
+          top: element.y,
+          width: element.width,
+          height: element.height,
+          pointerEvents: 'none'
+        }}
+      >
+        {/* Floor - fills entire room area */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            backgroundImage: `url("${element.floorTextureUrl}")`,
+            backgroundSize: `${element.tileSize}px ${element.tileSize}px`,
+            backgroundRepeat: 'repeat',
+            backgroundColor: '#1a1a1a'
+          }}
+        />
+        
+        {/* Walls using borders */}
+        {hasWalls && (
+          <>
+            {/* Top wall - render segments with gaps */}
+            {(() => {
+              const gaps = (element.wallGaps || []).filter(g => g.wall === 'top');
+              if (gaps.length === 0) {
+                return (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: element.width,
+                      height: element.wallThickness,
+                      backgroundImage: `url("${element.wallTextureUrl}")`,
+                      backgroundSize: `${element.wallThickness}px ${element.wallThickness}px`,
+                      backgroundRepeat: 'repeat'
+                    }}
+                  />
+                );
+              }
+              
+              // Sort gaps and create segments
+              const sortedGaps = [...gaps].sort((a, b) => a.start - b.start);
+              const segments: { start: number; end: number }[] = [];
+              let currentPos = 0;
+              
+              sortedGaps.forEach(gap => {
+                if (currentPos < gap.start) {
+                  segments.push({ start: currentPos, end: gap.start });
+                }
+                currentPos = Math.max(currentPos, gap.end);
+              });
+              
+              if (currentPos < element.width) {
+                segments.push({ start: currentPos, end: element.width });
+              }
+              
+              return segments.map((seg, i) => (
+                <div
+                  key={`top-${i}`}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: seg.start,
+                    width: seg.end - seg.start,
+                    height: element.wallThickness,
+                    backgroundImage: `url("${element.wallTextureUrl}")`,
+                    backgroundSize: `${element.wallThickness}px ${element.wallThickness}px`,
+                    backgroundRepeat: 'repeat'
+                  }}
+                />
+              ));
+            })()}
+            
+            {/* Right wall - render segments with gaps */}
+            {(() => {
+              const gaps = (element.wallGaps || []).filter(g => g.wall === 'right');
+              if (gaps.length === 0) {
+                return (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      right: 0,
+                      width: element.wallThickness,
+                      height: element.height,
+                      backgroundImage: `url("${element.wallTextureUrl}")`,
+                      backgroundSize: `${element.wallThickness}px ${element.wallThickness}px`,
+                      backgroundRepeat: 'repeat'
+                    }}
+                  />
+                );
+              }
+              
+              const sortedGaps = [...gaps].sort((a, b) => a.start - b.start);
+              const segments: { start: number; end: number }[] = [];
+              let currentPos = 0;
+              
+              sortedGaps.forEach(gap => {
+                if (currentPos < gap.start) {
+                  segments.push({ start: currentPos, end: gap.start });
+                }
+                currentPos = Math.max(currentPos, gap.end);
+              });
+              
+              if (currentPos < element.height) {
+                segments.push({ start: currentPos, end: element.height });
+              }
+              
+              return segments.map((seg, i) => (
+                <div
+                  key={`right-${i}`}
+                  style={{
+                    position: 'absolute',
+                    top: seg.start,
+                    right: 0,
+                    width: element.wallThickness,
+                    height: seg.end - seg.start,
+                    backgroundImage: `url("${element.wallTextureUrl}")`,
+                    backgroundSize: `${element.wallThickness}px ${element.wallThickness}px`,
+                    backgroundRepeat: 'repeat'
+                  }}
+                />
+              ));
+            })()}
+            
+            {/* Bottom wall - render segments with gaps */}
+            {(() => {
+              const gaps = (element.wallGaps || []).filter(g => g.wall === 'bottom');
+              if (gaps.length === 0) {
+                return (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      bottom: 0,
+                      left: 0,
+                      width: element.width,
+                      height: element.wallThickness,
+                      backgroundImage: `url("${element.wallTextureUrl}")`,
+                      backgroundSize: `${element.wallThickness}px ${element.wallThickness}px`,
+                      backgroundRepeat: 'repeat'
+                    }}
+                  />
+                );
+              }
+              
+              const sortedGaps = [...gaps].sort((a, b) => a.start - b.start);
+              const segments: { start: number; end: number }[] = [];
+              let currentPos = 0;
+              
+              sortedGaps.forEach(gap => {
+                if (currentPos < gap.start) {
+                  segments.push({ start: currentPos, end: gap.start });
+                }
+                currentPos = Math.max(currentPos, gap.end);
+              });
+              
+              if (currentPos < element.width) {
+                segments.push({ start: currentPos, end: element.width });
+              }
+              
+              return segments.map((seg, i) => (
+                <div
+                  key={`bottom-${i}`}
+                  style={{
+                    position: 'absolute',
+                    bottom: 0,
+                    left: seg.start,
+                    width: seg.end - seg.start,
+                    height: element.wallThickness,
+                    backgroundImage: `url("${element.wallTextureUrl}")`,
+                    backgroundSize: `${element.wallThickness}px ${element.wallThickness}px`,
+                    backgroundRepeat: 'repeat'
+                  }}
+                />
+              ));
+            })()}
+            
+            {/* Left wall - render segments with gaps */}
+            {(() => {
+              const gaps = (element.wallGaps || []).filter(g => g.wall === 'left');
+              if (gaps.length === 0) {
+                return (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: element.wallThickness,
+                      height: element.height,
+                      backgroundImage: `url("${element.wallTextureUrl}")`,
+                      backgroundSize: `${element.wallThickness}px ${element.wallThickness}px`,
+                      backgroundRepeat: 'repeat'
+                    }}
+                  />
+                );
+              }
+              
+              const sortedGaps = [...gaps].sort((a, b) => a.start - b.start);
+              const segments: { start: number; end: number }[] = [];
+              let currentPos = 0;
+              
+              sortedGaps.forEach(gap => {
+                if (currentPos < gap.start) {
+                  segments.push({ start: currentPos, end: gap.start });
+                }
+                currentPos = Math.max(currentPos, gap.end);
+              });
+              
+              if (currentPos < element.height) {
+                segments.push({ start: currentPos, end: element.height });
+              }
+              
+              return segments.map((seg, i) => (
+                <div
+                  key={`left-${i}`}
+                  style={{
+                    position: 'absolute',
+                    top: seg.start,
+                    left: 0,
+                    width: element.wallThickness,
+                    height: seg.end - seg.start,
+                    backgroundImage: `url("${element.wallTextureUrl}")`,
+                    backgroundSize: `${element.wallThickness}px ${element.wallThickness}px`,
+                    backgroundRepeat: 'repeat'
+                  }}
+                />
+              ));
+            })()}
+          </>
+        )}
+        
+        {/* Selection indicator */}
+        {isSelected && (
+          <>
+            <div
+              style={{
+                position: 'absolute',
+                inset: -2,
+                border: '2px solid #22c55e',
+                pointerEvents: 'none'
+              }}
+            />
+            {/* Resize Handles for rooms - at corners */}
+            <div style={{ position: 'absolute', left: -4 / viewport.zoom, top: -4 / viewport.zoom, width: 8 / viewport.zoom, height: 8 / viewport.zoom, backgroundColor: 'white', border: '1px solid #22c55e', cursor: 'nwse-resize', pointerEvents: 'auto' }} />
+            <div style={{ position: 'absolute', right: -4 / viewport.zoom, top: -4 / viewport.zoom, width: 8 / viewport.zoom, height: 8 / viewport.zoom, backgroundColor: 'white', border: '1px solid #22c55e', cursor: 'nesw-resize', pointerEvents: 'auto' }} />
+            <div style={{ position: 'absolute', left: -4 / viewport.zoom, bottom: -4 / viewport.zoom, width: 8 / viewport.zoom, height: 8 / viewport.zoom, backgroundColor: 'white', border: '1px solid #22c55e', cursor: 'nesw-resize', pointerEvents: 'auto' }} />
+            <div style={{ position: 'absolute', right: -4 / viewport.zoom, bottom: -4 / viewport.zoom, width: 8 / viewport.zoom, height: 8 / viewport.zoom, backgroundColor: 'white', border: '1px solid #22c55e', cursor: 'nwse-resize', pointerEvents: 'auto' }} />
           </>
         )}
       </div>

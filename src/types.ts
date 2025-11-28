@@ -1,8 +1,10 @@
 // Data model types for the DM Planner application
 
-export type ElementType = "annotation" | "token";
+export type ElementType = "annotation" | "token" | "room";
 
-export type ToolType = "pointer" | "marker" | "token" | "pan" | "zoom-in" | "zoom-out";
+export type ToolType = "pointer" | "marker" | "token" | "pan" | "zoom-in" | "zoom-out" | "room";
+
+export type RoomSubTool = "draw" | "erase";
 
 export type IconType = "circle" | "square" | "triangle" | "star" | "diamond" | "heart" | "skull" | "quest" | "clue" | "hidden" | "door" | "landmark" | "footprint" | "info";
 
@@ -42,7 +44,33 @@ export interface TokenElement {
   showBadge?: boolean; // For displaying name badge above token
 }
 
-export type MapElement = AnnotationElement | TokenElement;
+export interface WallGap {
+  wall: 'top' | 'right' | 'bottom' | 'left';
+  start: number; // Start position along the wall (in pixels from left/top)
+  end: number; // End position along the wall (in pixels from left/top)
+}
+
+export interface RoomElement {
+  id: string;
+  type: "room";
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  floorTextureUrl: string;
+  tileSize: number; // Size of the floor texture tiles in pixels (default 50)
+  showWalls: boolean; // Whether to show walls or not
+  wallTextureUrl: string; // URL to wall texture image
+  wallThickness: number; // Thickness of walls in pixels (default 8)
+  wallGaps: WallGap[]; // Gaps in walls (for doors/entrances)
+  name: string;
+  notes: string;
+  zIndex?: number; // For layering control
+  visible?: boolean; // For hiding elements (default true)
+  widgets?: Widget[]; // For properties panel customization
+}
+
+export type MapElement = AnnotationElement | TokenElement | RoomElement;
 
 export interface CollectionAppearance {
   gradient: string; // CSS gradient string

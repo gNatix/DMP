@@ -34,6 +34,14 @@ function App() {
   // Recent tokens state for quick picker
   const [recentTokens, setRecentTokens] = useState<TokenTemplate[]>([]);
 
+  // Room builder state
+  const [selectedFloorTexture, setSelectedFloorTexture] = useState<string | null>(null);
+  const [tileSize, setTileSize] = useState<number>(50);
+  const [showWalls, setShowWalls] = useState<boolean>(true);
+  const [selectedWallTexture, setSelectedWallTexture] = useState<string | null>(null);
+  const [wallThickness, setWallThickness] = useState<number>(8);
+  const [roomSubTool, setRoomSubTool] = useState<'draw' | 'erase'>('draw');
+
   // Global ESC handler to blur text inputs (first ESC press)
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
@@ -67,8 +75,13 @@ function App() {
   // Add element to active scene
   const addElement = (element: MapElement) => {
     if (!activeSceneId) return;
+    // Ensure rooms are always behind tokens by assigning appropriate zIndex
+    const elementWithZIndex = {
+      ...element,
+      zIndex: element.type === 'room' ? -100 : (element.zIndex ?? 0)
+    };
     updateScene(activeSceneId, {
-      elements: [...(activeScene?.elements || []), element]
+      elements: [...(activeScene?.elements || []), elementWithZIndex]
     });
     setSelectedElementId(element.id);
   };
@@ -236,7 +249,7 @@ function App() {
         leftPanelOpen={leftPanelOpen}
         showTokenBadges={showTokenBadges}
         setShowTokenBadges={setShowTokenBadges}
-        onDoubleClickElement={(_elementId) => {
+        onDoubleClickElement={(_elementId: string) => {
           setLeftPanelOpen(true);
           setLeftPanelOpen(true);
         }}
@@ -244,6 +257,13 @@ function App() {
         onSelectToken={handleSelectTokenFromPicker}
         selectedColor={activeColor}
         onColorChange={setActiveColor}
+        selectedFloorTexture={selectedFloorTexture}
+        tileSize={tileSize}
+        showWalls={showWalls}
+        selectedWallTexture={selectedWallTexture}
+        wallThickness={wallThickness}
+        roomSubTool={roomSubTool}
+        setRoomSubTool={setRoomSubTool}
       />
 
       {/* Right Panel */}
@@ -271,6 +291,17 @@ function App() {
         setActiveTool={setActiveTool}
         setActiveTokenTemplate={setActiveTokenTemplate}
         onRecentTokensChange={setRecentTokens}
+        activeTool={activeTool}
+        selectedFloorTexture={selectedFloorTexture}
+        onSelectFloorTexture={setSelectedFloorTexture}
+        tileSize={tileSize}
+        onTileSizeChange={setTileSize}
+        showWalls={showWalls}
+        onShowWallsChange={setShowWalls}
+        selectedWallTexture={selectedWallTexture}
+        onSelectWallTexture={setSelectedWallTexture}
+        wallThickness={wallThickness}
+        onWallThicknessChange={setWallThickness}
       />
     </div>
   );
