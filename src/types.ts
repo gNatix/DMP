@@ -4,11 +4,24 @@ export type ElementType = "annotation" | "token" | "room";
 
 export type ToolType = "pointer" | "marker" | "token" | "pan" | "zoom-in" | "zoom-out" | "room";
 
-export type RoomSubTool = "draw" | "erase";
+export type RoomSubTool = "rectangle" | "erase";
 
 export type IconType = "circle" | "square" | "triangle" | "star" | "diamond" | "heart" | "skull" | "quest" | "clue" | "hidden" | "door" | "landmark" | "footprint" | "info";
 
 export type ColorType = 'red' | 'blue' | 'yellow' | 'green' | 'purple' | 'orange' | 'pink' | 'brown' | 'gray' | 'black' | 'white' | 'cyan' | 'magenta' | 'lime' | 'indigo' | 'teal';
+
+// Point in 2D space
+export interface Point {
+  x: number;
+  y: number;
+}
+
+// Wall segment opening (door/entrance) for polygon-based rooms
+export interface WallOpening {
+  segmentIndex: number; // Which edge/segment this opening is on (index into vertices array)
+  startRatio: number; // Position along the segment where opening starts (0.0 to 1.0)
+  endRatio: number; // Position along the segment where opening ends (0.0 to 1.0)
+}
 
 export interface AnnotationElement {
   id: string;
@@ -44,25 +57,31 @@ export interface TokenElement {
   showBadge?: boolean; // For displaying name badge above token
 }
 
+// Legacy WallGap (deprecated - keeping for reference during migration)
 export interface WallGap {
   wall: 'top' | 'right' | 'bottom' | 'left';
-  start: number; // Start position along the wall (in pixels from left/top)
-  end: number; // End position along the wall (in pixels from left/top)
+  start: number;
+  end: number;
 }
 
 export interface RoomElement {
   id: string;
   type: "room";
-  x: number;
-  y: number;
-  width: number;
-  height: number;
+  
+  // Polygon shape - ordered vertices forming the room
+  vertices: Point[];
+  
+  // Wall openings (doors/entrances) on polygon edges
+  wallOpenings: WallOpening[];
+  
+  // Appearance
   floorTextureUrl: string;
   tileSize: number; // Size of the floor texture tiles in pixels (default 50)
   showWalls: boolean; // Whether to show walls or not
   wallTextureUrl: string; // URL to wall texture image
   wallThickness: number; // Thickness of walls in pixels (default 8)
-  wallGaps: WallGap[]; // Gaps in walls (for doors/entrances)
+  
+  // Metadata
   name: string;
   notes: string;
   zIndex?: number; // For layering control

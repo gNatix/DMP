@@ -40,7 +40,7 @@ function App() {
   const [showWalls, setShowWalls] = useState<boolean>(true);
   const [selectedWallTexture, setSelectedWallTexture] = useState<string | null>(null);
   const [wallThickness, setWallThickness] = useState<number>(8);
-  const [roomSubTool, setRoomSubTool] = useState<'draw' | 'erase'>('draw');
+  const [roomSubTool, setRoomSubTool] = useState<RoomSubTool>('rectangle');
 
   // Global ESC handler to blur text inputs (first ESC press)
   useEffect(() => {

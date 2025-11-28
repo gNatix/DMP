@@ -116,12 +116,12 @@ const FloatingToolbar = ({
     setShowTokenPicker(false);
   };
 
-  // Auto-open room sub-tool picker when room tool is active and reset to draw mode
+  // Auto-open room sub-tool picker when room tool is active and reset to rectangle mode
   useEffect(() => {
     if (activeTool === 'room') {
       setShowRoomSubToolPicker(true);
-      // Reset to draw mode when activating room tool (don't remember eraser)
-      setRoomSubTool('draw');
+      // Reset to rectangle mode when activating room tool
+      setRoomSubTool('rectangle');
     } else {
       setShowRoomSubToolPicker(false);
     }
@@ -321,11 +321,11 @@ const FloatingToolbar = ({
               className="absolute bottom-full mb-2 left-0 bg-dm-panel border border-dm-border rounded-lg shadow-2xl p-2 z-[100]"
             >
               <div className="flex gap-1">
-                {/* Draw Room Tool */}
+                {/* Draw Rectangle Room Tool */}
                 <button
-                  onClick={() => setRoomSubTool('draw')}
+                  onClick={() => setRoomSubTool('rectangle')}
                   className={`p-3 rounded transition-all ${
-                    roomSubTool === 'draw'
+                    roomSubTool === 'rectangle'
                       ? 'bg-dm-highlight text-white'
                       : 'hover:bg-dm-dark text-gray-400 hover:text-gray-200'
                   }`}

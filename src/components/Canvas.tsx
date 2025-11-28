@@ -95,6 +95,44 @@ const Canvas = ({
   const [shouldRotateMap, setShouldRotateMap] = useState(false);
   const [isErasing, setIsErasing] = useState(false);
 
+  // Geometry helper functions for polygon operations
+  const pointInPolygon = (point: { x: number; y: number }, vertices: { x: number; y: number }[]): boolean => {
+    let inside = false;
+    for (let i = 0, j = vertices.length - 1; i < vertices.length; j = i++) {
+      const xi = vertices[i].x, yi = vertices[i].y;
+      const xj = vertices[j].x, yj = vertices[j].y;
+      
+      const intersect = ((yi > point.y) !== (yj > point.y)) &&
+        (point.x < (xj - xi) * (point.y - yi) / (yj - yi) + xi);
+      if (intersect) inside = !inside;
+    }
+    return inside;
+  };
+
+  const distanceToLineSegment = (
+    point: { x: number; y: number },
+    start: { x: number; y: number },
+    end: { x: number; y: number }
+  ): { distance: number; ratio: number } => {
+    const dx = end.x - start.x;
+    const dy = end.y - start.y;
+    const lengthSquared = dx * dx + dy * dy;
+    
+    if (lengthSquared === 0) {
+      const dist = Math.sqrt((point.x - start.x) ** 2 + (point.y - start.y) ** 2);
+      return { distance: dist, ratio: 0 };
+    }
+    
+    let ratio = ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared;
+    ratio = Math.max(0, Math.min(1, ratio));
+    
+    const projX = start.x + ratio * dx;
+    const projY = start.y + ratio * dy;
+    const distance = Math.sqrt((point.x - projX) ** 2 + (point.y - projY) ** 2);
+    
+    return { distance, ratio };
+  };
+
   // Auto-apply fit to view when locked and panel opens/closes OR when map dimensions change
   useEffect(() => {
     if (fitToViewLocked && mapDimensions.width > 0 && mapDimensions.height > 0) {
@@ -711,71 +749,81 @@ const Canvas = ({
   }, [selectedElementId, selectedElementIds, deleteElements, scene, activeSceneId, activeTool, clipboard, history, historyIndex, viewport]);
 
   const handleWallErase = (room: RoomElement, clickX: number, clickY: number) => {
-    // Determine which wall was clicked and create a gap
-    const { x, y, width, height, wallThickness, wallGaps } = room;
+    const { vertices, wallThickness, wallOpenings } = room;
     const brushSize = 10; // Small brush for painting effect
-
-    let newGap: { wall: 'top' | 'right' | 'bottom' | 'left'; start: number; end: number } | null = null;
-
-    // Check if click is within wall bounds
-    const isInTopWall = clickY >= y && clickY <= y + wallThickness && clickX >= x && clickX <= x + width;
-    const isInBottomWall = clickY >= y + height - wallThickness && clickY <= y + height && clickX >= x && clickX <= x + width;
-    const isInLeftWall = clickX >= x && clickX <= x + wallThickness && clickY >= y && clickY <= y + height;
-    const isInRightWall = clickX >= x + width - wallThickness && clickX <= x + width && clickY >= y && clickY <= y + height;
-
-    if (isInTopWall) {
-      // Top wall - gap is measured along x-axis from left edge
-      const position = clickX - x;
-      const start = Math.max(0, position - brushSize / 2);
-      const end = Math.min(width, position + brushSize / 2);
-      newGap = { wall: 'top', start, end };
-    } else if (isInBottomWall) {
-      // Bottom wall - gap is measured along x-axis from left edge
-      const position = clickX - x;
-      const start = Math.max(0, position - brushSize / 2);
-      const end = Math.min(width, position + brushSize / 2);
-      newGap = { wall: 'bottom', start, end };
-    } else if (isInLeftWall) {
-      // Left wall - gap is measured along y-axis from top edge
-      const position = clickY - y;
-      const start = Math.max(0, position - brushSize / 2);
-      const end = Math.min(height, position + brushSize / 2);
-      newGap = { wall: 'left', start, end };
-    } else if (isInRightWall) {
-      // Right wall - gap is measured along y-axis from top edge
-      const position = clickY - y;
-      const start = Math.max(0, position - brushSize / 2);
-      const end = Math.min(height, position + brushSize / 2);
-      newGap = { wall: 'right', start, end };
-    }
-
-    if (newGap) {
-      // Merge overlapping gaps for the same wall
-      const existingGaps = (wallGaps || []).filter(g => g.wall !== newGap!.wall);
-      const sameWallGaps = (wallGaps || []).filter(g => g.wall === newGap!.wall);
+    
+    if (!vertices || vertices.length < 3) return;
+    
+    // Find the nearest edge to the click point
+    let nearestEdgeIndex = -1;
+    let nearestDistance = Infinity;
+    let nearestRatio = 0;
+    
+    for (let i = 0; i < vertices.length; i++) {
+      const start = vertices[i];
+      const end = vertices[(i + 1) % vertices.length];
       
-      // Add new gap and merge overlapping ones
-      sameWallGaps.push(newGap);
-      sameWallGaps.sort((a, b) => a.start - b.start);
+      const { distance, ratio } = distanceToLineSegment({ x: clickX, y: clickY }, start, end);
       
-      const mergedGaps: typeof sameWallGaps = [];
-      let current = sameWallGaps[0];
-      
-      for (let i = 1; i < sameWallGaps.length; i++) {
-        const next = sameWallGaps[i];
-        if (next.start <= current.end) {
-          // Overlapping or adjacent, merge
-          current = { wall: current.wall, start: current.start, end: Math.max(current.end, next.end) };
-        } else {
-          mergedGaps.push(current);
-          current = next;
-        }
+      if (distance < nearestDistance) {
+        nearestDistance = distance;
+        nearestEdgeIndex = i;
+        nearestRatio = ratio;
       }
-      mergedGaps.push(current);
-      
-      const updatedGaps = [...existingGaps, ...mergedGaps];
-      updateElement(room.id, { wallGaps: updatedGaps });
     }
+    
+    // Only erase if click is within wall thickness distance from an edge
+    if (nearestEdgeIndex === -1 || nearestDistance > wallThickness) {
+      return;
+    }
+    
+    // Calculate edge length to convert brush size to ratio
+    const start = vertices[nearestEdgeIndex];
+    const end = vertices[(nearestEdgeIndex + 1) % vertices.length];
+    const edgeLength = Math.sqrt((end.x - start.x) ** 2 + (end.y - start.y) ** 2);
+    
+    if (edgeLength === 0) return;
+    
+    const brushRatio = brushSize / edgeLength;
+    const startRatio = Math.max(0, nearestRatio - brushRatio / 2);
+    const endRatio = Math.min(1, nearestRatio + brushRatio / 2);
+    
+    // Create new wall opening
+    const newOpening: import('../types').WallOpening = {
+      segmentIndex: nearestEdgeIndex,
+      startRatio,
+      endRatio
+    };
+    
+    // Merge with existing openings on the same segment
+    const existingOpenings = (wallOpenings || []).filter(o => o.segmentIndex !== nearestEdgeIndex);
+    const sameSegmentOpenings = (wallOpenings || []).filter(o => o.segmentIndex === nearestEdgeIndex);
+    
+    sameSegmentOpenings.push(newOpening);
+    sameSegmentOpenings.sort((a, b) => a.startRatio - b.startRatio);
+    
+    // Merge overlapping openings
+    const mergedOpenings: import('../types').WallOpening[] = [];
+    let current = sameSegmentOpenings[0];
+    
+    for (let i = 1; i < sameSegmentOpenings.length; i++) {
+      const next = sameSegmentOpenings[i];
+      if (next.startRatio <= current.endRatio) {
+        // Overlapping, merge
+        current = {
+          segmentIndex: current.segmentIndex,
+          startRatio: current.startRatio,
+          endRatio: Math.max(current.endRatio, next.endRatio)
+        };
+      } else {
+        mergedOpenings.push(current);
+        current = next;
+      }
+    }
+    mergedOpenings.push(current);
+    
+    const updatedOpenings = [...existingOpenings, ...mergedOpenings];
+    updateElement(room.id, { wallOpenings: updatedOpenings });
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -942,8 +990,8 @@ const Canvas = ({
       };
       setTempElement(tempToken);
     } else if (effectiveTool === 'room') {
-      if (roomSubTool === 'draw') {
-        // Start creating floor tile area with drag-to-draw rectangle
+      if (roomSubTool === 'rectangle') {
+        // Start creating floor tile area with drag-to-draw rectangle (as polygon)
         if (!selectedFloorTexture) {
           // Cannot draw floor without texture selected
           return;
@@ -952,16 +1000,18 @@ const Canvas = ({
         const tempRoomElement: RoomElement = {
           id: 'temp',
           type: 'room',
-          x,
-          y,
-          width: 0,
-          height: 0,
+          vertices: [
+            { x, y },
+            { x, y },
+            { x, y },
+            { x, y }
+          ],
+          wallOpenings: [],
           floorTextureUrl: selectedFloorTexture,
           tileSize: tileSize,
           showWalls: showWalls,
           wallTextureUrl: selectedWallTexture || '',
           wallThickness: wallThickness,
-          wallGaps: [],
           name: 'Floor',
           notes: '',
           zIndex: -100,
@@ -970,11 +1020,11 @@ const Canvas = ({
         };
         setTempRoom(tempRoomElement);
       } else if (roomSubTool === 'erase') {
-        // Start erasing walls - find all rooms under cursor
+        // Start erasing walls - find all rooms under cursor using point-in-polygon
         const roomsUnderCursor = scene.elements.filter(el => {
           if (el.type !== 'room') return false;
           const room = el as RoomElement;
-          return x >= room.x && x <= room.x + room.width && y >= room.y && y <= room.y + room.height;
+          return room.vertices && pointInPolygon({ x, y }, room.vertices);
         });
         
         if (roomsUnderCursor.length > 0) {
@@ -1012,7 +1062,7 @@ const Canvas = ({
       const roomsUnderCursor = scene.elements.filter(el => {
         if (el.type !== 'room') return false;
         const room = el as RoomElement;
-        return x >= room.x && x <= room.x + room.width && y >= room.y && y <= room.y + room.height;
+        return room.vertices && pointInPolygon({ x, y }, room.vertices);
       });
       
       roomsUnderCursor.forEach(room => {
@@ -1119,13 +1169,23 @@ const Canvas = ({
       return;
     }
 
-    // Handle room drawing
+    // Handle room drawing - update rectangle vertices
     if (roomDrawStart && tempRoom) {
-      const width = Math.abs(x - roomDrawStart.x);
-      const height = Math.abs(y - roomDrawStart.y);
-      const newX = Math.min(x, roomDrawStart.x);
-      const newY = Math.min(y, roomDrawStart.y);
-      setTempRoom({ ...tempRoom, x: newX, y: newY, width, height });
+      const minX = Math.min(x, roomDrawStart.x);
+      const maxX = Math.max(x, roomDrawStart.x);
+      const minY = Math.min(y, roomDrawStart.y);
+      const maxY = Math.max(y, roomDrawStart.y);
+      
+      // Update 4 vertices to form rectangle
+      setTempRoom({ 
+        ...tempRoom, 
+        vertices: [
+          { x: minX, y: minY }, // Top-left
+          { x: maxX, y: minY }, // Top-right
+          { x: maxX, y: maxY }, // Bottom-right
+          { x: minX, y: maxY }  // Bottom-left
+        ]
+      });
       return;
     }
 
@@ -1185,8 +1245,14 @@ const Canvas = ({
 
     // Finalize room creation
     if (roomDrawStart && tempRoom && tempRoom.id === 'temp') {
+      // Calculate room dimensions from vertices
+      const xs = tempRoom.vertices.map(v => v.x);
+      const ys = tempRoom.vertices.map(v => v.y);
+      const width = Math.max(...xs) - Math.min(...xs);
+      const height = Math.max(...ys) - Math.min(...ys);
+      
       // Only create room if it has some size (at least 20x20)
-      if (tempRoom.width >= 20 && tempRoom.height >= 20) {
+      if (width >= 20 && height >= 20) {
         saveToHistory();
         const finalRoom = { ...tempRoom, id: `room-${Date.now()}`, tileSize, showWalls, wallTextureUrl: selectedWallTexture || '', wallThickness };
         addElement(finalRoom);
