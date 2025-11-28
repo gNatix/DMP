@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { Scene, MapElement, TokenTemplate, ToolType, Collection, CollectionAppearance } from '../types';
-import PropertiesTab from './PropertiesTab';
 import ScenesTab from './ScenesTab';
 import TokensTab from './TokensTab';
 import RoomBuilderPanel from './RoomBuilderPanel';
@@ -9,8 +8,6 @@ interface RightPanelProps {
   scenes: Scene[];
   activeSceneId: string | null;
   setActiveSceneId: (id: string | null) => void;
-  activeScene: Scene | null;
-  updateScene: (sceneId: string, updates: Partial<Scene>) => void;
   addScene: (name: string, backgroundMapUrl: string, backgroundMapName: string, collectionId?: string) => void;
   updateSceneName: (sceneId: string, newName: string) => void;
   deleteScene: (sceneId: string) => void;
@@ -20,10 +17,8 @@ interface RightPanelProps {
   updateCollectionAppearance: (collectionId: string, appearance?: CollectionAppearance) => void;
   deleteCollection: (collectionId: string) => void;
   selectedElement: MapElement | null;
-  selectedElements: MapElement[];
   updateElement: (id: string, updates: Partial<MapElement>) => void;
   deleteElement: (id: string) => void;
-  deleteElements: (ids: string[]) => void;
   tokenTemplates: TokenTemplate[];
   addTokenTemplate: (name: string, imageUrl: string) => void;
   setActiveTool: (tool: ToolType) => void;
@@ -48,8 +43,6 @@ const RightPanel = ({
   scenes,
   activeSceneId,
   setActiveSceneId,
-  activeScene,
-  updateScene,
   addScene,
   updateSceneName,
   deleteScene,
@@ -59,10 +52,8 @@ const RightPanel = ({
   updateCollectionAppearance,
   deleteCollection,
   selectedElement,
-  selectedElements,
   updateElement,
   deleteElement,
-  deleteElements,
   tokenTemplates,
   addTokenTemplate,
   setActiveTool,

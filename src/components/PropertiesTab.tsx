@@ -194,20 +194,22 @@ const PropertiesTab = ({
           </>
         )}
 
-        {/* Size slider */}
-        <div>
-          <label className="block text-sm font-medium text-gray-400 mb-1">
-            Size: {selectedElement.size}px
-          </label>
-          <input
-            type="range"
-            min="20"
-            max="150"
-            value={selectedElement.size}
-            onChange={(e) => updateElement(selectedElement.id, { size: parseInt(e.target.value) })}
-            className="w-full accent-dm-highlight"
-          />
-        </div>
+        {/* Size slider - only for elements with size property */}
+        {'size' in selectedElement && (
+          <div>
+            <label className="block text-sm font-medium text-gray-400 mb-1">
+              Size: {selectedElement.size}px
+            </label>
+            <input
+              type="range"
+              min="20"
+              max="150"
+              value={selectedElement.size}
+              onChange={(e) => updateElement(selectedElement.id, { size: parseInt(e.target.value) })}
+              className="w-full accent-dm-highlight"
+            />
+          </div>
+        )}
 
         {/* Notes */}
         <div>

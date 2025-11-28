@@ -358,11 +358,11 @@ const LeftPanel = ({
                   <label className="text-xs text-gray-500 uppercase tracking-wide flex-shrink-0">Name:</label>
                   <input
                     type="text"
-                    value={selectedElement.type === 'token' ? selectedElement.name || '' : selectedElement.label || ''}
+                    value={selectedElement.type === 'token' ? selectedElement.name || '' : (selectedElement.type === 'annotation' && 'label' in selectedElement) ? selectedElement.label || '' : ''}
                     onChange={(e) => {
                       if (selectedElement.type === 'token') {
                         updateElement(selectedElement.id, { name: e.target.value });
-                      } else {
+                      } else if (selectedElement.type === 'annotation') {
                         updateElement(selectedElement.id, { label: e.target.value });
                       }
                     }}
