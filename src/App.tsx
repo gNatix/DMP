@@ -271,8 +271,6 @@ function App() {
         scenes={scenes}
         activeSceneId={activeSceneId}
         setActiveSceneId={setActiveSceneId}
-        activeScene={activeScene}
-        updateScene={updateScene}
         addScene={addScene}
         updateSceneName={updateSceneName}
         deleteScene={deleteScene}
@@ -282,10 +280,8 @@ function App() {
         updateCollectionAppearance={updateCollectionAppearance}
         deleteCollection={deleteCollection}
         selectedElement={selectedElement}
-        selectedElements={selectedElements}
         updateElement={updateElement}
         deleteElement={deleteElement}
-        deleteElements={deleteElements}
         tokenTemplates={tokenTemplates}
         addTokenTemplate={addTokenTemplate}
         setActiveTool={setActiveTool}
