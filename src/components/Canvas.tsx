@@ -105,6 +105,7 @@ const Canvas = ({
   const [zoomLimitError, setZoomLimitError] = useState(false);
   const [shouldRotateMap, setShouldRotateMap] = useState(false);
   const [isErasing, setIsErasing] = useState(false);
+  const [mergeNotification, setMergeNotification] = useState<string | null>(null);
 
   // Geometry helper functions for polygon operations
   const pointInPolygon = (point: { x: number; y: number }, vertices: { x: number; y: number }[]): boolean => {
@@ -630,19 +631,53 @@ const Canvas = ({
       return;
     }
 
+    // Find groups of overlapping rooms
+    const findOverlappingGroups = (rooms: RoomElement[]): RoomElement[][] => {
+      const groups: RoomElement[][] = [];
+      const assigned = new Set<string>();
+
+      for (let i = 0; i < rooms.length; i++) {
+        if (assigned.has(rooms[i].id)) continue;
+
+        const group = [rooms[i]];
+        assigned.add(rooms[i].id);
+
+        // Find all rooms that overlap with any room in this group
+        let changed = true;
+        while (changed) {
+          changed = false;
+          for (let j = 0; j < rooms.length; j++) {
+            if (assigned.has(rooms[j].id)) continue;
+            
+            // Check if this room overlaps with any room in the group
+            for (const groupRoom of group) {
+              if (doRoomsOverlap(rooms[j], groupRoom)) {
+                group.push(rooms[j]);
+                assigned.add(rooms[j].id);
+                changed = true;
+                break;
+              }
+            }
+          }
+        }
+
+        groups.push(group);
+      }
+
+      return groups;
+    };
+
     // Merge polygons using proper polygon clipping union
     const mergePolygons = (rooms: RoomElement[]): { x: number; y: number }[] => {
       if (rooms.length === 0) return [];
       if (rooms.length === 1) return rooms[0].vertices || [];
       
       // Convert room vertices to polygon-clipping format
-      // Format: [[[x, y], [x, y], ...]]
       const polygons = rooms.map(room => {
         if (!room.vertices || room.vertices.length < 3) return null;
-        // Close the polygon by adding first point at end
         const coords = room.vertices.map(v => [v.x, v.y] as [number, number]);
         coords.push(coords[0]); // Close the ring
-        return [coords]; // Polygon format: array of rings
+        return [coords];
       }).filter(p => p !== null);
 
       if (polygons.length === 0) return rooms[0]?.vertices || [];
@@ -654,15 +689,12 @@ const Canvas = ({
           result = polygonClipping.union(result, polygons[i] as any);
         }
 
-        // Convert back to our vertex format
-        // Result is MultiPolygon format: [[[[x, y], ...]]]
         if (result.length === 0 || result[0].length === 0) {
           return rooms[0].vertices || [];
         }
 
         // Take the first polygon's outer ring
         const outerRing = result[0][0] as [number, number][];
-        // Remove the closing point (last point is duplicate of first)
         const vertices = outerRing.slice(0, -1).map(coord => ({ x: coord[0], y: coord[1] }));
         
         return vertices;
@@ -672,23 +704,67 @@ const Canvas = ({
       }
     };
 
-    const mergedVertices = mergePolygons(selectedRooms);
+    // Group rooms by overlap
+    const groups = findOverlappingGroups(selectedRooms);
+    
+    console.log('Selected rooms:', selectedRooms.length);
+    console.log('Groups found:', groups.map(g => g.length));
+    
+    // Count non-merged rooms (groups with only 1 room)
+    const nonMergedCount = groups.filter(group => group.length === 1).length;
+    
+    // Process each group
+    const mergedRooms: RoomElement[] = [];
+    const roomsToRemove = new Set<string>();
 
-    // Use properties from the first selected room
-    const firstRoom = selectedRooms[0];
-    const mergedRoom: RoomElement = {
-      ...firstRoom,
-      id: `room-${Date.now()}`,
-      vertices: mergedVertices,
-      wallOpenings: [] // Clear wall openings since structure changed
-    };
+    groups.forEach((group, index) => {
+      console.log(`Group ${index}: ${group.length} rooms`);
+      if (group.length === 1) {
+        // Single room, don't add to removal list - it stays in place
+        console.log(`  Keeping room ${group[0].id} unchanged`);
+        // Do nothing, the room remains unchanged in the scene
+      } else {
+        // Multiple overlapping rooms, merge them
+        console.log(`  Merging ${group.length} rooms`);
+        const mergedVertices = mergePolygons(group);
+        const firstRoom = group[0];
+        const mergedRoom: RoomElement = {
+          ...firstRoom,
+          id: `room-${Date.now()}-${Math.random()}`,
+          vertices: mergedVertices,
+          wallOpenings: []
+        };
+        mergedRooms.push(mergedRoom);
+        
+        // Mark original rooms for removal
+        group.forEach(room => {
+          console.log(`  Marking ${room.id} for removal`);
+          roomsToRemove.add(room.id);
+        });
+      }
+    });
 
-    // Remove old rooms and add merged room
-    const updatedElements = scene.elements.filter(el => !selectedIds.includes(el.id));
-    updatedElements.push(mergedRoom);
+    console.log('Total rooms to remove:', roomsToRemove.size);
+    console.log('Total merged rooms to add:', mergedRooms.length);
+    
+    // Remove only the rooms that were actually merged, keep all others
+    let updatedElements = scene.elements.filter(el => !roomsToRemove.has(el.id));
+    // Add the newly merged rooms
+    updatedElements = updatedElements.concat(mergedRooms);
 
     updateScene(activeSceneId, { elements: updatedElements });
-    setSelectedElementId(mergedRoom.id);
+    
+    // Show notification if some rooms were not merged
+    if (nonMergedCount > 0) {
+      const roomText = nonMergedCount === 1 ? 'room was' : 'rooms were';
+      setMergeNotification(`${nonMergedCount} ${roomText} not merged. Only overlapping rooms can merge.`);
+      setTimeout(() => setMergeNotification(null), 4000);
+    }
+    
+    // Select the first merged room if any, otherwise clear selection
+    if (mergedRooms.length > 0) {
+      setSelectedElementId(mergedRooms[0].id);
+    }
     setSelectedElementIds([]);
   };
 
@@ -2317,19 +2393,19 @@ const Canvas = ({
 
               if (selectedRooms.length < 2) return null;
 
-              // Check if any rooms overlap
-              let hasOverlap = false;
+              // Check if at least 2 rooms can merge (overlap)
+              let mergableCount = 0;
               for (let i = 0; i < selectedRooms.length - 1; i++) {
                 for (let j = i + 1; j < selectedRooms.length; j++) {
                   if (doRoomsOverlap(selectedRooms[i], selectedRooms[j])) {
-                    hasOverlap = true;
-                    break;
+                    mergableCount++;
+                    if (mergableCount >= 1) break; // At least one pair can merge
                   }
                 }
-                if (hasOverlap) break;
+                if (mergableCount >= 1) break;
               }
 
-              if (!hasOverlap) return null;
+              if (mergableCount === 0) return null;
 
               // Calculate position: to the right of the selection bounding box
               const allVertices: { x: number; y: number }[] = [];
@@ -2488,6 +2564,17 @@ const Canvas = ({
           <div className="bg-red-900/80 border border-red-700/50 rounded-lg shadow-lg px-5 py-3">
             <p className="text-red-200 text-sm text-center">
               Disable fit to screen to zoom further out
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Merge Notification */}
+      {mergeNotification && (
+        <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50">
+          <div className="bg-yellow-900/80 border border-yellow-700/50 rounded-lg shadow-lg px-5 py-3">
+            <p className="text-yellow-200 text-sm text-center">
+              {mergeNotification}
             </p>
           </div>
         </div>
