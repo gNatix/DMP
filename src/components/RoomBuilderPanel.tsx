@@ -45,8 +45,7 @@ const RoomBuilderPanel = ({
   updateElement,
   setActiveTool,
   roomSubTool,
-  setRoomSubTool,
-  onMergeRooms
+  setRoomSubTool
 }: RoomBuilderPanelProps) => {
   const [floorTextures, setFloorTextures] = useState<AssetFile[]>([]);
   const [loadingFloors, setLoadingFloors] = useState(true);

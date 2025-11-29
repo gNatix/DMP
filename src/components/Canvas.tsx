@@ -636,9 +636,9 @@ const Canvas = ({
 
       try {
         // Perform union of all polygons
-        let result = polygons[0];
+        let result: any = polygons[0];
         for (let i = 1; i < polygons.length; i++) {
-          result = polygonClipping.union(result as any, polygons[i] as any);
+          result = polygonClipping.union(result, polygons[i] as any);
         }
 
         // Convert back to our vertex format
@@ -648,7 +648,7 @@ const Canvas = ({
         }
 
         // Take the first polygon's outer ring
-        const outerRing = result[0][0];
+        const outerRing = result[0][0] as [number, number][];
         // Remove the closing point (last point is duplicate of first)
         const vertices = outerRing.slice(0, -1).map(coord => ({ x: coord[0], y: coord[1] }));
         
