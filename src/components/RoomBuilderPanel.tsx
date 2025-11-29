@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { RoomElement, MapElement } from '../types';
+import { RoomElement, MapElement, RoomSubTool } from '../types';
 
 interface RoomBuilderPanelProps {
   selectedFloorTexture: string | null;
@@ -12,9 +12,14 @@ interface RoomBuilderPanelProps {
   onSelectWallTexture: (url: string) => void;
   wallThickness: number;
   onWallThicknessChange: (thickness: number) => void;
+  wallTileSize: number;
+  onWallTileSizeChange: (size: number) => void;
   selectedRoom: RoomElement | null;
   updateElement: (id: string, updates: Partial<MapElement>) => void;
   setActiveTool: (tool: 'room') => void;
+  roomSubTool: RoomSubTool;
+  setRoomSubTool: (subTool: RoomSubTool) => void;
+  onMergeRooms?: () => void;
 }
 
 interface AssetFile {
@@ -29,14 +34,19 @@ const RoomBuilderPanel = ({
   tileSize,
   onTileSizeChange,
   showWalls,
-  onShowWallsChange,
+  onShowWallsChange: _onShowWallsChange,
   selectedWallTexture,
   onSelectWallTexture,
   wallThickness,
   onWallThicknessChange,
+  wallTileSize,
+  onWallTileSizeChange,
   selectedRoom,
   updateElement,
-  setActiveTool
+  setActiveTool,
+  roomSubTool,
+  setRoomSubTool,
+  onMergeRooms
 }: RoomBuilderPanelProps) => {
   const [floorTextures, setFloorTextures] = useState<AssetFile[]>([]);
   const [loadingFloors, setLoadingFloors] = useState(true);
@@ -77,6 +87,20 @@ const RoomBuilderPanel = ({
     loadWallTextures();
   }, []);
 
+  // Set default floor texture when textures load and none is selected
+  useEffect(() => {
+    if (floorTextures.length > 0 && !selectedFloorTexture) {
+      onSelectFloorTexture(floorTextures[0].download_url);
+    }
+  }, [floorTextures, selectedFloorTexture, onSelectFloorTexture]);
+
+  // Set default wall texture when textures load and none is selected
+  useEffect(() => {
+    if (wallTextures.length > 0 && !selectedWallTexture) {
+      onSelectWallTexture(wallTextures[0].download_url);
+    }
+  }, [wallTextures, selectedWallTexture, onSelectWallTexture]);
+
   // Handle texture change for selected room
   const handleTextureClick = (url: string) => {
     if (selectedRoom) {
@@ -94,15 +118,6 @@ const RoomBuilderPanel = ({
       updateElement(selectedRoom.id, { tileSize: size });
     } else {
       onTileSizeChange(size);
-    }
-  };
-
-  // Handle wall show/hide change
-  const handleShowWallsChange = (show: boolean) => {
-    if (selectedRoom) {
-      updateElement(selectedRoom.id, { showWalls: show });
-    } else {
-      onShowWallsChange(show);
     }
   };
 
@@ -131,72 +146,123 @@ const RoomBuilderPanel = ({
   const currentWallTexture = selectedRoom?.wallTextureUrl ?? selectedWallTexture;
   const currentWallThickness = selectedRoom?.wallThickness ?? wallThickness;
 
+  // Tab state
+  const [activeTab, setActiveTab] = useState<'shape-room' | 'draw-walls'>('shape-room');
+
   return (
     <div className="h-full flex flex-col bg-dm-panel overflow-hidden">
-      {/* Header */}
-      <div className="p-4 border-b border-dm-border">
-        <h3 className="text-lg font-semibold text-dm-highlight">
-          {selectedRoom ? `Editing: ${selectedRoom.name}` : 'Floor Tiles'}
-        </h3>
-        <p className="text-xs text-gray-400 mt-1">
-          {selectedRoom ? 'Change texture or tile size for selected room' : 'Click and drag on the map to draw floor areas'}
-        </p>
-      </div>
-
       {/* Scrollable Content */}
-      <div className="flex-1 overflow-y-auto">
-        {/* Tile Size Slider */}
-        <div className="p-4 border-b border-dm-border">
-          <h4 className="text-sm font-medium mb-2">Tile Size</h4>
-          <div className="flex items-center gap-3">
-            <input
-              type="range"
-              min="10"
-              max="200"
-              value={currentTileSize}
-              onChange={(e) => handleTileSizeChange(Number(e.target.value))}
-              className="flex-1"
-            />
-            <span className="text-sm text-gray-400 w-12 text-right">{currentTileSize}px</span>
-          </div>
+      <div className="flex-1 overflow-y-auto p-4">
+
+        {/* Tab Navigation */}
+        <div className="flex gap-1 mb-0">
+          <button
+            onClick={() => setActiveTab('shape-room')}
+            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-all ${
+              activeTab === 'shape-room'
+                ? 'bg-dm-dark/50 text-dm-highlight border-t border-l border-r border-dm-border/50'
+                : 'bg-dm-panel/30 text-gray-400 hover:text-gray-300 border-t border-l border-r border-transparent'
+            }`}
+          >
+            Shape Room
+          </button>
+          <button
+            onClick={() => setActiveTab('draw-walls')}
+            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-all ${
+              activeTab === 'draw-walls'
+                ? 'bg-dm-dark/50 text-dm-highlight border-t border-l border-r border-dm-border/50'
+                : 'bg-dm-panel/30 text-gray-400 hover:text-gray-300 border-t border-l border-r border-transparent'
+            }`}
+          >
+            Draw Walls
+          </button>
         </div>
 
-        {/* Wall Controls */}
-        <div className="p-4 border-b border-dm-border">
-          <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
-            <span className="w-3 h-3 bg-gray-600 rounded"></span>
-            Walls
-          </h4>
-          
-          {/* Wall Toggle */}
-          <div className="mb-3">
-            <label className="text-xs text-gray-400 mb-2 block">Show Walls</label>
-            <div className="flex gap-2">
-              <button
-                onClick={() => handleShowWallsChange(false)}
-                className={`flex-1 py-2 px-3 text-sm rounded transition-all ${
-                  !currentShowWalls
-                    ? 'bg-dm-highlight text-black font-medium'
-                    : 'bg-dm-dark text-gray-300 hover:bg-dm-dark/70'
-                }`}
-              >
-                No Walls
-              </button>
-              <button
-                onClick={() => handleShowWallsChange(true)}
-                className={`flex-1 py-2 px-3 text-sm rounded transition-all ${
-                  currentShowWalls
-                    ? 'bg-dm-highlight text-black font-medium'
-                    : 'bg-dm-dark text-gray-300 hover:bg-dm-dark/70'
-                }`}
-              >
-                Show Walls
-              </button>
-            </div>
-          </div>
+        {/* Content Widget */}
+        <div className="bg-dm-dark/50 rounded-b-lg rounded-tr-lg p-4 border border-dm-border/50">
 
-          {/* Wall Texture and Thickness - only show if walls are enabled */}
-          {currentShowWalls && (
+        {activeTab === 'shape-room' && (
+          <>
+            {/* Shape Picker */}
+            <div className="mb-4">
+              <label className="text-xs text-gray-400 mb-2 block">Room Shape</label>
+              <div className="grid grid-cols-6 gap-2">
+                {/* Rectangle */}
+                <button
+                  onClick={() => {
+                    setRoomSubTool('rectangle');
+                    setActiveTool('room');
+                  }}
+                  className={`aspect-square rounded border-2 transition-all bg-dm-panel flex items-center justify-center ${
+                    roomSubTool === 'rectangle'
+                      ? 'border-amber-500 ring-2 ring-amber-500/50'
+                      : 'border-dm-border hover:border-dm-highlight'
+                  }`}
+                  title="Rectangle (4 corners)"
+                >
+                  <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <rect x="4" y="6" width="16" height="12" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </button>
+
+                {/* Pentagon */}
+                <button
+                  onClick={() => {
+                    setRoomSubTool('pentagon');
+                    setActiveTool('room');
+                  }}
+                  className={`aspect-square rounded border-2 transition-all bg-dm-panel flex items-center justify-center ${
+                    roomSubTool === 'pentagon'
+                      ? 'border-amber-500 ring-2 ring-amber-500/50'
+                      : 'border-dm-border hover:border-dm-highlight'
+                  }`}
+                  title="Pentagon (5 corners)"
+                >
+                  <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 3 L21 9 L18 19 L6 19 L3 9 Z" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </button>
+
+                {/* Hexagon */}
+                <button
+                  onClick={() => {
+                    setRoomSubTool('hexagon');
+                    setActiveTool('room');
+                  }}
+                  className={`aspect-square rounded border-2 transition-all bg-dm-panel flex items-center justify-center ${
+                    roomSubTool === 'hexagon'
+                      ? 'border-amber-500 ring-2 ring-amber-500/50'
+                      : 'border-dm-border hover:border-dm-highlight'
+                  }`}
+                  title="Hexagon (6 corners)"
+                >
+                  <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2 L20 7 L20 17 L12 22 L4 17 L4 7 Z" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </button>
+
+                {/* Octagon */}
+                <button
+                  onClick={() => {
+                    setRoomSubTool('octagon');
+                    setActiveTool('room');
+                  }}
+                  className={`aspect-square rounded border-2 transition-all bg-dm-panel flex items-center justify-center ${
+                    roomSubTool === 'octagon'
+                      ? 'border-amber-500 ring-2 ring-amber-500/50'
+                      : 'border-dm-border hover:border-dm-highlight'
+                  }`}
+                  title="Octagon (8 corners)"
+                >
+                  <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path d="M8 2 L16 2 L22 8 L22 16 L16 22 L8 22 L2 16 L2 8 Z" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            {/* Wall Texture and Thickness */}
+            {currentShowWalls && (
             <>
               {/* Wall Texture Selection */}
               <div className="mb-3">
@@ -206,7 +272,7 @@ const RoomBuilderPanel = ({
                 ) : wallTextures.length === 0 ? (
                   <div className="text-sm text-gray-400">No wall textures found</div>
                 ) : (
-                  <div className="grid grid-cols-4 gap-2">
+                  <div className="grid grid-cols-6 gap-2">
                     {wallTextures.map((texture) => (
                       <button
                         key={texture.download_url}
@@ -227,6 +293,29 @@ const RoomBuilderPanel = ({
                     ))}
                   </div>
                 )}
+              </div>
+
+              {/* Wall Tile Size */}
+              <div className="mb-3">
+                <label className="text-xs text-gray-400 mb-2 block">Wall Tile Size</label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="range"
+                    min="10"
+                    max="200"
+                    value={wallTileSize}
+                    onChange={(e) => {
+                      const newSize = Number(e.target.value);
+                      onWallTileSizeChange(newSize);
+                      // Update selected room if one exists
+                      if (selectedRoom) {
+                        updateElement(selectedRoom.id, { wallTileSize: newSize });
+                      }
+                    }}
+                    className="flex-1"
+                  />
+                  <span className="text-sm text-gray-400 w-12 text-right">{wallTileSize}px</span>
+                </div>
               </div>
 
               {/* Wall Thickness */}
@@ -256,10 +345,9 @@ const RoomBuilderPanel = ({
               </div>
             </>
           )}
-        </div>
 
-        {/* Floor Textures */}
-        <div className="p-4">
+          {/* Floor Textures */}
+          <div className="mt-4 pt-4 border-t border-dm-border">
           <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
             <span className="w-3 h-3 bg-amber-600 rounded"></span>
             Select Floor Texture
@@ -270,7 +358,8 @@ const RoomBuilderPanel = ({
           ) : floorTextures.length === 0 ? (
             <div className="text-sm text-gray-400">No floor textures found</div>
           ) : (
-            <div className="grid grid-cols-4 gap-2">
+            <>
+              <div className="grid grid-cols-6 gap-2 mb-3">
               {floorTextures.map((texture) => (
                 <button
                   key={texture.download_url}
@@ -291,7 +380,34 @@ const RoomBuilderPanel = ({
                 </button>
               ))}
             </div>
+            
+            {/* Floor Tile Size */}
+            <div>
+              <label className="text-xs text-gray-400 mb-2 block">Floor Tile Size</label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="range"
+                  min="10"
+                  max="200"
+                  value={currentTileSize}
+                  onChange={(e) => handleTileSizeChange(Number(e.target.value))}
+                  className="flex-1"
+                />
+                <span className="text-sm text-gray-400 w-12 text-right">{currentTileSize}px</span>
+              </div>
+            </div>
+          </>
           )}
+        </div>
+        </>
+        )}
+
+        {activeTab === 'draw-walls' && (
+          <div className="text-center py-8">
+            <p className="text-sm text-gray-400">Draw Walls functionality coming soon...</p>
+          </div>
+        )}
+
         </div>
       </div>
 

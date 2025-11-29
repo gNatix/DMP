@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Scene, MapElement, TokenTemplate, ToolType, Collection, CollectionAppearance } from '../types';
+import { Scene, MapElement, TokenTemplate, ToolType, Collection, CollectionAppearance, RoomSubTool } from '../types';
 import ScenesTab from './ScenesTab';
 import TokensTab from './TokensTab';
 import RoomBuilderPanel from './RoomBuilderPanel';
@@ -35,6 +35,11 @@ interface RightPanelProps {
   onSelectWallTexture: (url: string) => void;
   wallThickness: number;
   onWallThicknessChange: (thickness: number) => void;
+  wallTileSize: number;
+  onWallTileSizeChange: (size: number) => void;
+  roomSubTool: RoomSubTool;
+  setRoomSubTool: (subTool: RoomSubTool) => void;
+  onMergeRooms?: () => void;
 }
 
 type TabType = 'scenes' | 'tokens' | 'rooms';
@@ -69,7 +74,12 @@ const RightPanel = ({
   selectedWallTexture,
   onSelectWallTexture,
   wallThickness,
-  onWallThicknessChange
+  onWallThicknessChange,
+  wallTileSize,
+  onWallTileSizeChange,
+  roomSubTool,
+  setRoomSubTool,
+  onMergeRooms
 }: RightPanelProps) => {
   const [activeTab, setActiveTab] = useState<TabType>('scenes');
 
@@ -158,9 +168,14 @@ const RightPanel = ({
             onSelectWallTexture={onSelectWallTexture}
             wallThickness={wallThickness}
             onWallThicknessChange={onWallThicknessChange}
+            wallTileSize={wallTileSize}
+            onWallTileSizeChange={onWallTileSizeChange}
             selectedRoom={selectedElement?.type === 'room' ? selectedElement : null}
             updateElement={updateElement}
             setActiveTool={setActiveTool}
+            roomSubTool={roomSubTool}
+            setRoomSubTool={setRoomSubTool}
+            onMergeRooms={onMergeRooms}
           />
         )}
       </div>

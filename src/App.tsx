@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Scene, MapElement, ToolType, TokenTemplate, ColorType, IconType, Collection, CollectionAppearance, RoomSubTool } from './types';
 import Canvas from './components/Canvas';
 import RightPanel from './components/RightPanel';
@@ -40,7 +40,14 @@ function App() {
   const [showWalls, setShowWalls] = useState<boolean>(true);
   const [selectedWallTexture, setSelectedWallTexture] = useState<string | null>(null);
   const [wallThickness, setWallThickness] = useState<number>(8);
+  const [wallTileSize, setWallTileSize] = useState<number>(50);
   const [roomSubTool, setRoomSubTool] = useState<RoomSubTool>('rectangle');
+
+  // Merge rooms handler ref
+  const mergeRoomsHandlerRef = useRef<(() => void) | null>(null);
+  const setMergeRoomsHandler = (handler: () => void) => {
+    mergeRoomsHandlerRef.current = handler;
+  };
 
   // Global ESC handler to blur text inputs (first ESC press)
   useEffect(() => {
@@ -262,8 +269,10 @@ function App() {
         showWalls={showWalls}
         selectedWallTexture={selectedWallTexture}
         wallThickness={wallThickness}
+        wallTileSize={wallTileSize}
         roomSubTool={roomSubTool}
         setRoomSubTool={setRoomSubTool}
+        onMergeRooms={setMergeRoomsHandler}
       />
 
       {/* Right Panel */}
@@ -298,6 +307,11 @@ function App() {
         onSelectWallTexture={setSelectedWallTexture}
         wallThickness={wallThickness}
         onWallThicknessChange={setWallThickness}
+        wallTileSize={wallTileSize}
+        onWallTileSizeChange={setWallTileSize}
+        roomSubTool={roomSubTool}
+        setRoomSubTool={setRoomSubTool}
+        onMergeRooms={mergeRoomsHandlerRef.current || undefined}
       />
     </div>
   );

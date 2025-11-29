@@ -2,6 +2,7 @@ import { useRef, useState, useEffect } from 'react';
 import { Scene, MapElement, AnnotationElement, TokenElement, RoomElement, ToolType, IconType, ColorType, TokenTemplate, RoomSubTool } from '../types';
 import { Circle, Square, Triangle, Star, Diamond, Heart, Skull, MapPin, Search, Eye, DoorOpen, Landmark, Footprints, Info } from 'lucide-react';
 import FloatingToolbar from './FloatingToolbar';
+import polygonClipping from 'polygon-clipping';
 
 interface CanvasProps {
   scene: Scene | null;
@@ -33,8 +34,10 @@ interface CanvasProps {
   showWalls: boolean;
   selectedWallTexture: string | null;
   wallThickness: number;
+  wallTileSize: number;
   roomSubTool: RoomSubTool;
   setRoomSubTool: (subTool: RoomSubTool) => void;
+  onMergeRooms?: (handler: () => void) => void;
 }
 
 const Canvas = ({
@@ -67,8 +70,10 @@ const Canvas = ({
   showWalls,
   selectedWallTexture,
   wallThickness,
+  wallTileSize,
   roomSubTool,
-  setRoomSubTool
+  setRoomSubTool,
+  onMergeRooms
 }: CanvasProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
@@ -89,6 +94,12 @@ const Canvas = ({
   const [lastClickTime, setLastClickTime] = useState<number>(0);
   const [roomDrawStart, setRoomDrawStart] = useState<{ x: number; y: number } | null>(null);
   const [tempRoom, setTempRoom] = useState<RoomElement | null>(null);
+  const [rotatingElement, setRotatingElement] = useState<{ id: string; startAngle: number; centerX: number; centerY: number; initialRotation: number } | null>(null);
+  const [isHoveringRotateHandle, setIsHoveringRotateHandle] = useState(false);
+  const [hoveringVertex, setHoveringVertex] = useState<{ id: string; index: number; cursorDirection: string } | null>(null);
+  const [scalingElement, setScalingElement] = useState<{ id: string; cornerIndex: number; startX: number; startY: number; initialVertices: { x: number; y: number }[] } | null>(null);
+  const [movingVertex, setMovingVertex] = useState<{ id: string; vertexIndex: number } | null>(null);
+  const [isCtrlPressed, setIsCtrlPressed] = useState(false);
   const [lastClickedElement, setLastClickedElement] = useState<string | null>(null);
   const [fitToViewLocked, setFitToViewLocked] = useState(false);
   const [zoomLimitError, setZoomLimitError] = useState(false);
@@ -196,6 +207,13 @@ const Canvas = ({
       setHistoryIndex(0);
     }
   }, [scene?.id]);
+
+  // Expose merge handler to parent (only pass the function reference, don't call it)
+  useEffect(() => {
+    if (onMergeRooms) {
+      onMergeRooms(handleMergeRooms);
+    }
+  }, [onMergeRooms]);
 
   // Listen for color application from FloatingToolbar
   useEffect(() => {
@@ -547,11 +565,130 @@ const Canvas = ({
     updateScene(activeSceneId, { elements: updatedElements });
   };
 
+  // Check if two rooms overlap
+  const doRoomsOverlap = (room1: RoomElement, room2: RoomElement): boolean => {
+    if (!room1.vertices || !room2.vertices) return false;
+
+    // Simple bounding box overlap check
+    const getBounds = (vertices: { x: number; y: number }[]) => {
+      const xs = vertices.map(v => v.x);
+      const ys = vertices.map(v => v.y);
+      return {
+        minX: Math.min(...xs),
+        maxX: Math.max(...xs),
+        minY: Math.min(...ys),
+        maxY: Math.max(...ys)
+      };
+    };
+
+    const bounds1 = getBounds(room1.vertices);
+    const bounds2 = getBounds(room2.vertices);
+
+    return !(bounds1.maxX < bounds2.minX || 
+             bounds1.minX > bounds2.maxX || 
+             bounds1.maxY < bounds2.minY || 
+             bounds1.minY > bounds2.maxY);
+  };
+
+  const handleMergeRooms = () => {
+    if (!scene || !activeSceneId) return;
+    
+    // Get selected room elements
+    const selectedIds = selectedElementIds.length > 0 ? selectedElementIds : selectedElementId ? [selectedElementId] : [];
+    const selectedRooms = scene.elements.filter(el => 
+      selectedIds.includes(el.id) && el.type === 'room'
+    ) as RoomElement[];
+
+    if (selectedRooms.length < 2) {
+      return;
+    }
+
+    saveToHistory();
+
+    // Collect all vertices from all selected rooms
+    const allVertices: { x: number; y: number }[] = [];
+    selectedRooms.forEach(room => {
+      if (room.vertices) {
+        allVertices.push(...room.vertices);
+      }
+    });
+
+    if (allVertices.length < 3) {
+      return;
+    }
+
+    // Merge polygons using proper polygon clipping union
+    const mergePolygons = (rooms: RoomElement[]): { x: number; y: number }[] => {
+      if (rooms.length === 0) return [];
+      if (rooms.length === 1) return rooms[0].vertices || [];
+      
+      // Convert room vertices to polygon-clipping format
+      // Format: [[[x, y], [x, y], ...]]
+      const polygons = rooms.map(room => {
+        if (!room.vertices || room.vertices.length < 3) return null;
+        // Close the polygon by adding first point at end
+        const coords = room.vertices.map(v => [v.x, v.y] as [number, number]);
+        coords.push(coords[0]); // Close the ring
+        return [coords]; // Polygon format: array of rings
+      }).filter(p => p !== null);
+
+      if (polygons.length === 0) return rooms[0]?.vertices || [];
+
+      try {
+        // Perform union of all polygons
+        let result = polygons[0];
+        for (let i = 1; i < polygons.length; i++) {
+          result = polygonClipping.union(result as any, polygons[i] as any);
+        }
+
+        // Convert back to our vertex format
+        // Result is MultiPolygon format: [[[[x, y], ...]]]
+        if (result.length === 0 || result[0].length === 0) {
+          return rooms[0].vertices || [];
+        }
+
+        // Take the first polygon's outer ring
+        const outerRing = result[0][0];
+        // Remove the closing point (last point is duplicate of first)
+        const vertices = outerRing.slice(0, -1).map(coord => ({ x: coord[0], y: coord[1] }));
+        
+        return vertices;
+      } catch (error) {
+        console.error('Polygon union error:', error);
+        return rooms[0].vertices || [];
+      }
+    };
+
+    const mergedVertices = mergePolygons(selectedRooms);
+
+    // Use properties from the first selected room
+    const firstRoom = selectedRooms[0];
+    const mergedRoom: RoomElement = {
+      ...firstRoom,
+      id: `room-${Date.now()}`,
+      vertices: mergedVertices,
+      wallOpenings: [] // Clear wall openings since structure changed
+    };
+
+    // Remove old rooms and add merged room
+    const updatedElements = scene.elements.filter(el => !selectedIds.includes(el.id));
+    updatedElements.push(mergedRoom);
+
+    updateScene(activeSceneId, { elements: updatedElements });
+    setSelectedElementId(mergedRoom.id);
+    setSelectedElementIds([]);
+  };
+
   // Keyboard event handlers
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Skip ALL shortcuts and preventDefault if text input is focused
       if (isTextInputFocused()) return;
+
+      // Track Ctrl key
+      if (e.key === 'Control') {
+        setIsCtrlPressed(true);
+      }
 
       // Always track Space
       if (e.key === ' ') {
@@ -781,6 +918,9 @@ const Canvas = ({
         setIsSpacePressed(false);
         setIsPanning(false);
       }
+      if (e.key === 'Control') {
+        setIsCtrlPressed(false);
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -908,6 +1048,114 @@ const Canvas = ({
       if (handle) {
         setResizingElement({ id: selectedElementId, handle });
         return;
+      }
+      
+      // Check if clicking on rotation handle or corner interaction for room
+      const element = scene.elements.find(el => el.id === selectedElementId);
+      if (element && element.type === 'room' && element.vertices) {
+        const xs = element.vertices.map(v => v.x);
+        const ys = element.vertices.map(v => v.y);
+        const minX = Math.min(...xs);
+        const minY = Math.min(...ys);
+        const maxX = Math.max(...xs);
+        const maxY = Math.max(...ys);
+        const width = maxX - minX;
+        const height = maxY - minY;
+        const centerX = (minX + maxX) / 2;
+        const centerY = (minY + maxY) / 2;
+        
+        // Calculate rotation handle position (above center, inside SVG but relative)
+        const handleDistance = 20 / viewport.zoom;
+        const rotation = (element.rotation || 0) * Math.PI / 180;
+        
+        // Transform click position to SVG local space
+        const relX = x - minX - width / 2;
+        const relY = y - minY - height / 2;
+        const cosR = Math.cos(-rotation);
+        const sinR = Math.sin(-rotation);
+        const localX = relX * cosR - relY * sinR + width / 2;
+        const localY = relX * sinR + relY * cosR + height / 2;
+        
+        // Check center rotation handle (top of room in local space)
+        const distToCenterHandle = Math.sqrt(
+          Math.pow(localX - width / 2, 2) + Math.pow(localY - (-handleDistance), 2)
+        );
+        
+        if (distToCenterHandle < 15 / viewport.zoom) {
+          const startAngle = Math.atan2(y - centerY, x - centerX) * (180 / Math.PI);
+          setRotatingElement({
+            id: element.id,
+            startAngle,
+            centerX,
+            centerY,
+            initialRotation: element.rotation || 0
+          });
+          return;
+        }
+        
+        // Check corner interactions
+        const relativeVertices = element.vertices.map(v => ({
+          x: v.x - minX,
+          y: v.y - minY
+        }));
+        
+        for (let i = 0; i < relativeVertices.length; i++) {
+          const v = relativeVertices[i];
+          // Rotate vertex around center
+          const vRelX = v.x - width / 2;
+          const vRelY = v.y - height / 2;
+          const rotatedX = vRelX * Math.cos(rotation) - vRelY * Math.sin(rotation);
+          const rotatedY = vRelX * Math.sin(rotation) + vRelY * Math.cos(rotation);
+          
+          const worldX = minX + width / 2 + rotatedX;
+          const worldY = minY + height / 2 + rotatedY;
+          
+          // Check direct click on vertex (CTRL + click to move vertex)
+          const distToVertex = Math.sqrt(
+            Math.pow(x - worldX, 2) + Math.pow(y - worldY, 2)
+          );
+          
+          if (distToVertex < 6 / viewport.zoom) {
+            if (e.ctrlKey) {
+              // CTRL + click on vertex: Move vertex
+              setMovingVertex({ id: element.id, vertexIndex: i });
+              return;
+            } else {
+              // Direct click on vertex: Scale from opposite corner
+              setScalingElement({
+                id: element.id,
+                cornerIndex: i,
+                startX: x,
+                startY: y,
+                initialVertices: [...element.vertices]
+              });
+              return;
+            }
+          }
+          
+          // Calculate rotation handle offset (outside corner)
+          const handleOffset = 15 / viewport.zoom;
+          const angle = Math.atan2(rotatedY, rotatedX);
+          const handleX = worldX + handleOffset * Math.cos(angle);
+          const handleY = worldY + handleOffset * Math.sin(angle);
+          
+          const distToCornerHandle = Math.sqrt(
+            Math.pow(x - handleX, 2) + Math.pow(y - handleY, 2)
+          );
+          
+          if (distToCornerHandle < 12 / viewport.zoom) {
+            // Click outside corner: Rotate
+            const startAngle = Math.atan2(y - centerY, x - centerX) * (180 / Math.PI);
+            setRotatingElement({
+              id: element.id,
+              startAngle,
+              centerX,
+              centerY,
+              initialRotation: element.rotation || 0
+            });
+            return;
+          }
+        }
       }
     }
 
@@ -1063,30 +1311,45 @@ const Canvas = ({
       };
       setTempElement(tempToken);
     } else if (effectiveTool === 'room') {
-      if (roomSubTool === 'rectangle') {
-        // Start creating floor tile area with drag-to-draw rectangle (as polygon)
+      if (roomSubTool !== 'erase') {
+        // Start creating floor tile area with drag-to-draw shape (rectangle, pentagon, hexagon, or octagon)
         console.log('[ROOM DRAW] Starting - selectedFloorTexture:', selectedFloorTexture);
-        if (!selectedFloorTexture) {
+        
+        // Check if a room is currently selected - if so, use its settings
+        const selectedRoom = scene.elements.find(el => el.id === selectedElementId && el.type === 'room') as RoomElement | undefined;
+        
+        // Determine which settings to use (selected room or global)
+        const useFloorTexture = selectedRoom?.floorTextureUrl || selectedFloorTexture;
+        const useTileSize = selectedRoom?.tileSize || tileSize;
+        const useShowWalls = selectedRoom?.showWalls ?? showWalls;
+        const useWallTexture = selectedRoom?.wallTextureUrl || selectedWallTexture || '';
+        const useWallThickness = selectedRoom?.wallThickness || wallThickness;
+        const useWallTileSize = selectedRoom?.wallTileSize || wallTileSize;
+        
+        if (!useFloorTexture) {
           console.warn('[ROOM DRAW] No floor texture selected!');
           // Cannot draw floor without texture selected
           return;
         }
+        
+        // Determine number of vertices based on roomSubTool
+        let numVertices = 4; // default rectangle
+        if (roomSubTool === 'pentagon') numVertices = 5;
+        else if (roomSubTool === 'hexagon') numVertices = 6;
+        else if (roomSubTool === 'octagon') numVertices = 8;
+        
         setRoomDrawStart({ x, y });
         const tempRoomElement: RoomElement = {
           id: 'temp',
           type: 'room',
-          vertices: [
-            { x, y },
-            { x, y },
-            { x, y },
-            { x, y }
-          ],
+          vertices: Array(numVertices).fill(null).map(() => ({ x, y })),
           wallOpenings: [],
-          floorTextureUrl: selectedFloorTexture,
-          tileSize: tileSize,
-          showWalls: showWalls,
-          wallTextureUrl: selectedWallTexture || '',
-          wallThickness: wallThickness,
+          floorTextureUrl: useFloorTexture,
+          tileSize: useTileSize,
+          showWalls: useShowWalls,
+          wallTextureUrl: useWallTexture,
+          wallThickness: useWallThickness,
+          wallTileSize: useWallTileSize,
           name: 'Floor',
           notes: '',
           zIndex: -100,
@@ -1122,6 +1385,112 @@ const Canvas = ({
 
     const x = (e.clientX - rect.left - viewport.x) / viewport.zoom;
     const y = (e.clientY - rect.top - viewport.y) / viewport.zoom;
+
+    // Check if hovering over rotation handle or vertices
+    if (scene && selectedElementId && !rotatingElement && !draggedElement) {
+      const element = scene.elements.find(el => el.id === selectedElementId);
+      if (element && element.type === 'room' && element.vertices) {
+        const xs = element.vertices.map(v => v.x);
+        const ys = element.vertices.map(v => v.y);
+        const minX = Math.min(...xs);
+        const minY = Math.min(...ys);
+        const maxX = Math.max(...xs);
+        const maxY = Math.max(...ys);
+        const width = maxX - minX;
+        const height = maxY - minY;
+        
+        const handleDistance = 20 / viewport.zoom;
+        const rotation = (element.rotation || 0) * Math.PI / 180;
+        
+        // Transform mouse position to SVG local space for center handle
+        const relX = x - minX - width / 2;
+        const relY = y - minY - height / 2;
+        const cosR = Math.cos(-rotation);
+        const sinR = Math.sin(-rotation);
+        const localX = relX * cosR - relY * sinR + width / 2;
+        const localY = relX * sinR + relY * cosR + height / 2;
+        
+        // Check center rotation handle
+        const distToCenterHandle = Math.sqrt(
+          Math.pow(localX - width / 2, 2) + Math.pow(localY - (-handleDistance), 2)
+        );
+        
+        let hoveringAnyHandle = distToCenterHandle < 15 / viewport.zoom;
+        let foundHoveringVertex: { id: string; index: number; cursorDirection: string } | null = null;
+        
+        // Check vertices and corner rotation handles
+        if (!hoveringAnyHandle) {
+          const relativeVertices = element.vertices.map(v => ({
+            x: v.x - minX,
+            y: v.y - minY
+          }));
+          
+          // Calculate center for cursor direction
+          const centerX = (minX + maxX) / 2;
+          const centerY = (minY + maxY) / 2;
+          
+          for (let i = 0; i < relativeVertices.length; i++) {
+            const v = relativeVertices[i];
+            const vRelX = v.x - width / 2;
+            const vRelY = v.y - height / 2;
+            const rotatedX = vRelX * Math.cos(rotation) - vRelY * Math.sin(rotation);
+            const rotatedY = vRelX * Math.sin(rotation) + vRelY * Math.cos(rotation);
+            
+            const worldX = minX + width / 2 + rotatedX;
+            const worldY = minY + height / 2 + rotatedY;
+            
+            // Check if hovering over vertex itself
+            const distToVertex = Math.sqrt(
+              Math.pow(x - worldX, 2) + Math.pow(y - worldY, 2)
+            );
+            
+            if (distToVertex < 6 / viewport.zoom) {
+              // Calculate cursor direction based on vertex position relative to center
+              const dx = worldX - centerX;
+              const dy = worldY - centerY;
+              const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+              
+              // Map angle to cursor direction (nwse or nesw)
+              // -45° to 45° and 135° to -135° = nwse-resize
+              // 45° to 135° and -135° to -45° = nesw-resize
+              let cursorDirection;
+              if ((angle >= -45 && angle < 45) || (angle >= 135 || angle < -135)) {
+                cursorDirection = 'nwse-resize'; // ↖↘ diagonal
+              } else {
+                cursorDirection = 'nesw-resize'; // ↗↙ diagonal
+              }
+              
+              foundHoveringVertex = { id: element.id, index: i, cursorDirection };
+              break;
+            }
+            
+            // Check corner rotation handle (only if not hovering vertex)
+            const handleOffset = 15 / viewport.zoom;
+            const angle = Math.atan2(rotatedY, rotatedX);
+            const handleX = worldX + handleOffset * Math.cos(angle);
+            const handleY = worldY + handleOffset * Math.sin(angle);
+            
+            const distToCornerHandle = Math.sqrt(
+              Math.pow(x - handleX, 2) + Math.pow(y - handleY, 2)
+            );
+            
+            if (distToCornerHandle < 12 / viewport.zoom) {
+              hoveringAnyHandle = true;
+              break;
+            }
+          }
+        }
+        
+        setIsHoveringRotateHandle(hoveringAnyHandle);
+        setHoveringVertex(foundHoveringVertex);
+      } else {
+        setIsHoveringRotateHandle(false);
+        setHoveringVertex(null);
+      }
+    } else {
+      setIsHoveringRotateHandle(false);
+      setHoveringVertex(null);
+    }
 
     // Track mouse position for zoom
     setLastMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
@@ -1249,22 +1618,137 @@ const Canvas = ({
       return;
     }
 
-    // Handle room drawing - update rectangle vertices
+    // Handle rotation
+    if (rotatingElement && scene) {
+      const element = scene.elements.find(el => el.id === rotatingElement.id);
+      if (element && element.type === 'room') {
+        // Calculate current angle from center to mouse
+        const currentAngle = Math.atan2(y - rotatingElement.centerY, x - rotatingElement.centerX) * (180 / Math.PI);
+        
+        // Calculate rotation delta
+        const angleDelta = currentAngle - rotatingElement.startAngle;
+        
+        // Apply rotation
+        const newRotation = (rotatingElement.initialRotation + angleDelta) % 360;
+        
+        updateElement(element.id, { rotation: newRotation });
+      }
+      return;
+    }
+
+    // Handle scaling from corner
+    if (scalingElement && scene) {
+      const element = scene.elements.find(el => el.id === scalingElement.id);
+      if (element && element.type === 'room') {
+        const { cornerIndex, initialVertices } = scalingElement;
+        
+        // Get the opposite corner index
+        const oppositeIndex = (cornerIndex + Math.floor(initialVertices.length / 2)) % initialVertices.length;
+        const oppositeCorner = initialVertices[oppositeIndex];
+        
+        // Calculate scale factor based on distance from opposite corner
+        const initialDist = Math.sqrt(
+          Math.pow(initialVertices[cornerIndex].x - oppositeCorner.x, 2) +
+          Math.pow(initialVertices[cornerIndex].y - oppositeCorner.y, 2)
+        );
+        const currentDist = Math.sqrt(
+          Math.pow(x - oppositeCorner.x, 2) +
+          Math.pow(y - oppositeCorner.y, 2)
+        );
+        
+        const scale = currentDist / initialDist;
+        
+        // Scale all vertices from opposite corner
+        const newVertices = initialVertices.map(v => ({
+          x: oppositeCorner.x + (v.x - oppositeCorner.x) * scale,
+          y: oppositeCorner.y + (v.y - oppositeCorner.y) * scale
+        }));
+        
+        updateElement(element.id, { vertices: newVertices });
+      }
+      return;
+    }
+
+    // Handle moving single vertex
+    if (movingVertex && scene) {
+      const element = scene.elements.find(el => el.id === movingVertex.id);
+      if (element && element.type === 'room' && element.vertices) {
+        const newVertices = [...element.vertices];
+        newVertices[movingVertex.vertexIndex] = { x, y };
+        updateElement(element.id, { vertices: newVertices });
+      }
+      return;
+    }
+
+    // Handle room drawing - update vertices based on shape
     if (roomDrawStart && tempRoom) {
       const minX = Math.min(x, roomDrawStart.x);
       const maxX = Math.max(x, roomDrawStart.x);
       const minY = Math.min(y, roomDrawStart.y);
       const maxY = Math.max(y, roomDrawStart.y);
       
-      // Update 4 vertices to form rectangle
-      setTempRoom({ 
-        ...tempRoom, 
-        vertices: [
+      const centerX = (minX + maxX) / 2;
+      const centerY = (minY + maxY) / 2;
+      const width = maxX - minX;
+      const height = maxY - minY;
+      const radius = Math.min(width, height) / 2;
+      
+      let vertices: { x: number; y: number; }[];
+      
+      if (roomSubTool === 'rectangle') {
+        // Rectangle: 4 vertices
+        vertices = [
           { x: minX, y: minY }, // Top-left
           { x: maxX, y: minY }, // Top-right
           { x: maxX, y: maxY }, // Bottom-right
           { x: minX, y: maxY }  // Bottom-left
-        ]
+        ];
+      } else if (roomSubTool === 'pentagon') {
+        // Pentagon: 5 vertices, regular polygon
+        const numSides = 5;
+        vertices = [];
+        for (let i = 0; i < numSides; i++) {
+          const angle = (i * 2 * Math.PI / numSides) - Math.PI / 2; // Start from top
+          vertices.push({
+            x: centerX + radius * Math.cos(angle),
+            y: centerY + radius * Math.sin(angle)
+          });
+        }
+      } else if (roomSubTool === 'hexagon') {
+        // Hexagon: 6 vertices, regular polygon
+        const numSides = 6;
+        vertices = [];
+        for (let i = 0; i < numSides; i++) {
+          const angle = (i * 2 * Math.PI / numSides) - Math.PI / 2; // Start from top
+          vertices.push({
+            x: centerX + radius * Math.cos(angle),
+            y: centerY + radius * Math.sin(angle)
+          });
+        }
+      } else if (roomSubTool === 'octagon') {
+        // Octagon: 8 vertices, regular polygon
+        const numSides = 8;
+        vertices = [];
+        for (let i = 0; i < numSides; i++) {
+          const angle = (i * 2 * Math.PI / numSides) - Math.PI / 2; // Start from top
+          vertices.push({
+            x: centerX + radius * Math.cos(angle),
+            y: centerY + radius * Math.sin(angle)
+          });
+        }
+      } else {
+        // Fallback to rectangle
+        vertices = [
+          { x: minX, y: minY },
+          { x: maxX, y: minY },
+          { x: maxX, y: maxY },
+          { x: minX, y: maxY }
+        ];
+      }
+      
+      setTempRoom({ 
+        ...tempRoom, 
+        vertices
       });
       return;
     }
@@ -1307,7 +1791,7 @@ const Canvas = ({
 
   const handleMouseUp = () => {
     // Save to history if we were dragging or resizing
-    if (draggedElement || resizingElement || draggedMultiple) {
+    if (draggedElement || resizingElement || draggedMultiple || rotatingElement || scalingElement || movingVertex) {
       saveToHistory();
     }
 
@@ -1321,6 +1805,9 @@ const Canvas = ({
     setDraggedElement(null);
     setResizingElement(null);
     setDraggedMultiple(null);
+    setRotatingElement(null);
+    setScalingElement(null);
+    setMovingVertex(null);
 
     // Finalize selection box
     if (selectionBox && scene) {
@@ -1360,19 +1847,28 @@ const Canvas = ({
 
     // Finalize room creation
     if (roomDrawStart && tempRoom && tempRoom.id === 'temp') {
+      console.log('[MOUSE UP] Finalizing room creation');
+      console.log('[MOUSE UP] roomDrawStart:', roomDrawStart);
+      console.log('[MOUSE UP] tempRoom:', tempRoom);
+      
       // Calculate room dimensions from vertices
       const xs = tempRoom.vertices.map(v => v.x);
       const ys = tempRoom.vertices.map(v => v.y);
       const width = Math.max(...xs) - Math.min(...xs);
       const height = Math.max(...ys) - Math.min(...ys);
       
+      console.log('[MOUSE UP] Calculated dimensions:', { width, height });
+      
       // Only create room if it has some size (at least 20x20)
       if (width >= 20 && height >= 20) {
+        console.log('[MOUSE UP] Size OK, creating final room');
         saveToHistory();
         const finalRoom = { ...tempRoom, id: `room-${Date.now()}`, tileSize, showWalls, wallTextureUrl: selectedWallTexture || '', wallThickness };
         addElement(finalRoom);
         setSelectedElementId(finalRoom.id);
         setSelectedElementIds([]);
+      } else {
+        console.log('[MOUSE UP] Room too small, not creating');
       }
       setRoomDrawStart(null);
       setTempRoom(null);
@@ -1438,7 +1934,7 @@ const Canvas = ({
     for (let i = elements.length - 1; i >= 0; i--) {
       const element = elements[i];
       
-      // Handle room elements (polygon-based)
+      // Handle room elements (polygon-based) - for selection only
       if (element.type === 'room') {
         const room = element as RoomElement;
         if (room.vertices && pointInPolygon({ x, y }, room.vertices)) {
@@ -1461,19 +1957,8 @@ const Canvas = ({
 
     const handleSize = 8 / viewport.zoom;
 
-    // Handle room elements (vertex handles, though resizing is currently disabled)
+    // Skip room elements - they use their own scaling/rotation system
     if (element.type === 'room') {
-      const room = element as RoomElement;
-      if (!room.vertices) return null;
-      
-      // Check each vertex as a handle
-      for (let i = 0; i < room.vertices.length; i++) {
-        const v = room.vertices[i];
-        const distance = Math.sqrt((x - v.x) ** 2 + (y - v.y) ** 2);
-        if (distance <= handleSize) {
-          return `v${i}`; // Return vertex index as handle name
-        }
-      }
       return null;
     }
 
@@ -1503,6 +1988,21 @@ const Canvas = ({
 
   // Determine cursor based on state
   const getCursor = () => {
+    if (rotatingElement) return 'cursor-rotating';
+    if (scalingElement) return 'cursor-nwse-resize';
+    if (movingVertex) return 'cursor-vertex-edit';
+    
+    // Hovering over vertex with Ctrl = vertex edit cursor (crosshair with target)
+    if (hoveringVertex && isCtrlPressed) return 'cursor-vertex-edit';
+    
+    // Hovering over vertex without Ctrl = scale cursor (direction based on position)
+    if (hoveringVertex && !isCtrlPressed) {
+      return hoveringVertex.cursorDirection === 'nesw-resize' ? 'cursor-nesw-resize' : 'cursor-nwse-resize';
+    }
+    
+    // Hovering over rotation handle = rotate cursor
+    if (isHoveringRotateHandle) return 'cursor-rotate';
+    
     if (isPanning || isSpacePressed || activeTool === 'pan') return 'cursor-grab';
     if (activeTool === 'marker') return 'cursor-copy';
     if (activeTool === 'token' && scene) return 'cursor-none'; // Hide default cursor for token mode only when scene exists
@@ -1624,13 +2124,6 @@ const Canvas = ({
 
             {/* Temp room preview during drawing */}
             {(() => {
-              console.log('[RENDER] TempRoom check:', { 
-                exists: !!tempRoom, 
-                id: tempRoom?.id,
-                hasVertices: !!tempRoom?.vertices,
-                vertexCount: tempRoom?.vertices?.length 
-              });
-              
               if (!tempRoom || tempRoom.id !== 'temp' || !tempRoom.vertices || tempRoom.vertices.length < 3) {
                 return null;
               }
@@ -1644,15 +2137,10 @@ const Canvas = ({
               const width = maxX - minX;
               const height = maxY - minY;
               
-              console.log('[RENDER] TempRoom dimensions:', { minX, minY, maxX, maxY, width, height });
-              
               // Don't render if too small (prevents 0-width SVG issues)
               if (width < 1 || height < 1) {
-                console.log('[RENDER] TempRoom too small, skipping render');
                 return null;
               }
-              
-              console.log('[RENDER] Rendering tempRoom SVG!');
               
               // Convert vertices to relative coordinates (relative to minX, minY)
               const relativeVertices = tempRoom.vertices.map(v => ({
@@ -1699,16 +2187,16 @@ const Canvas = ({
                         id="temp-wall-pattern"
                         x="0"
                         y="0"
-                        width={tempRoom.wallThickness}
-                        height={tempRoom.wallThickness}
+                        width={tempRoom.wallTileSize}
+                        height={tempRoom.wallTileSize}
                         patternUnits="userSpaceOnUse"
                       >
                         <image
                           href={tempRoom.wallTextureUrl}
                           x="0"
                           y="0"
-                          width={tempRoom.wallThickness}
-                          height={tempRoom.wallThickness}
+                          width={tempRoom.wallTileSize}
+                          height={tempRoom.wallTileSize}
                         />
                       </pattern>
                     )}
@@ -1721,22 +2209,17 @@ const Canvas = ({
                     stroke="none"
                   />
                   
-                  {/* Walls */}
-                  {tempRoom.showWalls && tempRoom.wallTextureUrl && relativeVertices.map((v, i) => {
-                    const nextV = relativeVertices[(i + 1) % relativeVertices.length];
-                    return (
-                      <line
-                        key={`temp-wall-${i}`}
-                        x1={v.x}
-                        y1={v.y}
-                        x2={nextV.x}
-                        y2={nextV.y}
-                        stroke="url(#temp-wall-pattern)"
-                        strokeWidth={tempRoom.wallThickness}
-                        strokeLinecap="square"
-                      />
-                    );
-                  })}
+                  {/* Walls - as stroke on the polygon edge */}
+                  {tempRoom.showWalls && (
+                    <path
+                      d={polygonPath}
+                      fill="none"
+                      stroke={tempRoom.wallTextureUrl ? "url(#temp-wall-pattern)" : "rgba(100, 100, 100, 0.8)"}
+                      strokeWidth={tempRoom.wallThickness}
+                      strokeLinejoin="miter"
+                      strokeLinecap="square"
+                    />
+                  )}
                   
                   {/* Preview border */}
                   <path
@@ -1765,6 +2248,86 @@ const Canvas = ({
                 }}
               />
             )}
+
+            {/* Merge Rooms Button - appears when 2+ overlapping rooms are selected */}
+            {(() => {
+              if (!scene) return null;
+              
+              const selectedIds = selectedElementIds.length > 0 ? selectedElementIds : selectedElementId ? [selectedElementId] : [];
+              const selectedRooms = scene.elements.filter(el => 
+                selectedIds.includes(el.id) && el.type === 'room'
+              ) as RoomElement[];
+
+              if (selectedRooms.length < 2) return null;
+
+              // Check if any rooms overlap
+              let hasOverlap = false;
+              for (let i = 0; i < selectedRooms.length - 1; i++) {
+                for (let j = i + 1; j < selectedRooms.length; j++) {
+                  if (doRoomsOverlap(selectedRooms[i], selectedRooms[j])) {
+                    hasOverlap = true;
+                    break;
+                  }
+                }
+                if (hasOverlap) break;
+              }
+
+              if (!hasOverlap) return null;
+
+              // Calculate position: to the right of the selection bounding box
+              const allVertices: { x: number; y: number }[] = [];
+              selectedRooms.forEach(room => {
+                if (room.vertices) allVertices.push(...room.vertices);
+              });
+
+              const xs = allVertices.map(v => v.x);
+              const ys = allVertices.map(v => v.y);
+              const maxX = Math.max(...xs);
+              const centerY = (Math.min(...ys) + Math.max(...ys)) / 2;
+
+              return (
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleMergeRooms();
+                  }}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  style={{
+                    position: 'absolute',
+                    left: maxX + 20,
+                    top: centerY - 20,
+                    padding: '8px 16px',
+                    backgroundColor: '#1f2937',
+                    border: '1px solid #4ade80',
+                    borderRadius: '4px',
+                    color: '#4ade80',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    cursor: 'pointer',
+                    zIndex: 1000,
+                    whiteSpace: 'nowrap',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+                    pointerEvents: 'auto'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = '#374151';
+                    e.currentTarget.style.borderColor = '#22c55e';
+                    e.currentTarget.style.color = '#22c55e';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = '#1f2937';
+                    e.currentTarget.style.borderColor = '#4ade80';
+                    e.currentTarget.style.color = '#4ade80';
+                  }}
+                >
+                  Merge Rooms
+                </button>
+              );
+            })()}
 
             {/* Token cursor preview */}
             {activeTool === 'token' && activeTokenTemplate && cursorPosition && (
@@ -2246,33 +2809,44 @@ const MapElementComponent = ({ element, isSelected, viewport, showTokenBadges }:
     const width = maxX - minX;
     const height = maxY - minY;
     
-    // Create SVG path from vertices
-    const polygonPath = element.vertices.map((v, i) => 
-      `${i === 0 ? 'M' : 'L'}${v.x},${v.y}`
-    ).join(' ') + ' Z';
-    
     // Create pattern ID for floor texture
     const floorPatternId = `floor-pattern-${element.id}`;
     const wallPatternId = `wall-pattern-${element.id}`;
     
+    // Convert vertices to relative coordinates (relative to minX, minY)
+    const relativeVertices = element.vertices.map(v => ({
+      x: v.x - minX,
+      y: v.y - minY
+    }));
+    
+    // Recreate polygon path with relative vertices
+    const relativePolygonPath = relativeVertices.map((v, i) => 
+      `${i === 0 ? 'M' : 'L'}${v.x},${v.y}`
+    ).join(' ') + ' Z';
+    
+    const roomElement = element as RoomElement;
+    
     return (
-      <svg
-        style={{
-          position: 'absolute',
-          left: minX,
-          top: minY,
-          width,
-          height,
-          overflow: 'visible',
-          pointerEvents: 'none'
-        }}
-      >
+      <>
+        <svg
+          style={{
+            position: 'absolute',
+            left: minX,
+            top: minY,
+            width,
+            height,
+            overflow: 'visible',
+            pointerEvents: 'none',
+            transform: roomElement.rotation ? `rotate(${roomElement.rotation}deg)` : undefined,
+            transformOrigin: 'center center'
+          }}
+        >
         <defs>
           {/* Floor texture pattern */}
           <pattern
             id={floorPatternId}
-            x={minX}
-            y={minY}
+            x="0"
+            y="0"
             width={element.tileSize}
             height={element.tileSize}
             patternUnits="userSpaceOnUse"
@@ -2285,23 +2859,21 @@ const MapElementComponent = ({ element, isSelected, viewport, showTokenBadges }:
               height={element.tileSize}
             />
           </pattern>
-          
-          {/* Wall texture pattern */}
-          {hasWalls && (
+          {hasWalls && element.wallTextureUrl && (
             <pattern
               id={wallPatternId}
-              x={minX}
-              y={minY}
-              width={element.wallThickness}
-              height={element.wallThickness}
+              x="0"
+              y="0"
+              width={element.wallTileSize}
+              height={element.wallTileSize}
               patternUnits="userSpaceOnUse"
             >
               <image
                 href={element.wallTextureUrl}
                 x="0"
                 y="0"
-                width={element.wallThickness}
-                height={element.wallThickness}
+                width={element.wallTileSize}
+                height={element.wallTileSize}
               />
             </pattern>
           )}
@@ -2309,81 +2881,35 @@ const MapElementComponent = ({ element, isSelected, viewport, showTokenBadges }:
         
         {/* Floor fill */}
         <path
-          d={polygonPath}
+          d={relativePolygonPath}
           fill={`url(#${floorPatternId})`}
           stroke="none"
         />
         
-        {/* Walls - draw each edge with openings */}
-        {hasWalls && element.vertices.map((v, i) => {
-          const nextV = element.vertices[(i + 1) % element.vertices.length];
-          const openings = (element.wallOpenings || []).filter(o => o.segmentIndex === i);
-          
-          if (openings.length === 0) {
-            // No openings - draw full wall segment
-            return (
-              <line
-                key={`wall-${i}`}
-                x1={v.x}
-                y1={v.y}
-                x2={nextV.x}
-                y2={nextV.y}
-                stroke={`url(#${wallPatternId})`}
-                strokeWidth={element.wallThickness}
-                strokeLinecap="square"
-              />
-            );
-          }
-          
-          // Has openings - draw wall segments between openings
-          const segments: { start: number; end: number }[] = [];
-          const sortedOpenings = [...openings].sort((a, b) => a.startRatio - b.startRatio);
-          
-          let currentRatio = 0;
-          sortedOpenings.forEach(opening => {
-            if (currentRatio < opening.startRatio) {
-              segments.push({ start: currentRatio, end: opening.startRatio });
-            }
-            currentRatio = Math.max(currentRatio, opening.endRatio);
-          });
-          
-          if (currentRatio < 1) {
-            segments.push({ start: currentRatio, end: 1 });
-          }
-          
-          return segments.map((seg, segIdx) => {
-            const x1 = v.x + (nextV.x - v.x) * seg.start;
-            const y1 = v.y + (nextV.y - v.y) * seg.start;
-            const x2 = v.x + (nextV.x - v.x) * seg.end;
-            const y2 = v.y + (nextV.y - v.y) * seg.end;
-            
-            return (
-              <line
-                key={`wall-${i}-${segIdx}`}
-                x1={x1}
-                y1={y1}
-                x2={x2}
-                y2={y2}
-                stroke={`url(#${wallPatternId})`}
-                strokeWidth={element.wallThickness}
-                strokeLinecap="square"
-              />
-            );
-          });
-        })}
+        {/* Walls - as stroke on the polygon edge */}
+        {hasWalls && (
+          <path
+            d={relativePolygonPath}
+            fill="none"
+            stroke={element.wallTextureUrl ? `url(#${wallPatternId})` : "rgba(100, 100, 100, 0.8)"}
+            strokeWidth={element.wallThickness}
+            strokeLinejoin="miter"
+            strokeLinecap="square"
+          />
+        )}
         
         {/* Selection indicator */}
         {isSelected && (
           <>
             <path
-              d={polygonPath}
+              d={relativePolygonPath}
               fill="none"
               stroke="#22c55e"
               strokeWidth={2}
               strokeDasharray="5,5"
             />
             {/* Vertex handles for polygon */}
-            {element.vertices.map((v, i) => (
+            {relativeVertices.map((v, i) => (
               <circle
                 key={`handle-${i}`}
                 cx={v.x}
@@ -2392,12 +2918,92 @@ const MapElementComponent = ({ element, isSelected, viewport, showTokenBadges }:
                 fill="white"
                 stroke="#22c55e"
                 strokeWidth={1}
-                style={{ cursor: 'move', pointerEvents: 'auto' }}
+                style={{ pointerEvents: 'auto' }}
               />
             ))}
+            
+            {/* Rotation handle - center top */}
+            <line
+              x1={width / 2}
+              y1={height / 2}
+              x2={width / 2}
+              y2={-20 / viewport.zoom}
+              stroke="#22c55e"
+              strokeWidth={1.5 / viewport.zoom}
+              strokeDasharray="3,3"
+            />
+            <circle
+              cx={width / 2}
+              cy={-20 / viewport.zoom}
+              r={12 / viewport.zoom}
+              fill="transparent"
+              style={{ 
+                cursor: 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'black\' stroke-width=\'2\'><path d=\'M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2\'/></svg>") 12 12, grab',
+                pointerEvents: 'auto'
+              }}
+            />
+            <circle
+              cx={width / 2}
+              cy={-20 / viewport.zoom}
+              r={7 / viewport.zoom}
+              fill="#22c55e"
+              stroke="white"
+              strokeWidth={2 / viewport.zoom}
+              style={{ 
+                cursor: 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'black\' stroke-width=\'2\'><path d=\'M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2\'/></svg>") 12 12, grab',
+                pointerEvents: 'none'
+              }}
+            />
           </>
         )}
-      </svg>
+        </svg>
+        
+        {/* Corner rotation handles - rendered outside SVG */}
+        {isSelected && (
+          <>
+            {/* Calculate corner positions in world space with rotation */}
+            {relativeVertices.map((v, i) => {
+              const rotationRadians = (roomElement.rotation || 0) * Math.PI / 180;
+              const cosR = Math.cos(rotationRadians);
+              const sinR = Math.sin(rotationRadians);
+              
+              // Rotate vertex around center
+              const relX = v.x - width / 2;
+              const relY = v.y - height / 2;
+              const rotatedX = relX * cosR - relY * sinR;
+              const rotatedY = relX * sinR + relY * cosR;
+              
+              const worldX = minX + width / 2 + rotatedX;
+              const worldY = minY + height / 2 + rotatedY;
+              
+              // Calculate handle offset (outside corner)
+              const handleOffset = 15 / viewport.zoom;
+              const angle = Math.atan2(rotatedY, rotatedX);
+              const handleX = worldX + handleOffset * Math.cos(angle);
+              const handleY = worldY + handleOffset * Math.sin(angle);
+              
+              return (
+                <div
+                  key={`corner-rotate-${i}`}
+                  style={{
+                    position: 'absolute',
+                    left: handleX,
+                    top: handleY,
+                    width: 20 / viewport.zoom,
+                    height: 20 / viewport.zoom,
+                    marginLeft: -10 / viewport.zoom,
+                    marginTop: -10 / viewport.zoom,
+                    borderRadius: '50%',
+                    pointerEvents: 'auto',
+                    cursor: 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'black\' stroke-width=\'2\'><path d=\'M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2\'/></svg>") 12 12, grab',
+                    zIndex: 1000
+                  }}
+                />
+              );
+            })}
+          </>
+        )}
+      </>
     );
   }
 

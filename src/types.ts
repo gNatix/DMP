@@ -4,7 +4,7 @@ export type ElementType = "annotation" | "token" | "room";
 
 export type ToolType = "pointer" | "marker" | "token" | "pan" | "zoom-in" | "zoom-out" | "room";
 
-export type RoomSubTool = "rectangle" | "erase";
+export type RoomSubTool = "rectangle" | "pentagon" | "hexagon" | "octagon" | "erase";
 
 export type IconType = "circle" | "square" | "triangle" | "star" | "diamond" | "heart" | "skull" | "quest" | "clue" | "hidden" | "door" | "landmark" | "footprint" | "info";
 
@@ -80,6 +80,8 @@ export interface RoomElement {
   showWalls: boolean; // Whether to show walls or not
   wallTextureUrl: string; // URL to wall texture image
   wallThickness: number; // Thickness of walls in pixels (default 8)
+  wallTileSize: number; // Size of the wall texture tiles in pixels (default 50)
+  rotation?: number; // Rotation angle in degrees (default 0)
   
   // Metadata
   name: string;
