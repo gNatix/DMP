@@ -75,7 +75,6 @@ function App() {
         name: 'Orc',
         imageUrl: 'https://dmp.natixlabs.com/tokens/monsters/Orc.png',
         color: 'red',
-        size: 60,
         isShape: false,
         isPOI: false
       });
