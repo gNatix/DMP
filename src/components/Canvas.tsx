@@ -97,9 +97,11 @@ const Canvas = ({
   const [rotatingElement, setRotatingElement] = useState<{ id: string; startAngle: number; centerX: number; centerY: number; initialRotation: number } | null>(null);
   const [isHoveringRotateHandle, setIsHoveringRotateHandle] = useState(false);
   const [hoveringVertex, setHoveringVertex] = useState<{ id: string; index: number; cursorDirection: string } | null>(null);
+  const [hoveringEdge, setHoveringEdge] = useState<{ id: string; edgeIndex: number } | null>(null);
   const [scalingElement, setScalingElement] = useState<{ id: string; cornerIndex: number; startX: number; startY: number; initialVertices: { x: number; y: number }[] } | null>(null);
   const [movingVertex, setMovingVertex] = useState<{ id: string; vertexIndex: number } | null>(null);
   const [isCtrlPressed, setIsCtrlPressed] = useState(false);
+  const [isShiftPressed, setIsShiftPressed] = useState(false);
   const [lastClickedElement, setLastClickedElement] = useState<string | null>(null);
   const [fitToViewLocked, setFitToViewLocked] = useState(false);
   const [zoomLimitError, setZoomLimitError] = useState(false);
@@ -111,6 +113,7 @@ const Canvas = ({
     rooms: RoomElement[];
     mergedVertices: { x: number; y: number }[];
   } | null>(null);
+  const [customRoomVertices, setCustomRoomVertices] = useState<{ x: number; y: number }[]>([]);
 
   // Generate unique room name
   const generateRoomName = (): string => {
@@ -234,6 +237,13 @@ const Canvas = ({
       onMergeRooms(handleMergeRooms);
     }
   }, [onMergeRooms]);
+
+  // Clear custom room vertices when changing tool or room sub-tool
+  useEffect(() => {
+    if (activeTool !== 'room' || roomSubTool !== 'custom') {
+      setCustomRoomVertices([]);
+    }
+  }, [activeTool, roomSubTool]);
 
   // Listen for color application from FloatingToolbar
   useEffect(() => {
@@ -623,6 +633,50 @@ const Canvas = ({
              expandedBounds1.minY > bounds2.maxY);
   };
 
+  const completeCustomRoom = (selectedRoom?: RoomElement) => {
+    if (!scene || !activeSceneId || customRoomVertices.length < 3) return;
+    
+    const useFloorTexture = selectedRoom?.floorTextureUrl || selectedFloorTexture;
+    
+    if (!useFloorTexture) {
+      console.warn('[CUSTOM ROOM] No floor texture selected!');
+      return;
+    }
+    
+    saveToHistory();
+    
+    const useTileSize = selectedRoom?.tileSize || tileSize;
+    const useShowWalls = selectedRoom?.showWalls ?? showWalls;
+    const useWallTexture = selectedRoom?.wallTextureUrl || selectedWallTexture || '';
+    const useWallThickness = selectedRoom?.wallThickness || wallThickness;
+    const useWallTileSize = selectedRoom?.wallTileSize || wallTileSize;
+    
+    const newRoom: RoomElement = {
+      id: `room-${Date.now()}-${Math.random()}`,
+      type: 'room',
+      vertices: [...customRoomVertices],
+      wallOpenings: [],
+      floorTextureUrl: useFloorTexture,
+      tileSize: useTileSize,
+      showWalls: useShowWalls,
+      wallTextureUrl: useWallTexture,
+      wallThickness: useWallThickness,
+      wallTileSize: useWallTileSize,
+      name: generateRoomName(),
+      notes: '',
+      zIndex: -100,
+      visible: true,
+      widgets: []
+    };
+    
+    updateScene(activeSceneId, {
+      elements: [...scene.elements, newRoom]
+    });
+    
+    setCustomRoomVertices([]);
+    setSelectedElementId(newRoom.id);
+  };
+
   const handleWidgetConflictResolved = (selectedRoomId: string | 'all') => {
     if (!mergeWidgetConflict || !scene || !activeSceneId) return;
     
@@ -863,9 +917,12 @@ const Canvas = ({
       // Skip ALL shortcuts and preventDefault if text input is focused
       if (isTextInputFocused()) return;
 
-      // Track Ctrl key
+      // Track Ctrl and Shift keys
       if (e.key === 'Control') {
         setIsCtrlPressed(true);
+      }
+      if (e.key === 'Shift') {
+        setIsShiftPressed(true);
       }
 
       // Always track Space
@@ -908,6 +965,12 @@ const Canvas = ({
 
       // Deselect all or return to pointer tool
       if (e.key === 'Escape') {
+        // Cancel custom room drawing if in progress
+        if (customRoomVertices.length > 0) {
+          setCustomRoomVertices([]);
+          return;
+        }
+        
         // Cancel room drawing if in progress
         if (roomDrawStart || tempRoom) {
           setRoomDrawStart(null);
@@ -1143,6 +1206,9 @@ const Canvas = ({
       if (e.key === 'Control') {
         setIsCtrlPressed(false);
       }
+      if (e.key === 'Shift') {
+        setIsShiftPressed(false);
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -1233,6 +1299,13 @@ const Canvas = ({
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
+    // Handle double-click for custom room completion
+    if (e.detail === 2 && activeTool === 'room' && roomSubTool === 'custom' && customRoomVertices.length >= 3) {
+      const selectedRoom = scene?.elements.find(el => el.id === selectedElementId && el.type === 'room') as RoomElement | undefined;
+      completeCustomRoom(selectedRoom);
+      return;
+    }
+
     // Right click for panning
     if (e.button === 2) {
       e.preventDefault();
@@ -1338,8 +1411,8 @@ const Canvas = ({
           );
           
           if (distToVertex < 6 / viewport.zoom) {
-            if (e.ctrlKey) {
-              // CTRL + click on vertex: Move vertex
+            if (e.ctrlKey || e.shiftKey) {
+              // CTRL/SHIFT + click on vertex: Move vertex
               setMovingVertex({ id: element.id, vertexIndex: i });
               return;
             } else {
@@ -1354,6 +1427,42 @@ const Canvas = ({
               return;
             }
           }
+        }
+        
+        // Check for CTRL/SHIFT + click on edge to add new vertex and start dragging it
+        if (e.ctrlKey || e.shiftKey) {
+          for (let i = 0; i < element.vertices.length; i++) {
+            const v1 = element.vertices[i];
+            const v2 = element.vertices[(i + 1) % element.vertices.length];
+            
+            const { distance } = distanceToLineSegment({ x, y }, v1, v2);
+            
+            if (distance < 8 / viewport.zoom) {
+              // Click is on edge - insert new vertex and immediately start moving it
+              saveToHistory();
+              const newVertices = [...element.vertices];
+              const newVertexIndex = i + 1;
+              newVertices.splice(newVertexIndex, 0, { x, y });
+              updateElement(element.id, { vertices: newVertices });
+              // Start moving the newly created vertex immediately
+              setMovingVertex({ id: element.id, vertexIndex: newVertexIndex });
+              return;
+            }
+          }
+        }
+        
+        // Continue with other checks - rotation handles on corners
+        for (let i = 0; i < relativeVertices.length; i++) {
+          const v = relativeVertices[i];
+          
+          // Rotate vertex around center
+          const vRelX = v.x - width / 2;
+          const vRelY = v.y - height / 2;
+          const rotatedX = vRelX * Math.cos(rotation) - vRelY * Math.sin(rotation);
+          const rotatedY = vRelX * Math.sin(rotation) + vRelY * Math.cos(rotation);
+          
+          const worldX = minX + width / 2 + rotatedX;
+          const worldY = minY + height / 2 + rotatedY;
           
           // Calculate rotation handle offset (outside corner)
           const handleOffset = 15 / viewport.zoom;
@@ -1565,7 +1674,39 @@ const Canvas = ({
       };
       setTempElement(tempToken);
     } else if (effectiveTool === 'room') {
-      if (roomSubTool !== 'erase') {
+      if (roomSubTool === 'custom' || roomSubTool === 'magnetic') {
+        // Custom/Magnetic room drawing - click to place vertices
+        const selectedRoom = scene.elements.find(el => el.id === selectedElementId && el.type === 'room') as RoomElement | undefined;
+        const useFloorTexture = selectedRoom?.floorTextureUrl || selectedFloorTexture;
+        
+        if (!useFloorTexture) {
+          console.warn('[CUSTOM ROOM] No floor texture selected!');
+          return;
+        }
+        
+        // Add vertex at clicked point
+        const verticesToAdd = [{ x, y }];
+        
+        // Check if clicking on first vertex to close the shape
+        if (customRoomVertices.length >= 3) {
+          const firstVertex = customRoomVertices[0];
+          const checkPoint = verticesToAdd[verticesToAdd.length - 1];
+          const distance = Math.sqrt(
+            (checkPoint.x - firstVertex.x) ** 2 + 
+            (checkPoint.y - firstVertex.y) ** 2
+          );
+          
+          if (distance < 10 / viewport.zoom) {
+            // Close the shape and create the room
+            completeCustomRoom(selectedRoom);
+            return;
+          }
+        }
+        
+        // Add new vertex
+        setCustomRoomVertices([...customRoomVertices, ...verticesToAdd]);
+        return;
+      } else if (roomSubTool !== 'erase') {
         // Start creating floor tile area with drag-to-draw shape (rectangle, pentagon, hexagon, or octagon)
         console.log('[ROOM DRAW] Starting - selectedFloorTexture:', selectedFloorTexture);
         
@@ -1639,6 +1780,11 @@ const Canvas = ({
 
     const x = (e.clientX - rect.left - viewport.x) / viewport.zoom;
     const y = (e.clientY - rect.top - viewport.y) / viewport.zoom;
+
+    // Update cursor position for custom room preview
+    if (activeTool === 'room' && roomSubTool === 'custom') {
+      setCursorPosition({ x, y });
+    }
 
     // Check if hovering over rotation handle or vertices
     if (scene && selectedElementId && !rotatingElement && !draggedElement) {
@@ -1737,13 +1883,34 @@ const Canvas = ({
         
         setIsHoveringRotateHandle(hoveringAnyHandle);
         setHoveringVertex(foundHoveringVertex);
+        
+        // Check for hovering over edge (when CTRL or SHIFT is pressed)
+        if ((isCtrlPressed || isShiftPressed) && !foundHoveringVertex && !hoveringAnyHandle) {
+          let foundHoveringEdge: { id: string; edgeIndex: number } | null = null;
+          for (let i = 0; i < element.vertices.length; i++) {
+            const v1 = element.vertices[i];
+            const v2 = element.vertices[(i + 1) % element.vertices.length];
+            
+            const { distance } = distanceToLineSegment({ x, y }, v1, v2);
+            
+            if (distance < 8 / viewport.zoom) {
+              foundHoveringEdge = { id: element.id, edgeIndex: i };
+              break;
+            }
+          }
+          setHoveringEdge(foundHoveringEdge);
+        } else {
+          setHoveringEdge(null);
+        }
       } else {
         setIsHoveringRotateHandle(false);
         setHoveringVertex(null);
+        setHoveringEdge(null);
       }
     } else {
       setIsHoveringRotateHandle(false);
       setHoveringVertex(null);
+      setHoveringEdge(null);
     }
 
     // Track mouse position for zoom
@@ -1752,7 +1919,8 @@ const Canvas = ({
     // Update cursor position for token preview - only if scene exists
     if (activeTool === 'token' && activeTokenTemplate && scene) {
       setCursorPosition({ x, y });
-    } else {
+    } else if (activeTool !== 'room' || (roomSubTool !== 'custom' && roomSubTool !== 'magnetic')) {
+      // Only clear cursor position if NOT in custom/magnetic room mode
       setCursorPosition(null);
     }
 
@@ -2244,13 +2412,16 @@ const Canvas = ({
   const getCursor = () => {
     if (rotatingElement) return 'cursor-rotating';
     if (scalingElement) return 'cursor-nwse-resize';
-    if (movingVertex) return 'cursor-vertex-edit';
+    if (movingVertex) return 'cursor-grab'; // Show grab hand when moving vertex
     
-    // Hovering over vertex with Ctrl = vertex edit cursor (crosshair with target)
-    if (hoveringVertex && isCtrlPressed) return 'cursor-vertex-edit';
+    // Hovering over edge with Ctrl/Shift = grab hand (will add and immediately drag)
+    if (hoveringEdge && (isCtrlPressed || isShiftPressed)) return 'cursor-grab';
     
-    // Hovering over vertex without Ctrl = scale cursor (direction based on position)
-    if (hoveringVertex && !isCtrlPressed) {
+    // Hovering over vertex with Ctrl/Shift = grab hand (can drag vertex)
+    if (hoveringVertex && (isCtrlPressed || isShiftPressed)) return 'cursor-grab';
+    
+    // Hovering over vertex without Ctrl/Shift = scale cursor (direction based on position)
+    if (hoveringVertex && !isCtrlPressed && !isShiftPressed) {
       return hoveringVertex.cursorDirection === 'nesw-resize' ? 'cursor-nesw-resize' : 'cursor-nwse-resize';
     }
     
@@ -2486,6 +2657,171 @@ const Canvas = ({
                 </svg>
               );
             })()}
+
+            {/* Custom room drawing preview */}
+            {customRoomVertices.length > 0 && (
+              <svg
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  top: 0,
+                  width: '100%',
+                  height: '100%',
+                  pointerEvents: 'none',
+                  overflow: 'visible'
+                }}
+              >
+                {/* Lines between vertices */}
+                {customRoomVertices.map((vertex, i) => {
+                  if (i === 0) return null;
+                  const prev = customRoomVertices[i - 1];
+                  return (
+                    <line
+                      key={`line-${i}`}
+                      x1={prev.x}
+                      y1={prev.y}
+                      x2={vertex.x}
+                      y2={vertex.y}
+                      stroke="#ffffff"
+                      strokeWidth={3}
+                      style={{ mixBlendMode: 'difference' }}
+                    />
+                  );
+                })}
+                
+                {/* Line/Path from last vertex to cursor */}
+                {cursorPosition && customRoomVertices.length > 0 && (() => {
+                  const startPoint = customRoomVertices[customRoomVertices.length - 1];
+                  
+                  if (roomSubTool === 'magnetic' && magneticPath.length > 0) {
+                    // Draw the magnetic path as connected line segments
+                    const pathSegments = [];
+                    
+                    // Line from last vertex to first path point
+                    pathSegments.push(
+                      <line
+                        key="path-start"
+                        x1={startPoint.x}
+                        y1={startPoint.y}
+                        x2={magneticPath[0].x}
+                        y2={magneticPath[0].y}
+                        stroke="#ffffff"
+                        strokeWidth={3}
+                        style={{ mixBlendMode: 'difference' }}
+                      />
+                    );
+                    
+                    // Lines between path points
+                    for (let i = 0; i < magneticPath.length - 1; i++) {
+                      pathSegments.push(
+                        <line
+                          key={`path-${i}`}
+                          x1={magneticPath[i].x}
+                          y1={magneticPath[i].y}
+                          x2={magneticPath[i + 1].x}
+                          y2={magneticPath[i + 1].y}
+                          stroke="#ffffff"
+                          strokeWidth={3}
+                          style={{ mixBlendMode: 'difference' }}
+                        />
+                      );
+                    }
+                    
+                    // Line from last path point to cursor
+                    const lastPathPoint = magneticPath[magneticPath.length - 1];
+                    pathSegments.push(
+                      <line
+                        key="path-to-cursor"
+                        x1={lastPathPoint.x}
+                        y1={lastPathPoint.y}
+                        x2={cursorPosition.x}
+                        y2={cursorPosition.y}
+                        stroke="#ffffff"
+                        strokeWidth={3}
+                        strokeDasharray="5,5"
+                        style={{ mixBlendMode: 'difference' }}
+                      />
+                    );
+                    
+                    // Show intermediate points on the path
+                    const pathPoints = magneticPath.map((point, i) => (
+                      <circle
+                        key={`path-point-${i}`}
+                        cx={point.x}
+                        cy={point.y}
+                        r={3 / viewport.zoom}
+                        fill="#ffffff"
+                        style={{ mixBlendMode: 'difference' }}
+                      />
+                    ));
+                    
+                    return <>{pathSegments}{pathPoints}</>;
+                  } else {
+                    // Regular straight line for custom mode OR magnetic mode without path
+                    return (
+                      <line
+                        x1={startPoint.x}
+                        y1={startPoint.y}
+                        x2={cursorPosition.x}
+                        y2={cursorPosition.y}
+                        stroke="#ffffff"
+                        strokeWidth={3}
+                        strokeDasharray="5,5"
+                        style={{ mixBlendMode: 'difference' }}
+                      />
+                    );
+                  }
+                })()}
+                
+                {/* Closing line preview when near first vertex */}
+                {customRoomVertices.length >= 3 && cursorPosition && (() => {
+                  const firstVertex = customRoomVertices[0];
+                  const distance = Math.sqrt(
+                    (cursorPosition.x - firstVertex.x) ** 2 + 
+                    (cursorPosition.y - firstVertex.y) ** 2
+                  );
+                  if (distance < 10 / viewport.zoom) {
+                    return (
+                      <line
+                        x1={customRoomVertices[customRoomVertices.length - 1].x}
+                        y1={customRoomVertices[customRoomVertices.length - 1].y}
+                        x2={firstVertex.x}
+                        y2={firstVertex.y}
+                        stroke="#ffffff"
+                        strokeWidth={3}
+                        style={{ mixBlendMode: 'difference' }}
+                      />
+                    );
+                  }
+                  return null;
+                })()}
+                
+                {/* Vertices */}
+                {customRoomVertices.map((vertex, i) => {
+                  // Check if hovering near first vertex to highlight it
+                  const isHoveringFirst = i === 0 && customRoomVertices.length >= 3 && cursorPosition && (() => {
+                    const distance = Math.sqrt(
+                      (cursorPosition.x - vertex.x) ** 2 + 
+                      (cursorPosition.y - vertex.y) ** 2
+                    );
+                    return distance < 10 / viewport.zoom;
+                  })();
+                  
+                  return (
+                    <circle
+                      key={`vertex-${i}`}
+                      cx={vertex.x}
+                      cy={vertex.y}
+                      r={isHoveringFirst ? 8 / viewport.zoom : 5 / viewport.zoom}
+                      fill="#ffffff"
+                      stroke="#000000"
+                      strokeWidth={2 / viewport.zoom}
+                      style={{ mixBlendMode: 'difference' }}
+                    />
+                  );
+                })}
+              </svg>
+            )}
 
             {/* Selection box */}
             {selectionBox && (

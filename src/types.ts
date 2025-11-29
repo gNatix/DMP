@@ -4,7 +4,7 @@ export type ElementType = "annotation" | "token" | "room";
 
 export type ToolType = "pointer" | "marker" | "token" | "pan" | "zoom-in" | "zoom-out" | "room";
 
-export type RoomSubTool = "rectangle" | "pentagon" | "hexagon" | "octagon" | "erase";
+export type RoomSubTool = "rectangle" | "pentagon" | "hexagon" | "octagon" | "erase" | "custom";
 
 export type IconType = "circle" | "square" | "triangle" | "star" | "diamond" | "heart" | "skull" | "quest" | "clue" | "hidden" | "door" | "landmark" | "footprint" | "info";
 

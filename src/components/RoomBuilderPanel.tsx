@@ -257,6 +257,28 @@ const RoomBuilderPanel = ({
                     <path d="M8 2 L16 2 L22 8 L22 16 L16 22 L8 22 L2 16 L2 8 Z" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
                 </button>
+
+                {/* Custom Polygon Tool */}
+                <button
+                  onClick={() => {
+                    setRoomSubTool('custom');
+                    setActiveTool('room');
+                  }}
+                  className={`aspect-square rounded border-2 transition-all bg-dm-panel flex items-center justify-center ${
+                    roomSubTool === 'custom'
+                      ? 'border-amber-500 ring-2 ring-amber-500/50'
+                      : 'border-dm-border hover:border-dm-highlight'
+                  }`}
+                  title="Custom Polygon (Click to place vertices, double-click or click first point to finish)"
+                >
+                  <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path d="M6 18 L12 8 L20 12" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <circle cx="6" cy="18" r="2" fill="currentColor"/>
+                    <circle cx="12" cy="8" r="2" fill="currentColor"/>
+                    <circle cx="20" cy="12" r="2" fill="currentColor"/>
+                  </svg>
+                </button>
+
               </div>
             </div>
 

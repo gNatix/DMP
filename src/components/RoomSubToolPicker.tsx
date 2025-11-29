@@ -1,4 +1,4 @@
-import { Square, Eraser } from 'lucide-react';
+import { Square, Eraser, Pencil } from 'lucide-react';
 import { RoomSubTool } from '../types';
 import { useRef, useEffect } from 'react';
 
@@ -65,6 +65,22 @@ const RoomSubToolPicker = ({
         title="Draw Room (Rectangle)"
       >
         <Square size={20} />
+      </button>
+
+      {/* Draw Custom Room Tool */}
+      <button
+        onClick={() => {
+          setRoomSubTool('custom');
+          onClose();
+        }}
+        className={`p-3 rounded transition-all ${
+          roomSubTool === 'custom'
+            ? 'bg-dm-highlight text-white'
+            : 'hover:bg-dm-dark text-gray-400 hover:text-gray-200'
+        }`}
+        title="Draw Custom Room (Click to place vertices)"
+      >
+        <Pencil size={20} />
       </button>
 
       {/* Wall Eraser Tool */}
