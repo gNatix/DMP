@@ -67,6 +67,21 @@ function App() {
     return () => document.removeEventListener('keydown', handleGlobalKeyDown, true);
   }, []);
 
+  // Set default token (Orc from monsters)
+  useEffect(() => {
+    if (!activeTokenTemplate) {
+      setActiveTokenTemplate({
+        id: 'orc-default',
+        name: 'Orc',
+        imageUrl: 'https://dmp.natixlabs.com/tokens/monsters/Orc.png',
+        color: 'red',
+        size: 60,
+        isShape: false,
+        isPOI: false
+      });
+    }
+  }, [activeTokenTemplate]);
+
   // Get active scene
   const activeScene = scenes.find(s => s.id === activeSceneId) || null;
 
