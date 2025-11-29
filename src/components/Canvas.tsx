@@ -768,6 +768,50 @@ const Canvas = ({
         return;
       }
 
+      // Arrow keys - move selected elements
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+        e.preventDefault();
+        
+        if (!scene) return;
+        
+        const selectedIds = selectedElementIds.length > 0 ? selectedElementIds : selectedElementId ? [selectedElementId] : [];
+        if (selectedIds.length === 0) return;
+
+        // Determine offset based on arrow key (shift = 10px, normal = 1px)
+        const step = e.shiftKey ? 10 : 1;
+        let dx = 0;
+        let dy = 0;
+        
+        if (e.key === 'ArrowLeft') dx = -step;
+        if (e.key === 'ArrowRight') dx = step;
+        if (e.key === 'ArrowUp') dy = -step;
+        if (e.key === 'ArrowDown') dy = step;
+
+        saveToHistory();
+
+        // Update all selected elements
+        const updates = new Map<string, Partial<MapElement>>();
+        selectedIds.forEach(id => {
+          const element = scene.elements.find(el => el.id === id);
+          if (!element) return;
+
+          if (element.type === 'room' && element.vertices) {
+            // Move room vertices
+            const newVertices = element.vertices.map(v => ({
+              x: v.x + dx,
+              y: v.y + dy
+            }));
+            updates.set(id, { vertices: newVertices });
+          } else if ('x' in element && 'y' in element) {
+            // Move other elements (tokens, annotations, etc)
+            updates.set(id, { x: element.x + dx, y: element.y + dy });
+          }
+        });
+
+        updateElements(updates);
+        return;
+      }
+
       // Delete
       if (e.key === 'Delete' || e.key === 'Backspace') {
         e.preventDefault();
