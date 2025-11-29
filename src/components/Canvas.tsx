@@ -565,11 +565,15 @@ const Canvas = ({
     updateScene(activeSceneId, { elements: updatedElements });
   };
 
-  // Check if two rooms overlap
+  // Check if two rooms overlap or touch (considering wall thickness)
   const doRoomsOverlap = (room1: RoomElement, room2: RoomElement): boolean => {
     if (!room1.vertices || !room2.vertices) return false;
 
-    // Simple bounding box overlap check
+    // Use the maximum wall thickness from both rooms as tolerance
+    const wallThickness1 = room1.wallThickness || wallThickness;
+    const wallThickness2 = room2.wallThickness || wallThickness;
+    const tolerance = Math.max(wallThickness1, wallThickness2);
+
     const getBounds = (vertices: { x: number; y: number }[]) => {
       const xs = vertices.map(v => v.x);
       const ys = vertices.map(v => v.y);
@@ -584,10 +588,19 @@ const Canvas = ({
     const bounds1 = getBounds(room1.vertices);
     const bounds2 = getBounds(room2.vertices);
 
-    return !(bounds1.maxX < bounds2.minX || 
-             bounds1.minX > bounds2.maxX || 
-             bounds1.maxY < bounds2.minY || 
-             bounds1.minY > bounds2.maxY);
+    // Expand bounds by tolerance to detect touching walls
+    const expandedBounds1 = {
+      minX: bounds1.minX - tolerance,
+      maxX: bounds1.maxX + tolerance,
+      minY: bounds1.minY - tolerance,
+      maxY: bounds1.maxY + tolerance
+    };
+
+    // Check if expanded boxes overlap (this includes touching walls)
+    return !(expandedBounds1.maxX < bounds2.minX || 
+             expandedBounds1.minX > bounds2.maxX || 
+             expandedBounds1.maxY < bounds2.minY || 
+             expandedBounds1.minY > bounds2.maxY);
   };
 
   const handleMergeRooms = () => {
