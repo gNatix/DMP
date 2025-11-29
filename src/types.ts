@@ -36,6 +36,7 @@ export interface AnnotationElement {
   zIndex?: number; // For layering control
   visible?: boolean; // For hiding elements (default true)
   widgets?: Widget[]; // For properties panel customization
+  locked?: boolean; // Prevent movement when true
 }
 
 export interface TokenElement {
@@ -55,6 +56,7 @@ export interface TokenElement {
   visible?: boolean; // For hiding elements (default true)
   widgets?: Widget[]; // For properties panel customization
   showBadge?: boolean; // For displaying name badge above token
+  locked?: boolean; // Prevent movement when true
 }
 
 // Legacy WallGap (deprecated - keeping for reference during migration)
@@ -89,6 +91,7 @@ export interface RoomElement {
   zIndex?: number; // For layering control
   visible?: boolean; // For hiding elements (default true)
   widgets?: Widget[]; // For properties panel customization
+  locked?: boolean; // Prevent movement when true
 }
 
 export type MapElement = AnnotationElement | TokenElement | RoomElement;

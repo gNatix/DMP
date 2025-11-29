@@ -358,15 +358,31 @@ const LeftPanel = ({
                   <label className="text-xs text-gray-500 uppercase tracking-wide flex-shrink-0">Name:</label>
                   <input
                     type="text"
-                    value={selectedElement.type === 'token' ? selectedElement.name || '' : (selectedElement.type === 'annotation' && 'label' in selectedElement) ? selectedElement.label || '' : ''}
+                    value={
+                      selectedElement.type === 'token' 
+                        ? selectedElement.name || '' 
+                        : selectedElement.type === 'room'
+                        ? selectedElement.name || ''
+                        : (selectedElement.type === 'annotation' && 'label' in selectedElement) 
+                        ? selectedElement.label || '' 
+                        : ''
+                    }
                     onChange={(e) => {
                       if (selectedElement.type === 'token') {
+                        updateElement(selectedElement.id, { name: e.target.value });
+                      } else if (selectedElement.type === 'room') {
                         updateElement(selectedElement.id, { name: e.target.value });
                       } else if (selectedElement.type === 'annotation') {
                         updateElement(selectedElement.id, { label: e.target.value });
                       }
                     }}
-                    placeholder={selectedElement.type === 'token' ? 'Token name...' : 'Location name...'}
+                    placeholder={
+                      selectedElement.type === 'token' 
+                        ? 'Token name...' 
+                        : selectedElement.type === 'room'
+                        ? 'Room name...'
+                        : 'Location name...'
+                    }
                     className="flex-1 px-3 py-2 bg-dm-dark border border-dm-border rounded text-sm focus:outline-none focus:border-gray-600"
                   />
                 </div>

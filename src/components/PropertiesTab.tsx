@@ -194,6 +194,22 @@ const PropertiesTab = ({
           </>
         )}
 
+        {/* Room specific properties */}
+        {selectedElement.type === 'room' && (
+          <>
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-1">Room Name</label>
+              <input
+                type="text"
+                value={selectedElement.name}
+                onChange={(e) => updateElement(selectedElement.id, { name: e.target.value })}
+                className="w-full px-3 py-2 bg-dm-dark border border-dm-border rounded focus:outline-none focus:border-dm-highlight text-gray-200"
+                placeholder="e.g. Tavern, Dungeon Hall..."
+              />
+            </div>
+          </>
+        )}
+
         {/* Size slider - only for elements with size property */}
         {'size' in selectedElement && (
           <div>

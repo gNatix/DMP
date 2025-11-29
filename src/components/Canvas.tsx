@@ -106,6 +106,25 @@ const Canvas = ({
   const [shouldRotateMap, setShouldRotateMap] = useState(false);
   const [isErasing, setIsErasing] = useState(false);
   const [mergeNotification, setMergeNotification] = useState<string | null>(null);
+  const [lockedElementError, setLockedElementError] = useState<string | null>(null);
+  const [mergeWidgetConflict, setMergeWidgetConflict] = useState<{
+    rooms: RoomElement[];
+    mergedVertices: { x: number; y: number }[];
+  } | null>(null);
+
+  // Generate unique room name
+  const generateRoomName = (): string => {
+    if (!scene) return 'Room 1';
+    
+    const existingRooms = scene.elements.filter(el => el.type === 'room') as RoomElement[];
+    const existingNames = new Set(existingRooms.map(r => r.name));
+    
+    let counter = 1;
+    while (existingNames.has(`Room ${counter}`)) {
+      counter++;
+    }
+    return `Room ${counter}`;
+  };
 
   // Geometry helper functions for polygon operations
   const pointInPolygon = (point: { x: number; y: number }, vertices: { x: number; y: number }[]): boolean => {
@@ -604,6 +623,53 @@ const Canvas = ({
              expandedBounds1.minY > bounds2.maxY);
   };
 
+  const handleWidgetConflictResolved = (selectedRoomId: string | 'all') => {
+    if (!mergeWidgetConflict || !scene || !activeSceneId) return;
+    
+    saveToHistory(); // Save history when conflict is resolved
+    
+    const { rooms, mergedVertices } = mergeWidgetConflict;
+    
+    // Determine which widgets to use
+    let widgetsToUse: any[] = [];
+    if (selectedRoomId === 'all') {
+      // Combine all widgets from all rooms
+      rooms.forEach(room => {
+        if (room.widgets && room.widgets.length > 0) {
+          widgetsToUse = [...widgetsToUse, ...room.widgets];
+        }
+      });
+      // Re-order widgets
+      widgetsToUse = widgetsToUse.map((w, idx) => ({ ...w, order: idx }));
+    } else {
+      // Use widgets from selected room
+      const selectedRoom = rooms.find(r => r.id === selectedRoomId);
+      if (selectedRoom && selectedRoom.widgets) {
+        widgetsToUse = selectedRoom.widgets;
+      }
+    }
+    
+    // Create merged room
+    const firstRoom = rooms[0];
+    const mergedRoom: RoomElement = {
+      ...firstRoom,
+      id: `room-${Date.now()}-${Math.random()}`,
+      vertices: mergedVertices,
+      wallOpenings: [],
+      widgets: widgetsToUse
+    };
+    
+    // Remove original rooms and add merged room
+    const roomIds = rooms.map(r => r.id);
+    let updatedElements = scene.elements.filter(el => !roomIds.includes(el.id));
+    updatedElements.push(mergedRoom);
+    
+    updateScene(activeSceneId, { elements: updatedElements });
+    setSelectedElementId(mergedRoom.id);
+    setSelectedElementIds([]);
+    setMergeWidgetConflict(null);
+  };
+
   const handleMergeRooms = () => {
     if (!scene || !activeSceneId) return;
     
@@ -616,8 +682,6 @@ const Canvas = ({
     if (selectedRooms.length < 2) {
       return;
     }
-
-    saveToHistory();
 
     // Collect all vertices from all selected rooms
     const allVertices: { x: number; y: number }[] = [];
@@ -710,7 +774,23 @@ const Canvas = ({
     console.log('Selected rooms:', selectedRooms.length);
     console.log('Groups found:', groups.map(g => g.length));
     
-    // Count non-merged rooms (groups with only 1 room)
+    // Check for widget conflicts in any group that will be merged
+    for (const group of groups) {
+      if (group.length > 1) {
+        const roomsWithWidgets = group.filter(room => room.widgets && room.widgets.length > 0);
+        if (roomsWithWidgets.length > 1) {
+          // Multiple rooms have widgets - show conflict dialog and stop
+          const mergedVertices = mergePolygons(group);
+          setMergeWidgetConflict({
+            rooms: group,
+            mergedVertices
+          });
+          return; // Don't complete merge yet - wait for user choice
+        }
+      }
+    }
+    
+    // No conflicts - proceed with merge
     const nonMergedCount = groups.filter(group => group.length === 1).length;
     
     // Process each group
@@ -727,12 +807,18 @@ const Canvas = ({
         // Multiple overlapping rooms, merge them
         console.log(`  Merging ${group.length} rooms`);
         const mergedVertices = mergePolygons(group);
+        
+        // Determine which widgets to use (we already checked for conflicts above)
+        const roomsWithWidgets = group.filter(room => room.widgets && room.widgets.length > 0);
+        let widgetsToUse = roomsWithWidgets.length === 1 ? roomsWithWidgets[0].widgets : [];
+        
         const firstRoom = group[0];
         const mergedRoom: RoomElement = {
           ...firstRoom,
           id: `room-${Date.now()}-${Math.random()}`,
           vertices: mergedVertices,
-          wallOpenings: []
+          wallOpenings: [],
+          widgets: widgetsToUse
         };
         mergedRooms.push(mergedRoom);
         
@@ -746,6 +832,9 @@ const Canvas = ({
 
     console.log('Total rooms to remove:', roomsToRemove.size);
     console.log('Total merged rooms to add:', mergedRooms.length);
+    
+    // Save to history before making changes
+    saveToHistory();
     
     // Remove only the rooms that were actually merged, keep all others
     let updatedElements = scene.elements.filter(el => !roomsToRemove.has(el.id));
@@ -1354,6 +1443,23 @@ const Canvas = ({
         }
         // Check if clicking on element that's part of current multi-selection
         else if (selectedElementIds.length > 0 && selectedElementIds.includes(clickedElement.id)) {
+          // Check if any selected elements are locked
+          const lockedElement = selectedElementIds
+            .map(id => scene.elements.find(e => e.id === id))
+            .find(el => el?.locked);
+          
+          if (lockedElement) {
+            // Don't allow dragging if any element is locked
+            const elementName = lockedElement.type === 'token' 
+              ? lockedElement.name 
+              : lockedElement.type === 'room'
+              ? lockedElement.name || 'Room'
+              : 'Annotation';
+            setLockedElementError(`The ${lockedElement.type} "${elementName}" is locked. Unlock before moving.`);
+            setTimeout(() => setLockedElementError(null), 3000);
+            return;
+          }
+          
           // Start dragging multiple elements - DON'T change selection
           const dragOffsets = new Map<string, {x: number, y: number}>();
           selectedElementIds.forEach(id => {
@@ -1376,6 +1482,21 @@ const Canvas = ({
           });
           setDraggedMultiple({ offsetX: x, offsetY: y, initialOffsets: dragOffsets });
         } else {
+          // Check if element is locked
+          if (clickedElement.locked) {
+            // Select but don't drag
+            setSelectedElementId(clickedElement.id);
+            setSelectedElementIds([]);
+            const elementName = clickedElement.type === 'token' 
+              ? clickedElement.name 
+              : clickedElement.type === 'room'
+              ? clickedElement.name || 'Room'
+              : 'Annotation';
+            setLockedElementError(`The ${clickedElement.type} "${elementName}" is locked. Unlock before moving.`);
+            setTimeout(() => setLockedElementError(null), 3000);
+            return;
+          }
+          
           // Regular click: Select single and start dragging
           setSelectedElementId(clickedElement.id);
           setSelectedElementIds([]);
@@ -1483,7 +1604,7 @@ const Canvas = ({
           wallTextureUrl: useWallTexture,
           wallThickness: useWallThickness,
           wallTileSize: useWallTileSize,
-          name: 'Floor',
+          name: generateRoomName(),
           notes: '',
           zIndex: -100,
           visible: true,
@@ -2555,6 +2676,24 @@ const Canvas = ({
           onColorChange={onColorChange}
           roomSubTool={roomSubTool}
           setRoomSubTool={setRoomSubTool}
+          selectedElementLocked={
+            selectedElementId
+              ? (scene.elements.find(e => e.id === selectedElementId) as any)?.locked || false
+              : selectedElementIds.length === 1
+                ? (scene.elements.find(e => e.id === selectedElementIds[0]) as any)?.locked || false
+                : false
+          }
+          onToggleLock={() => {
+            const idsToUpdate = selectedElementIds.length > 0 ? selectedElementIds : [selectedElementId!];
+            const updates = new Map<string, Partial<MapElement>>();
+            idsToUpdate.forEach(id => {
+              const element = scene.elements.find(e => e.id === id);
+              if (element) {
+                updates.set(id, { locked: !element.locked });
+              }
+            });
+            updateElements(updates);
+          }}
         />
       )}
 
@@ -2576,6 +2715,68 @@ const Canvas = ({
             <p className="text-yellow-200 text-sm text-center">
               {mergeNotification}
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* Locked Element Error */}
+      {lockedElementError && (
+        <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50">
+          <div className="bg-red-900/80 border border-red-700/50 rounded-lg shadow-lg px-5 py-3">
+            <p className="text-red-200 text-sm text-center">
+              {lockedElementError}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Widget Conflict Dialog */}
+      {mergeWidgetConflict && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-dm-panel border border-dm-border rounded-lg shadow-2xl p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-gray-200 mb-4">
+              Widget Conflict
+            </h3>
+            
+            <p className="text-gray-300 text-sm mb-4">
+              {mergeWidgetConflict.rooms.filter(r => r.widgets && r.widgets.length > 0).length} rooms have widgets in their properties. 
+              Select which room's properties you want to use.
+            </p>
+
+            <div className="space-y-2 mb-4">
+              {mergeWidgetConflict.rooms
+                .filter(room => room.widgets && room.widgets.length > 0)
+                .map(room => (
+                  <button
+                    key={room.id}
+                    onClick={() => handleWidgetConflictResolved(room.id)}
+                    className="w-full px-4 py-3 bg-dm-dark hover:bg-dm-border border border-dm-border rounded text-left transition-colors"
+                  >
+                    <div className="font-medium text-gray-200">{room.name || 'Unnamed Room'}</div>
+                    <div className="text-xs text-gray-400 mt-1">
+                      {room.widgets?.length || 0} widget{room.widgets?.length !== 1 ? 's' : ''}
+                    </div>
+                  </button>
+                ))
+              }
+              
+              <button
+                onClick={() => handleWidgetConflictResolved('all')}
+                className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 border border-blue-500 rounded text-left transition-colors mt-3"
+              >
+                <div className="font-medium text-white">Add all widgets to new room</div>
+                <div className="text-xs text-blue-200 mt-1">
+                  Combine all widgets from all rooms
+                </div>
+              </button>
+            </div>
+
+            <button
+              onClick={() => setMergeWidgetConflict(null)}
+              className="w-full px-4 py-2 bg-dm-dark hover:bg-dm-border border border-dm-border rounded text-gray-300 transition-colors"
+            >
+              Cancel
+            </button>
           </div>
         </div>
       )}

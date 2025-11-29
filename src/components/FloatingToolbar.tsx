@@ -25,6 +25,8 @@ interface FloatingToolbarProps {
   onColorChange: (color: ColorType) => void;
   roomSubTool: RoomSubTool;
   setRoomSubTool: (subTool: RoomSubTool) => void;
+  selectedElementLocked: boolean;
+  onToggleLock: () => void;
 }
 
 const FloatingToolbar = ({
@@ -49,7 +51,9 @@ const FloatingToolbar = ({
   selectedColor,
   onColorChange,
   roomSubTool,
-  setRoomSubTool
+  setRoomSubTool,
+  selectedElementLocked,
+  onToggleLock
 }: FloatingToolbarProps) => {
   const [showTokenPicker, setShowTokenPicker] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
@@ -467,6 +471,22 @@ const FloatingToolbar = ({
           title={hasSelection ? "Toggle Badge for Selected Token(s)" : "Toggle All Token Badges"}
         >
           <Tag size={18} />
+        </button>
+
+        {/* Lock Toggle */}
+        <button
+          onClick={onToggleLock}
+          disabled={!hasSelection}
+          className={`p-2.5 rounded transition-colors ${
+            !hasSelection
+              ? 'opacity-50 cursor-not-allowed bg-dm-dark text-gray-500'
+              : selectedElementLocked
+              ? 'bg-red-600 hover:bg-red-700 text-white'
+              : 'bg-dm-dark hover:bg-dm-border text-gray-300 hover:text-white'
+          } border-2 border-transparent box-content`}
+          title={hasSelection ? (selectedElementLocked ? "Unlock Selected Element(s)" : "Lock Selected Element(s)") : "Lock/Unlock Element"}
+        >
+          <Lock size={18} />
         </button>
 
         {/* Color Picker */}
