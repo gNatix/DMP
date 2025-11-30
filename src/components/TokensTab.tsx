@@ -8,6 +8,7 @@ interface TokensTabProps {
   setActiveTool: (tool: ToolType) => void;
   setActiveTokenTemplate: (template: TokenTemplate | null) => void;
   onRecentTokensChange?: (tokens: TokenTemplate[]) => void;
+  activeTokenTemplate?: TokenTemplate | null;
 }
 
 type TokenCategory = 'monsters' | 'npcs' | 'items' | 'objects' | 'other' | 'shapes' | 'poi' | 'environment';
@@ -22,17 +23,17 @@ const POI_TOKENS: TokenTemplate[] = [
   { id: 'poi-landmark', name: 'Landmark', isPOI: true, icon: 'landmark', category: 'poi' },
   { id: 'poi-footprint', name: 'Tracks/Footprints', isPOI: true, icon: 'footprint', category: 'poi' },
   { id: 'poi-info', name: 'Information', isPOI: true, icon: 'info', category: 'poi' },
+  { id: 'poi-skull', name: 'Skull/Death', isPOI: true, icon: 'skull', category: 'poi' },
 ];
 
 // Predefined shape tokens
 const SHAPE_TOKENS: TokenTemplate[] = [
-  { id: 'shape-circle', name: 'Circle', isShape: true, icon: 'circle' },
-  { id: 'shape-square', name: 'Square', isShape: true, icon: 'square' },
-  { id: 'shape-triangle', name: 'Triangle', isShape: true, icon: 'triangle' },
-  { id: 'shape-star', name: 'Star', isShape: true, icon: 'star' },
-  { id: 'shape-diamond', name: 'Diamond', isShape: true, icon: 'diamond' },
-  { id: 'shape-heart', name: 'Heart', isShape: true, icon: 'heart' },
-  { id: 'shape-skull', name: 'Skull', isShape: true, icon: 'skull' },
+  { id: 'shape-circle', name: 'Circle', isShape: true, icon: 'circle', category: 'shapes' },
+  { id: 'shape-square', name: 'Square', isShape: true, icon: 'square', category: 'shapes' },
+  { id: 'shape-triangle', name: 'Triangle', isShape: true, icon: 'triangle', category: 'shapes' },
+  { id: 'shape-star', name: 'Star', isShape: true, icon: 'star', category: 'shapes' },
+  { id: 'shape-diamond', name: 'Diamond', isShape: true, icon: 'diamond', category: 'shapes' },
+  { id: 'shape-heart', name: 'Heart', isShape: true, icon: 'heart', category: 'shapes' },
 ];
 
 const LIBRARY_TOKENS: TokenTemplate[] = [...SHAPE_TOKENS, ...POI_TOKENS];
@@ -43,7 +44,8 @@ const TokensTab = ({
   addTokenTemplate: _addTokenTemplate,
   setActiveTool,
   setActiveTokenTemplate,
-  onRecentTokensChange
+  onRecentTokensChange,
+  activeTokenTemplate
 }: TokensTabProps) => {
   const [selectedCategory, setSelectedCategory] = useState<TokenCategory | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
@@ -107,6 +109,25 @@ const TokensTab = ({
       setActiveTokenTemplate(updatedTemplate);
     }
   }, [selectedColor]);
+
+  // Open category when activeTokenTemplate changes
+  useEffect(() => {
+    if (activeTokenTemplate) {
+      // Use category if set, otherwise fallback to isShape/isPOI flags
+      let category: TokenCategory = 'other';
+      if (activeTokenTemplate.category) {
+        category = activeTokenTemplate.category as TokenCategory;
+      } else if (activeTokenTemplate.isShape) {
+        category = 'shapes';
+      } else if (activeTokenTemplate.isPOI) {
+        category = 'poi';
+      }
+      
+      setSelectedCategory(category);
+      setSelectedTokenId(activeTokenTemplate.id);
+      setCurrentTemplate(activeTokenTemplate);
+    }
+  }, [activeTokenTemplate]);
 
   const handleTokenClick = (template: TokenTemplate) => {
     const coloredTemplate = template.isShape 

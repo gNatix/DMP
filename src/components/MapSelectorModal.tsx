@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 
 interface StockMap {
@@ -80,25 +80,6 @@ const MapSelectorModal = ({ isOpen, onClose, onSelectMap }: MapSelectorModalProp
         }
         
         setStockMaps(allMaps);
-        
-        // Find category with fewest maps (minimum 1)
-        if (allMaps.length > 0) {
-          const categoryCounts = {
-            dungeons: allMaps.filter(m => m.category === 'dungeons').length,
-            indoors: allMaps.filter(m => m.category === 'indoors').length,
-            outdoors: allMaps.filter(m => m.category === 'outdoors').length,
-            taverns: allMaps.filter(m => m.category === 'taverns').length,
-            other: allMaps.filter(m => m.category === 'other').length
-          };
-          
-          const smallestCategory = Object.entries(categoryCounts)
-            .filter(([_, count]) => count > 0)
-            .sort((a, b) => a[1] - b[1])[0];
-          
-          if (smallestCategory) {
-            setSelectedCategory(smallestCategory[0]);
-          }
-        }
       } catch (error) {
         console.error('Failed to load maps from webhotel:', error);
       }
@@ -108,6 +89,24 @@ const MapSelectorModal = ({ isOpen, onClose, onSelectMap }: MapSelectorModalProp
       loadMapsFromWebhotel();
     }
   }, [isOpen]);
+
+  React.useEffect(() => {
+    if (isOpen && stockMaps.length > 0) {
+      const categoryCounts = {
+        dungeons: dungeonMaps.length,
+        indoors: indoorMaps.length,
+        outdoors: outdoorMaps.length,
+        taverns: tavernMaps.length,
+        other: otherMaps.length
+      };
+      
+      const smallestCategory = (Object.entries(categoryCounts) as [string, number][])
+        .filter(([_, count]) => count > 0)
+        .sort((a, b) => a[1] - b[1])[0]?.[0] || 'dungeons';
+      
+      setSelectedCategory(smallestCategory);
+    }
+  }, [isOpen, stockMaps]);
 
   if (!isOpen) return null;
 

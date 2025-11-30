@@ -9,6 +9,7 @@ interface RightPanelProps {
   activeSceneId: string | null;
   setActiveSceneId: (id: string | null) => void;
   addScene: (name: string, backgroundMapUrl: string, backgroundMapName: string, collectionId?: string) => void;
+  addCanvasScene: (collectionId?: string) => void;
   updateSceneName: (sceneId: string, newName: string) => void;
   deleteScene: (sceneId: string) => void;
   collections: Collection[];
@@ -22,6 +23,7 @@ interface RightPanelProps {
   tokenTemplates: TokenTemplate[];
   addTokenTemplate: (name: string, imageUrl: string) => void;
   setActiveTool: (tool: ToolType) => void;
+  activeTokenTemplate: TokenTemplate | null;
   setActiveTokenTemplate: (template: TokenTemplate | null) => void;
   onRecentTokensChange?: (tokens: TokenTemplate[]) => void;
   activeTool: ToolType;
@@ -40,6 +42,7 @@ interface RightPanelProps {
   roomSubTool: RoomSubTool;
   setRoomSubTool: (subTool: RoomSubTool) => void;
   onMergeRooms?: () => void;
+  onCenterElement?: (elementId: string) => void;
 }
 
 type TabType = 'scenes' | 'tokens' | 'rooms';
@@ -49,6 +52,7 @@ const RightPanel = ({
   activeSceneId,
   setActiveSceneId,
   addScene,
+  addCanvasScene,
   updateSceneName,
   deleteScene,
   collections,
@@ -62,6 +66,7 @@ const RightPanel = ({
   tokenTemplates,
   addTokenTemplate,
   setActiveTool,
+  activeTokenTemplate,
   setActiveTokenTemplate,
   onRecentTokensChange,
   activeTool,
@@ -79,7 +84,8 @@ const RightPanel = ({
   onWallTileSizeChange,
   roomSubTool,
   setRoomSubTool,
-  onMergeRooms
+  onMergeRooms,
+  onCenterElement
 }: RightPanelProps) => {
   const [activeTab, setActiveTab] = useState<TabType>('scenes');
 
@@ -89,6 +95,8 @@ const RightPanel = ({
       setActiveTab('rooms');
     } else if (selectedElement?.type === 'room') {
       setActiveTab('rooms');
+    } else if (activeTool === 'token') {
+      setActiveTab('tokens');
     }
   }, [activeTool, selectedElement]);
 
@@ -136,6 +144,7 @@ const RightPanel = ({
             activeSceneId={activeSceneId}
             setActiveSceneId={setActiveSceneId}
             addScene={addScene}
+            addCanvasScene={addCanvasScene}
             updateSceneName={updateSceneName}
             deleteScene={deleteScene}
             collections={collections}
@@ -145,6 +154,7 @@ const RightPanel = ({
             deleteCollection={deleteCollection}
             updateElement={updateElement}
             deleteElement={deleteElement}
+            onCenterElement={onCenterElement}
           />
         )}
         {activeTab === 'tokens' && (
@@ -152,6 +162,7 @@ const RightPanel = ({
             tokenTemplates={tokenTemplates}
             addTokenTemplate={addTokenTemplate}
             setActiveTool={setActiveTool}
+            activeTokenTemplate={activeTokenTemplate}
             setActiveTokenTemplate={setActiveTokenTemplate}
             onRecentTokensChange={onRecentTokensChange}
           />

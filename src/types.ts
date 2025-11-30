@@ -4,7 +4,8 @@ export type ElementType = "annotation" | "token" | "room";
 
 export type ToolType = "pointer" | "marker" | "token" | "pan" | "zoom-in" | "zoom-out" | "room";
 
-export type RoomSubTool = "rectangle" | "pentagon" | "hexagon" | "octagon" | "erase" | "custom" | "subtract";
+export type RoomSubTool = "rectangle" | "pentagon" | "hexagon" | "octagon" | "erase" | "custom" | 
+  "subtract-rectangle" | "subtract-pentagon" | "subtract-hexagon" | "subtract-octagon" | "subtract-custom";
 
 export type IconType = "circle" | "square" | "triangle" | "star" | "diamond" | "heart" | "skull" | "quest" | "clue" | "hidden" | "door" | "landmark" | "footprint" | "info";
 
@@ -91,6 +92,7 @@ export interface RoomElement {
   // Metadata
   name: string;
   notes: string;
+  label?: string; // Optional text label to display on the room
   zIndex?: number; // For layering control
   visible?: boolean; // For hiding elements (default true)
   widgets?: Widget[]; // For properties panel customization
@@ -107,6 +109,7 @@ export interface Collection {
   id: string;
   name: string;
   appearance?: CollectionAppearance;
+  isAutoCreated?: boolean; // True if auto-created with default canvas
 }
 
 export interface Scene {
@@ -118,6 +121,7 @@ export interface Scene {
   width: number;
   height: number;
   collectionId?: string; // Optional reference to a collection
+  isAutoCreated?: boolean; // True if auto-created when user started drawing
 }
 
 export interface DungeonMap {
@@ -132,7 +136,7 @@ export interface TokenTemplate {
   id: string;
   name: string;
   imageUrl?: string; // Optional for shape tokens
-  category?: 'monsters' | 'npcs' | 'items' | 'objects' | 'other' | 'poi' | 'environment'; // For token categorization
+  category?: 'monsters' | 'npcs' | 'items' | 'objects' | 'other' | 'shapes' | 'poi' | 'environment'; // For token categorization
   isShape?: boolean; // True if it's a shape token (no image)
   isPOI?: boolean; // True for POI icons (no background circle)
   icon?: IconType; // For shape tokens

@@ -51,6 +51,15 @@ const RoomBuilderPanel = ({
   const [loadingFloors, setLoadingFloors] = useState(true);
   const [wallTextures, setWallTextures] = useState<AssetFile[]>([]);
   const [loadingWalls, setLoadingWalls] = useState(true);
+  const [isSubtractMode, setIsSubtractMode] = useState(false);
+
+  // Get base shape from subtract tool (e.g., 'subtract-rectangle' -> 'rectangle')
+  const getBaseShape = (tool: RoomSubTool): RoomSubTool => {
+    if (tool.startsWith('subtract-')) {
+      return tool.replace('subtract-', '') as RoomSubTool;
+    }
+    return tool;
+  };
 
   // Load floor textures
   useEffect(() => {
@@ -99,6 +108,11 @@ const RoomBuilderPanel = ({
       onSelectWallTexture(wallTextures[0].download_url);
     }
   }, [wallTextures, selectedWallTexture, onSelectWallTexture]);
+
+  // Sync isSubtractMode with roomSubTool
+  useEffect(() => {
+    setIsSubtractMode(roomSubTool.startsWith('subtract-'));
+  }, [roomSubTool]);
 
   // Handle texture change for selected room
   const handleTextureClick = (url: string) => {
@@ -182,19 +196,58 @@ const RoomBuilderPanel = ({
 
         {activeTab === 'shape-room' && (
           <>
-            {/* Shape Picker */}
+            {/* Shape Picker with Mode Badges */}
             <div className="mb-4">
-              <label className="text-xs text-gray-400 mb-2 block">Room Shape</label>
-              <div className="grid grid-cols-6 gap-2">
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs text-gray-400">Select Shape</label>
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => {
+                      const baseShape = getBaseShape(roomSubTool);
+                      if (baseShape !== 'erase') {
+                        setRoomSubTool(baseShape);
+                        setActiveTool('room');
+                      }
+                    }}
+                    className={`px-2 py-0.5 text-xs rounded transition-all ${
+                      !isSubtractMode
+                        ? 'bg-green-500/20 text-green-400 border border-green-500'
+                        : 'bg-dm-panel text-gray-400 border border-dm-border hover:border-dm-highlight'
+                    }`}
+                  >
+                    Add
+                  </button>
+                  
+                  <button
+                    onClick={() => {
+                      const baseShape = getBaseShape(roomSubTool);
+                      if (baseShape !== 'erase') {
+                        setRoomSubTool(`subtract-${baseShape}` as RoomSubTool);
+                        setActiveTool('room');
+                      }
+                    }}
+                    className={`px-2 py-0.5 text-xs rounded transition-all ${
+                      isSubtractMode
+                        ? 'bg-red-500/20 text-red-400 border border-red-500'
+                        : 'bg-dm-panel text-gray-400 border border-dm-border hover:border-dm-highlight'
+                    }`}
+                  >
+                    Subtract
+                  </button>
+                </div>
+              </div>
+
+            {/* Shape Picker */}
+              <div className="grid grid-cols-5 gap-2">
                 {/* Rectangle */}
                 <button
                   onClick={() => {
-                    setRoomSubTool('rectangle');
+                    setRoomSubTool(isSubtractMode ? 'subtract-rectangle' : 'rectangle');
                     setActiveTool('room');
                   }}
                   className={`aspect-square rounded border-2 transition-all bg-dm-panel flex items-center justify-center ${
-                    roomSubTool === 'rectangle'
-                      ? 'border-amber-500 ring-2 ring-amber-500/50'
+                    roomSubTool === (isSubtractMode ? 'subtract-rectangle' : 'rectangle')
+                      ? (isSubtractMode ? 'border-red-500 ring-2 ring-red-500/50' : 'border-amber-500 ring-2 ring-amber-500/50')
                       : 'border-dm-border hover:border-dm-highlight'
                   }`}
                   title="Rectangle (4 corners)"
@@ -207,12 +260,12 @@ const RoomBuilderPanel = ({
                 {/* Pentagon */}
                 <button
                   onClick={() => {
-                    setRoomSubTool('pentagon');
+                    setRoomSubTool(isSubtractMode ? 'subtract-pentagon' : 'pentagon');
                     setActiveTool('room');
                   }}
                   className={`aspect-square rounded border-2 transition-all bg-dm-panel flex items-center justify-center ${
-                    roomSubTool === 'pentagon'
-                      ? 'border-amber-500 ring-2 ring-amber-500/50'
+                    roomSubTool === (isSubtractMode ? 'subtract-pentagon' : 'pentagon')
+                      ? (isSubtractMode ? 'border-red-500 ring-2 ring-red-500/50' : 'border-amber-500 ring-2 ring-amber-500/50')
                       : 'border-dm-border hover:border-dm-highlight'
                   }`}
                   title="Pentagon (5 corners)"
@@ -225,12 +278,12 @@ const RoomBuilderPanel = ({
                 {/* Hexagon */}
                 <button
                   onClick={() => {
-                    setRoomSubTool('hexagon');
+                    setRoomSubTool(isSubtractMode ? 'subtract-hexagon' : 'hexagon');
                     setActiveTool('room');
                   }}
                   className={`aspect-square rounded border-2 transition-all bg-dm-panel flex items-center justify-center ${
-                    roomSubTool === 'hexagon'
-                      ? 'border-amber-500 ring-2 ring-amber-500/50'
+                    roomSubTool === (isSubtractMode ? 'subtract-hexagon' : 'hexagon')
+                      ? (isSubtractMode ? 'border-red-500 ring-2 ring-red-500/50' : 'border-amber-500 ring-2 ring-amber-500/50')
                       : 'border-dm-border hover:border-dm-highlight'
                   }`}
                   title="Hexagon (6 corners)"
@@ -243,12 +296,12 @@ const RoomBuilderPanel = ({
                 {/* Octagon */}
                 <button
                   onClick={() => {
-                    setRoomSubTool('octagon');
+                    setRoomSubTool(isSubtractMode ? 'subtract-octagon' : 'octagon');
                     setActiveTool('room');
                   }}
                   className={`aspect-square rounded border-2 transition-all bg-dm-panel flex items-center justify-center ${
-                    roomSubTool === 'octagon'
-                      ? 'border-amber-500 ring-2 ring-amber-500/50'
+                    roomSubTool === (isSubtractMode ? 'subtract-octagon' : 'octagon')
+                      ? (isSubtractMode ? 'border-red-500 ring-2 ring-red-500/50' : 'border-amber-500 ring-2 ring-amber-500/50')
                       : 'border-dm-border hover:border-dm-highlight'
                   }`}
                   title="Octagon (8 corners)"
@@ -261,40 +314,21 @@ const RoomBuilderPanel = ({
                 {/* Custom Polygon Tool */}
                 <button
                   onClick={() => {
-                    setRoomSubTool('custom');
+                    setRoomSubTool(isSubtractMode ? 'subtract-custom' : 'custom');
                     setActiveTool('room');
                   }}
                   className={`aspect-square rounded border-2 transition-all bg-dm-panel flex items-center justify-center ${
-                    roomSubTool === 'custom'
-                      ? 'border-amber-500 ring-2 ring-amber-500/50'
+                    roomSubTool === (isSubtractMode ? 'subtract-custom' : 'custom')
+                      ? (isSubtractMode ? 'border-red-500 ring-2 ring-red-500/50' : 'border-amber-500 ring-2 ring-amber-500/50')
                       : 'border-dm-border hover:border-dm-highlight'
                   }`}
-                  title="Custom Polygon (Click to place vertices, double-click or click first point to finish)"
+                  title={isSubtractMode ? "Custom Polygon Subtract" : "Custom Polygon (Click to place vertices, double-click or click first point to finish)"}
                 >
                   <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path d="M6 18 L12 8 L20 12" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                     <circle cx="6" cy="18" r="2" fill="currentColor"/>
                     <circle cx="12" cy="8" r="2" fill="currentColor"/>
                     <circle cx="20" cy="12" r="2" fill="currentColor"/>
-                  </svg>
-                </button>
-
-                {/* Subtract Tool */}
-                <button
-                  onClick={() => {
-                    setRoomSubTool('subtract');
-                    setActiveTool('room');
-                  }}
-                  className={`aspect-square rounded border-2 transition-all bg-dm-panel flex items-center justify-center ${
-                    roomSubTool === 'subtract'
-                      ? 'border-red-500 ring-2 ring-red-500/50'
-                      : 'border-dm-border hover:border-dm-highlight'
-                  }`}
-                  title="Subtract (Remove area from existing room)"
-                >
-                  <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <rect x="4" y="6" width="16" height="12" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    <path d="M9 12 L15 12" strokeWidth="2.5" strokeLinecap="round" stroke="#ef4444"/>
                   </svg>
                 </button>
               </div>
@@ -371,7 +405,10 @@ const RoomBuilderPanel = ({
                         updateElement(selectedRoom.id, { wallTileSize: newSize });
                       }
                     }}
-                    className="flex-1"
+                    className="flex-1 h-2 bg-dm-dark rounded-lg appearance-none cursor-pointer slider"
+                    style={{
+                      background: `linear-gradient(to right, #8b5cf6 0%, #8b5cf6 ${((wallTileSize - 10) / 190) * 100}%, #1f2937 ${((wallTileSize - 10) / 190) * 100}%, #1f2937 100%)`
+                    }}
                   />
                   <span className="text-sm text-gray-400 w-12 text-right">{wallTileSize}px</span>
                 </div>
@@ -387,7 +424,10 @@ const RoomBuilderPanel = ({
                     max="30"
                     value={currentWallThickness}
                     onChange={(e) => handleWallThicknessChange(Number(e.target.value))}
-                    className="flex-1"
+                    className="flex-1 h-2 bg-dm-dark rounded-lg appearance-none cursor-pointer slider"
+                    style={{
+                      background: `linear-gradient(to right, #8b5cf6 0%, #8b5cf6 ${((currentWallThickness - 4) / 26) * 100}%, #1f2937 ${((currentWallThickness - 4) / 26) * 100}%, #1f2937 100%)`
+                    }}
                   />
                   <span className="text-sm text-gray-400 w-10 text-right">{currentWallThickness}px</span>
                 </div>
@@ -470,7 +510,10 @@ const RoomBuilderPanel = ({
                   max="200"
                   value={currentTileSize}
                   onChange={(e) => handleTileSizeChange(Number(e.target.value))}
-                  className="flex-1"
+                  className="flex-1 h-2 bg-dm-dark rounded-lg appearance-none cursor-pointer slider"
+                  style={{
+                    background: `linear-gradient(to right, #8b5cf6 0%, #8b5cf6 ${((currentTileSize - 10) / 190) * 100}%, #1f2937 ${((currentTileSize - 10) / 190) * 100}%, #1f2937 100%)`
+                  }}
                 />
                 <span className="text-sm text-gray-400 w-12 text-right">{currentTileSize}px</span>
               </div>

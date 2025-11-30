@@ -3,6 +3,7 @@ import { Scene, MapElement, AnnotationElement, TokenElement, RoomElement, ToolTy
 import { Circle, Square, Triangle, Star, Diamond, Heart, Skull, MapPin, Search, Eye, DoorOpen, Landmark, Footprints, Info } from 'lucide-react';
 import FloatingToolbar from './FloatingToolbar';
 import polygonClipping from 'polygon-clipping';
+import { DEFAULT_CANVAS_NAME } from '../constants';
 
 interface CanvasProps {
   scene: Scene | null;
@@ -26,6 +27,7 @@ interface CanvasProps {
   setShowTokenBadges: (show: boolean) => void;
   onDoubleClickElement?: (elementId: string) => void;
   recentTokens: TokenTemplate[];
+  tokenTemplates: TokenTemplate[];
   onSelectToken: (token: TokenTemplate) => void;
   selectedColor: ColorType;
   onColorChange: (color: ColorType) => void;
@@ -38,6 +40,7 @@ interface CanvasProps {
   roomSubTool: RoomSubTool;
   setRoomSubTool: (subTool: RoomSubTool) => void;
   onMergeRooms?: (handler: () => void) => void;
+  onCenterElementReady?: (centerFn: (elementId: string) => void) => void;
 }
 
 const Canvas = ({
@@ -62,6 +65,7 @@ const Canvas = ({
   setShowTokenBadges,
   onDoubleClickElement,
   recentTokens,
+  tokenTemplates,
   onSelectToken,
   selectedColor,
   onColorChange,
@@ -73,7 +77,8 @@ const Canvas = ({
   wallTileSize,
   roomSubTool,
   setRoomSubTool,
-  onMergeRooms
+  onMergeRooms,
+  onCenterElementReady
 }: CanvasProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
@@ -102,6 +107,7 @@ const Canvas = ({
   const [movingVertex, setMovingVertex] = useState<{ id: string; vertexIndex: number } | null>(null);
   const [isCtrlPressed, setIsCtrlPressed] = useState(false);
   const [isShiftPressed, setIsShiftPressed] = useState(false);
+  const [isAltPressed, setIsAltPressed] = useState(false);
   const [lastClickedElement, setLastClickedElement] = useState<string | null>(null);
   const [fitToViewLocked, setFitToViewLocked] = useState(false);
   const [zoomLimitError, setZoomLimitError] = useState(false);
@@ -114,6 +120,10 @@ const Canvas = ({
     mergedVertices: { x: number; y: number }[];
   } | null>(null);
   const [customRoomVertices, setCustomRoomVertices] = useState<{ x: number; y: number }[]>([]);
+  const [showGrid, setShowGrid] = useState(false);
+  const [gridSize, setGridSize] = useState(50);
+  const [showTokenSubmenuForShift, setShowTokenSubmenuForShift] = useState(false);
+  const shiftScrollTimeoutRef = useRef<number | null>(null);
 
   // Generate unique room name
   const generateRoomName = (): string => {
@@ -146,6 +156,19 @@ const Canvas = ({
       counter++;
     }
     return `${baseName} (${counter})`;
+  };
+
+  // Helper to check if roomSubTool is a subtract mode
+  const isSubtractMode = (tool: RoomSubTool): boolean => {
+    return tool.startsWith('subtract-');
+  };
+
+  // Get base shape from subtract tool (e.g., 'subtract-rectangle' -> 'rectangle')
+  const getBaseShape = (tool: RoomSubTool): RoomSubTool => {
+    if (tool.startsWith('subtract-')) {
+      return tool.replace('subtract-', '') as RoomSubTool;
+    }
+    return tool;
   };
 
   // Geometry helper functions for polygon operations
@@ -256,6 +279,13 @@ const Canvas = ({
       onMergeRooms(handleMergeRooms);
     }
   }, [onMergeRooms]);
+
+  // Expose center element function to parent
+  useEffect(() => {
+    if (onCenterElementReady) {
+      onCenterElementReady(centerViewportOnElement);
+    }
+  }, [onCenterElementReady]);
 
   // Clear custom room vertices when changing tool or room sub-tool
   useEffect(() => {
@@ -466,24 +496,38 @@ const Canvas = ({
     // Account for left panel width when it's open (450px fixed width)
     const availableWidth = leftPanelOpen ? containerRect.width - 450 : containerRect.width;
     
-    // When rotated, the visual width is the height and visual height is the width
-    const visualWidth = shouldRotateMap ? mapDimensions.height : mapDimensions.width;
-    const visualHeight = shouldRotateMap ? mapDimensions.width : mapDimensions.height;
+    // Check if this is a canvas scene (transparent background)
+    const isCanvas = scene?.backgroundMapUrl.includes('fill="transparent"') || scene?.name === DEFAULT_CANVAS_NAME;
     
-    // Only fit to width - calculate zoom so map fills 100% of available width
-    const newZoom = availableWidth / visualWidth;
-    
-    // The map container includes padding, so we need to account for that
-    const totalWidth = (visualWidth + mapDimensions.padding * 2) * newZoom;
-    const totalHeight = (visualHeight + mapDimensions.padding * 2) * newZoom;
-    
-    // Center horizontally in available space, and vertically
-    const xOffset = leftPanelOpen ? 450 : 0;
-    setViewport({
-      x: xOffset + (availableWidth - totalWidth) / 2,
-      y: (containerRect.height - totalHeight) / 2,
-      zoom: newZoom
-    });
+    if (isCanvas) {
+      // For canvas, fit to the container width as if it was the canvas size
+      // Set zoom to 1 and center
+      const xOffset = leftPanelOpen ? 450 : 0;
+      setViewport({
+        x: xOffset,
+        y: 0,
+        zoom: 1
+      });
+    } else {
+      // When rotated, the visual width is the height and visual height is the width
+      const visualWidth = shouldRotateMap ? mapDimensions.height : mapDimensions.width;
+      const visualHeight = shouldRotateMap ? mapDimensions.width : mapDimensions.height;
+      
+      // Only fit to width - calculate zoom so map fills 100% of available width
+      const newZoom = availableWidth / visualWidth;
+      
+      // The map container includes padding, so we need to account for that
+      const totalWidth = (visualWidth + mapDimensions.padding * 2) * newZoom;
+      const totalHeight = (visualHeight + mapDimensions.padding * 2) * newZoom;
+      
+      // Center horizontally in available space, and vertically
+      const xOffset = leftPanelOpen ? 450 : 0;
+      setViewport({
+        x: xOffset + (availableWidth - totalWidth) / 2,
+        y: (containerRect.height - totalHeight) / 2,
+        zoom: newZoom
+      });
+    }
   };
 
   // Toggle fit to view lock
@@ -657,9 +701,85 @@ const Canvas = ({
              expandedBounds1.minY > bounds2.maxY);
   };
 
-  const completeCustomRoom = (selectedRoom?: RoomElement) => {
+  const completeCustomRoom = async (selectedRoom?: RoomElement) => {
     if (!scene || !activeSceneId || customRoomVertices.length < 3) return;
     
+    // Check if in subtract mode
+    if (isSubtractMode(roomSubTool)) {
+      // Perform subtract operation with custom polygon
+      const polygonClipping = await import('polygon-clipping');
+      
+      const subtractVertices = [...customRoomVertices];
+      const roomsToSubtract = scene.elements.filter(el => {
+        if (el.type !== 'room' || !el.vertices) return false;
+        
+        // Check if ANY vertex of the subtract polygon is inside the room
+        const hasVertexInside = subtractVertices.some(v => pointInPolygon(v, el.vertices!));
+        
+        // Also check if ANY vertex of the room is inside the subtract polygon
+        const hasRoomVertexInside = el.vertices.some(v => pointInPolygon(v, subtractVertices));
+        
+        return hasVertexInside || hasRoomVertexInside;
+      });
+      
+      if (roomsToSubtract.length > 0) {
+        saveToHistory();
+        
+        const roomsToDelete = new Set<string>();
+        const newRooms: RoomElement[] = [];
+        
+        roomsToSubtract.forEach(room => {
+          if (room.type !== 'room' || !room.vertices) return;
+          
+          try {
+            const roomPoly = [
+              room.vertices.map(v => [v.x, v.y]),
+              ...(room.holes || []).map(hole => hole.map(v => [v.x, v.y]))
+            ];
+            const subtractPoly = [subtractVertices.map(v => [v.x, v.y])];
+            
+            const result = polygonClipping.default.difference(roomPoly as any, subtractPoly as any);
+            
+            if (result.length > 0) {
+              roomsToDelete.add(room.id);
+              
+              result.forEach((polygon, polyIdx) => {
+                if (polygon.length >= 1) {
+                  const outerRing = polygon[0].map(([x, y]) => ({ x, y }));
+                  const holes = polygon.slice(1).map(ring => 
+                    ring.map(([x, y]) => ({ x, y }))
+                  );
+                  
+                  if (outerRing.length >= 3) {
+                    const newRoom: RoomElement = {
+                      ...room,
+                      id: polyIdx === 0 ? room.id : `room-${Date.now()}-${polyIdx}`,
+                      name: polyIdx === 0 ? room.name : generateUniqueName(room.name || 'Room'),
+                      vertices: outerRing,
+                      holes: holes.length > 0 ? holes : undefined
+                    };
+                    newRooms.push(newRoom);
+                  }
+                }
+              });
+            }
+          } catch (error) {
+            console.error('Subtract operation failed:', error);
+          }
+        });
+        
+        if (activeSceneId && (roomsToDelete.size > 0 || newRooms.length > 0)) {
+          const updatedElements = scene.elements.filter(el => !roomsToDelete.has(el.id));
+          updatedElements.push(...newRooms);
+          updateScene(activeSceneId, { elements: updatedElements });
+        }
+      }
+      
+      setCustomRoomVertices([]);
+      return;
+    }
+    
+    // Normal room creation (not subtract mode)
     const useFloorTexture = selectedRoom?.floorTextureUrl || selectedFloorTexture;
     
     if (!useFloorTexture) {
@@ -967,6 +1087,9 @@ const Canvas = ({
       if (e.key === 'Shift') {
         setIsShiftPressed(true);
       }
+      if (e.key === 'Alt') {
+        setIsAltPressed(true);
+      }
 
       // Always track Space
       if (e.key === ' ') {
@@ -980,10 +1103,20 @@ const Canvas = ({
         return;
       }
       if (e.key === 'b' || e.key === 'B') {
-        setActiveTool('token');
+        // Cycle selected token forward
+        if (activeTool === 'token' && tokenTemplates.length > 0) {
+          e.preventDefault();
+          const currentIndex = activeTokenTemplate 
+            ? tokenTemplates.findIndex((t: TokenTemplate) => t.id === activeTokenTemplate.id)
+            : -1;
+          const nextIndex = (currentIndex + 1) % tokenTemplates.length;
+          onSelectToken(tokenTemplates[nextIndex]);
+        } else {
+          setActiveTool('token');
+        }
         return;
       }
-      if (e.key === 'n' || e.key === 'N') {
+      if (e.key === 'd' || e.key === 'D') {
         setActiveTool('pan');
         return;
       }
@@ -993,16 +1126,38 @@ const Canvas = ({
           return;
         }
       }
-      if (e.key === 'x' || e.key === 'X') {
-        setActiveTool('zoom-out');
-        return;
-      }
       if (e.key === 'f' || e.key === 'F') {
         setActiveTool('marker');
         return;
       }
       if (e.key === 'r' || e.key === 'R') {
-        setActiveTool('room');
+        // Cycle through room sub-tools if already on room tool
+        if (activeTool === 'room') {
+          e.preventDefault();
+          const roomTools: RoomSubTool[] = [
+            'rectangle', 'pentagon', 'hexagon', 'octagon', 'custom',
+            'subtract-rectangle', 'subtract-pentagon', 'subtract-hexagon', 'subtract-octagon', 'subtract-custom'
+          ];
+          const currentIndex = roomTools.indexOf(roomSubTool);
+          const nextIndex = (currentIndex + 1) % roomTools.length;
+          setRoomSubTool(roomTools[nextIndex]);
+        } else {
+          setActiveTool('room');
+        }
+        return;
+      }
+      if (e.key === 'g' || e.key === 'G') {
+        e.preventDefault();
+        setShowGrid(prev => !prev);
+        return;
+      }
+      if (e.key === 'c' || e.key === 'C') {
+        e.preventDefault();
+        // Cycle through colors
+        const colors: ColorType[] = ['red', 'blue', 'yellow', 'green', 'purple', 'orange', 'pink', 'brown', 'gray', 'black', 'white', 'cyan', 'magenta', 'lime', 'indigo', 'teal'];
+        const currentIndex = colors.indexOf(selectedColor);
+        const nextIndex = (currentIndex + 1) % colors.length;
+        onColorChange(colors[nextIndex]);
         return;
       }
 
@@ -1269,6 +1424,9 @@ const Canvas = ({
       if (e.key === 'Shift') {
         setIsShiftPressed(false);
       }
+      if (e.key === 'Alt') {
+        setIsAltPressed(false);
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -1279,6 +1437,16 @@ const Canvas = ({
       window.removeEventListener('keyup', handleKeyUp);
     };
   }, [selectedElementId, selectedElementIds, deleteElements, scene, activeSceneId, activeTool, clipboard, history, historyIndex, viewport]);
+
+  // Hide token submenu when shift is released
+  useEffect(() => {
+    if (!isShiftPressed && showTokenSubmenuForShift) {
+      const timeout = setTimeout(() => {
+        setShowTokenSubmenuForShift(false);
+      }, 200);
+      return () => clearTimeout(timeout);
+    }
+  }, [isShiftPressed, showTokenSubmenuForShift]);
 
   const handleWallErase = (room: RoomElement, clickX: number, clickY: number) => {
     const { vertices, wallThickness, wallOpenings } = room;
@@ -1360,7 +1528,8 @@ const Canvas = ({
 
   const handleMouseDown = (e: React.MouseEvent) => {
     // Handle double-click for custom room completion
-    if (e.detail === 2 && activeTool === 'room' && roomSubTool === 'custom' && customRoomVertices.length >= 3) {
+    const baseShape = getBaseShape(roomSubTool);
+    if (e.detail === 2 && activeTool === 'room' && baseShape === 'custom' && customRoomVertices.length >= 3) {
       const selectedRoom = scene?.elements.find(el => el.id === selectedElementId && el.type === 'room') as RoomElement | undefined;
       completeCustomRoom(selectedRoom);
       return;
@@ -1575,9 +1744,13 @@ const Canvas = ({
       setLastClickedElement(null);
     }
 
-    // Zoom tool - click to zoom in/out at mouse position
+    // Zoom tool - click to zoom in, alt+click to zoom out at mouse position
     if (activeTool === 'zoom-in') {
-      handleZoomIn();
+      if (e.altKey) {
+        handleZoomOut();
+      } else {
+        handleZoomIn();
+      }
       return;
     }
     if (activeTool === 'zoom-out') {
@@ -1734,7 +1907,8 @@ const Canvas = ({
       };
       setTempElement(tempToken);
     } else if (effectiveTool === 'room') {
-      if (roomSubTool === 'custom') {
+      const baseShape = getBaseShape(roomSubTool);
+      if (baseShape === 'custom') {
         // Custom/Magnetic room drawing - click to place vertices
         const selectedRoom = scene.elements.find(el => el.id === selectedElementId && el.type === 'room') as RoomElement | undefined;
         const useFloorTexture = selectedRoom?.floorTextureUrl || selectedFloorTexture;
@@ -1830,7 +2004,7 @@ const Canvas = ({
             }
           });
         }
-      } else if (roomSubTool === 'subtract') {
+      } else if (isSubtractMode(roomSubTool)) {
         // Subtract mode - draw rectangle to subtract from existing room
         setRoomDrawStart({ x, y });
         const tempRoomElement: RoomElement = {
@@ -1864,7 +2038,7 @@ const Canvas = ({
     const y = (e.clientY - rect.top - viewport.y) / viewport.zoom;
 
     // Update cursor position for custom room preview
-    if (activeTool === 'room' && roomSubTool === 'custom') {
+    if (activeTool === 'room' && getBaseShape(roomSubTool) === 'custom') {
       setCursorPosition({ x, y });
     }
 
@@ -1998,8 +2172,15 @@ const Canvas = ({
     // Track mouse position for zoom
     setLastMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
 
-    // Update cursor position for token preview - only if scene exists
-    if (activeTool === 'token' && activeTokenTemplate && scene) {
+    // Check if mouse is over toolbar or any UI element
+    const target = e.target as HTMLElement;
+    const isOverUI = target.closest('.floating-toolbar') || 
+                     target.closest('button') || 
+                     target.closest('[role="button"]') ||
+                     target.tagName === 'BUTTON';
+
+    // Update cursor position for token preview - only if scene exists and not over UI
+    if (activeTool === 'token' && activeTokenTemplate && scene && !isOverUI) {
       setCursorPosition({ x, y });
     } else if (activeTool !== 'room' || roomSubTool !== 'custom') {
       // Only clear cursor position if NOT in custom/magnetic room mode
@@ -2207,7 +2388,8 @@ const Canvas = ({
     }
 
     // Handle room drawing - update vertices based on shape
-    if (roomDrawStart && tempRoom && (roomSubTool === 'rectangle' || roomSubTool === 'pentagon' || roomSubTool === 'hexagon' || roomSubTool === 'octagon' || roomSubTool === 'subtract')) {
+    const baseShape = getBaseShape(roomSubTool);
+    if (roomDrawStart && tempRoom && (baseShape === 'rectangle' || baseShape === 'pentagon' || baseShape === 'hexagon' || baseShape === 'octagon')) {
       const minX = Math.min(x, roomDrawStart.x);
       const maxX = Math.max(x, roomDrawStart.x);
       const minY = Math.min(y, roomDrawStart.y);
@@ -2221,7 +2403,7 @@ const Canvas = ({
       
       let vertices: { x: number; y: number; }[];
       
-      if (roomSubTool === 'rectangle') {
+      if (baseShape === 'rectangle') {
         // Rectangle: 4 vertices
         vertices = [
           { x: minX, y: minY }, // Top-left
@@ -2229,7 +2411,7 @@ const Canvas = ({
           { x: maxX, y: maxY }, // Bottom-right
           { x: minX, y: maxY }  // Bottom-left
         ];
-      } else if (roomSubTool === 'pentagon') {
+      } else if (baseShape === 'pentagon') {
         // Pentagon: 5 vertices, regular polygon
         const numSides = 5;
         vertices = [];
@@ -2240,7 +2422,7 @@ const Canvas = ({
             y: centerY + radius * Math.sin(angle)
           });
         }
-      } else if (roomSubTool === 'hexagon') {
+      } else if (baseShape === 'hexagon') {
         // Hexagon: 6 vertices, regular polygon
         const numSides = 6;
         vertices = [];
@@ -2251,7 +2433,7 @@ const Canvas = ({
             y: centerY + radius * Math.sin(angle)
           });
         }
-      } else if (roomSubTool === 'octagon') {
+      } else if (baseShape === 'octagon') {
         // Octagon: 8 vertices, regular polygon
         const numSides = 8;
         vertices = [];
@@ -2401,7 +2583,7 @@ const Canvas = ({
         console.log('[MOUSE UP] Size OK, processing room');
         
         // Check if this is subtract mode
-        if (roomSubTool === 'subtract' && scene) {
+        if (isSubtractMode(roomSubTool) && scene) {
           // Find all rooms that contain or overlap with the subtract rectangle
           const subtractVertices = tempRoom.vertices;
           const roomsToSubtract = scene.elements.filter(el => {
@@ -2504,42 +2686,66 @@ const Canvas = ({
   };
 
   const handleWheel = (e: React.WheelEvent) => {
-    e.preventDefault();
+    // Check if shift is pressed and token tool is active
+    if (e.shiftKey && activeTool === 'token' && tokenTemplates.length > 0) {
+      e.preventDefault();
+      
+      // Show token submenu
+      setShowTokenSubmenuForShift(true);
+      
+      // Clear existing timeout
+      if (shiftScrollTimeoutRef.current) {
+        clearTimeout(shiftScrollTimeoutRef.current);
+      }
+      
+      // Cycle through tokens
+      const currentIndex = activeTokenTemplate 
+        ? tokenTemplates.findIndex((t: TokenTemplate) => t.id === activeTokenTemplate.id)
+        : -1;
+      
+      let newIndex;
+      if (e.deltaY < 0) {
+        // Scroll up - previous token
+        newIndex = currentIndex <= 0 ? tokenTemplates.length - 1 : currentIndex - 1;
+      } else {
+        // Scroll down - next token
+        newIndex = (currentIndex + 1) % tokenTemplates.length;
+      }
+      
+      onSelectToken(tokenTemplates[newIndex]);
+      
+      // Set timeout to hide submenu after shift is released
+      shiftScrollTimeoutRef.current = window.setTimeout(() => {
+        if (!isShiftPressed) {
+          setShowTokenSubmenuForShift(false);
+        }
+      }, 500);
+      
+      return;
+    }
     
+    // Otherwise, handle zoom as before
+    e.preventDefault();
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect || !mapDimensions.width) return;
-    
-    // Mouse position relative to container
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
-    
-    const delta = e.deltaY > 0 ? 0.9 : 1.1; // Zoom out or in
-    
+    const delta = e.deltaY > 0 ? 0.9 : 1.1;
     setViewport(prev => {
-      // Calculate minimum zoom (100% width fit)
       const availableWidth = leftPanelOpen ? rect.width - 450 : rect.width;
       const visualWidth = shouldRotateMap ? mapDimensions.height : mapDimensions.width;
       const minZoomForFit = availableWidth / visualWidth;
-      
-      // When locked, don't allow zooming out beyond 100% width fit
       const minZoom = fitToViewLocked ? minZoomForFit : 0.1;
       const desiredZoom = prev.zoom * delta;
       const newZoom = Math.max(minZoom, Math.min(5, desiredZoom));
-      
-      // Show error if we hit the limit while locked and trying to zoom out
       if (fitToViewLocked && e.deltaY > 0 && desiredZoom < minZoomForFit) {
         setZoomLimitError(true);
         setTimeout(() => setZoomLimitError(false), 2000);
       }
-      
-      // Calculate world coordinates at mouse position before zoom
       const worldX = (mouseX - prev.x) / prev.zoom;
       const worldY = (mouseY - prev.y) / prev.zoom;
-      
-      // Calculate new viewport offset to keep world point under mouse
       const newX = mouseX - worldX * newZoom;
       const newY = mouseY - worldY * newZoom;
-      
       return {
         ...prev,
         zoom: newZoom,
@@ -2634,9 +2840,12 @@ const Canvas = ({
     if (activeTool === 'token' && scene) return 'cursor-none'; // Hide default cursor for token mode only when scene exists
     if (activeTool === 'room') {
       // Show cell cursor (precision cursor) when in erase mode, otherwise crosshair for drawing
-      return roomSubTool === 'erase' ? 'cursor-cell' : roomSubTool === 'subtract' ? 'cursor-no-drop' : 'cursor-crosshair';
+      return roomSubTool === 'erase' ? 'cursor-cell' : isSubtractMode(roomSubTool) ? 'cursor-no-drop' : 'cursor-crosshair';
     }
-    if (activeTool === 'zoom-in') return 'cursor-zoom-in';
+    if (activeTool === 'zoom-in') {
+      // Show zoom-out cursor when Alt is pressed
+      return isAltPressed ? 'cursor-zoom-out' : 'cursor-zoom-in';
+    }
     if (activeTool === 'zoom-out') return 'cursor-zoom-out';
     return 'cursor-default';
   };
@@ -2695,6 +2904,7 @@ const Canvas = ({
         onWheel={handleWheel}
         onContextMenu={handleContextMenu}
       >
+        {/* ...no token submenu rendered... */}
         {scene && (
           <div
             style={{
@@ -2724,6 +2934,46 @@ const Canvas = ({
                 height: mapDimensions.height
               }}
             />
+
+            {/* Grid Overlay */}
+            {showGrid && (
+              <svg
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  top: 0,
+                  width: (shouldRotateMap ? mapDimensions.height : mapDimensions.width) + mapDimensions.padding * 2,
+                  height: (shouldRotateMap ? mapDimensions.width : mapDimensions.height) + mapDimensions.padding * 2,
+                  pointerEvents: 'none',
+                  opacity: 0.3
+                }}
+              >
+                <defs>
+                  <pattern
+                    id="grid-pattern"
+                    x={mapDimensions.padding}
+                    y={mapDimensions.padding}
+                    width={gridSize}
+                    height={gridSize}
+                    patternUnits="userSpaceOnUse"
+                  >
+                    <path
+                      d={`M ${gridSize} 0 L 0 0 0 ${gridSize}`}
+                      fill="none"
+                      stroke="rgba(255, 255, 255, 0.8)"
+                      strokeWidth="1"
+                    />
+                  </pattern>
+                </defs>
+                <rect
+                  x={mapDimensions.padding}
+                  y={mapDimensions.padding}
+                  width={mapDimensions.width}
+                  height={mapDimensions.height}
+                  fill="url(#grid-pattern)"
+                />
+              </svg>
+            )}
 
             {/* Elements */}
             {[...scene.elements]
@@ -2834,9 +3084,9 @@ const Canvas = ({
                   <path
                     d={polygonPath}
                     fill={tempRoom.floorTextureUrl === 'transparent' ? 'none' : 'url(#temp-floor-pattern)'}
-                    stroke={roomSubTool === 'subtract' ? '#ef4444' : 'none'}
-                    strokeWidth={roomSubTool === 'subtract' ? 2 : 0}
-                    strokeDasharray={roomSubTool === 'subtract' ? '5,5' : 'none'}
+                    stroke={isSubtractMode(roomSubTool) ? '#ef4444' : 'none'}
+                    strokeWidth={isSubtractMode(roomSubTool) ? 2 : 0}
+                    strokeDasharray={isSubtractMode(roomSubTool) ? '5,5' : 'none'}
                   />
                   
                   {/* Walls - as stroke on the polygon edge */}
@@ -2851,14 +3101,42 @@ const Canvas = ({
                     />
                   )}
                   
-                  {/* Preview border */}
-                  <path
-                    d={polygonPath}
-                    fill="none"
-                    stroke="#22c55e"
-                    strokeWidth={2}
-                    strokeDasharray="5,5"
-                  />
+                  {/* Preview border - outside walls if they exist */}
+                  {tempRoom.showWalls && tempRoom.wallThickness > 0 ? (
+                    <>
+                      {/* Invisible larger stroke to create offset */}
+                      <path
+                        d={polygonPath}
+                        fill="none"
+                        stroke="transparent"
+                        strokeWidth={tempRoom.wallThickness}
+                        strokeLinejoin="miter"
+                        strokeLinecap="square"
+                      />
+                      {/* Actual preview line on top */}
+                      <path
+                        d={polygonPath}
+                        fill="none"
+                        stroke="#22c55e"
+                        strokeWidth={2}
+                        strokeDasharray="5,5"
+                        strokeLinejoin="miter"
+                        strokeLinecap="square"
+                        style={{
+                          transform: `scale(${1 + tempRoom.wallThickness / Math.max(maxX - minX, maxY - minY)})`,
+                          transformOrigin: `${(maxX - minX) / 2}px ${(maxY - minY) / 2}px`
+                        }}
+                      />
+                    </>
+                  ) : (
+                    <path
+                      d={polygonPath}
+                      fill="none"
+                      stroke="#22c55e"
+                      strokeWidth={2}
+                      strokeDasharray="5,5"
+                    />
+                  )}
                 </svg>
               );
             })()}
@@ -2876,6 +3154,20 @@ const Canvas = ({
                   overflow: 'visible'
                 }}
               >
+                <defs>
+                  <filter id="blackGlow">
+                    <feGaussianBlur in="SourceAlpha" stdDeviation="2"/>
+                    <feOffset dx="0" dy="0" result="offsetblur"/>
+                    <feComponentTransfer>
+                      <feFuncA type="linear" slope="1.5"/>
+                    </feComponentTransfer>
+                    <feMerge>
+                      <feMergeNode/>
+                      <feMergeNode in="SourceGraphic"/>
+                    </feMerge>
+                  </filter>
+                </defs>
+
                 {/* Lines between vertices */}
                 {customRoomVertices.map((vertex, i) => {
                   if (i === 0) return null;
@@ -2887,9 +3179,9 @@ const Canvas = ({
                       y1={prev.y}
                       x2={vertex.x}
                       y2={vertex.y}
-                      stroke="#ffffff"
+                      stroke={isSubtractMode(roomSubTool) ? "#ef4444" : "#22c55e"}
                       strokeWidth={3}
-                      style={{ mixBlendMode: 'difference' }}
+                      filter="url(#blackGlow)"
                     />
                   );
                 })}
@@ -2901,10 +3193,10 @@ const Canvas = ({
                     y1={customRoomVertices[customRoomVertices.length - 1].y}
                     x2={cursorPosition.x}
                     y2={cursorPosition.y}
-                    stroke="#ffffff"
+                    stroke={isSubtractMode(roomSubTool) ? "#ef4444" : "#22c55e"}
                     strokeWidth={3}
                     strokeDasharray="5,5"
-                    style={{ mixBlendMode: 'difference' }}
+                    filter="url(#blackGlow)"
                   />
                 )}
                 
@@ -2922,9 +3214,9 @@ const Canvas = ({
                         y1={customRoomVertices[customRoomVertices.length - 1].y}
                         x2={firstVertex.x}
                         y2={firstVertex.y}
-                        stroke="#ffffff"
+                        stroke={isSubtractMode(roomSubTool) ? "#ef4444" : "#22c55e"}
                         strokeWidth={3}
-                        style={{ mixBlendMode: 'difference' }}
+                        filter="url(#blackGlow)"
                       />
                     );
                   }
@@ -2948,10 +3240,10 @@ const Canvas = ({
                       cx={vertex.x}
                       cy={vertex.y}
                       r={isHoveringFirst ? 8 / viewport.zoom : 5 / viewport.zoom}
-                      fill="#ffffff"
+                      fill={isSubtractMode(roomSubTool) ? "#ef4444" : "#22c55e"}
                       stroke="#000000"
                       strokeWidth={2 / viewport.zoom}
-                      style={{ mixBlendMode: 'difference' }}
+                      filter="url(#blackGlow)"
                     />
                   );
                 })}
@@ -3094,79 +3386,79 @@ const Canvas = ({
             )}
           </div>
         )}
-
-        {!scene && (
-          <div className="flex items-center justify-center h-full text-gray-500">
-            Create a scene to get started
-          </div>
-        )}
       </div>
 
       {/* Floating Toolbar */}
-      {scene && (
-        <FloatingToolbar
-          activeTool={activeTool}
-          setActiveTool={setActiveTool}
-          onUndo={undo}
-          onRedo={redo}
-          onDuplicate={handleDuplicate}
-          onDelete={handleDelete}
-          onLayerUp={handleLayerUp}
-          onLayerDown={handleLayerDown}
-          onFitToView={handleFitToView}
-          fitToViewLocked={fitToViewLocked}
-          canUndo={historyIndex > 0}
-          canRedo={historyIndex < history.length - 1}
-          hasSelection={selectedElementId !== null || selectedElementIds.length > 0}
-          showTokenBadges={showTokenBadges}
-          selectedTokenHasBadge={
-            selectedElementId
-              ? (scene.elements.find(e => e.id === selectedElementId) as any)?.showBadge || false
-              : selectedElementIds.length === 1
-                ? (scene.elements.find(e => e.id === selectedElementIds[0]) as any)?.showBadge || false
-                : false
-          }
-          onToggleBadges={() => {
-            if (selectedElementId || selectedElementIds.length > 0) {
-              const idsToUpdate = selectedElementIds.length > 0 ? selectedElementIds : [selectedElementId!];
-              const updates = new Map<string, Partial<MapElement>>();
-              idsToUpdate.forEach(id => {
-                const element = scene.elements.find(e => e.id === id);
-                if (element && element.type === 'token') {
-                  updates.set(id, { showBadge: !element.showBadge });
-                }
-              });
-              updateElements(updates);
-            } else {
-              setShowTokenBadges(!showTokenBadges);
-            }
-          }}
-          recentTokens={recentTokens}
-          onSelectToken={onSelectToken}
-          selectedColor={selectedColor}
-          onColorChange={onColorChange}
-          roomSubTool={roomSubTool}
-          setRoomSubTool={setRoomSubTool}
-          selectedElementLocked={
-            selectedElementId
-              ? (scene.elements.find(e => e.id === selectedElementId) as any)?.locked || false
-              : selectedElementIds.length === 1
-                ? (scene.elements.find(e => e.id === selectedElementIds[0]) as any)?.locked || false
-                : false
-          }
-          onToggleLock={() => {
+      <FloatingToolbar
+        activeTool={activeTool}
+        setActiveTool={setActiveTool}
+        onUndo={undo}
+        onRedo={redo}
+        onDuplicate={handleDuplicate}
+        onDelete={handleDelete}
+        onLayerUp={handleLayerUp}
+        onLayerDown={handleLayerDown}
+        onFitToView={handleFitToView}
+        fitToViewLocked={fitToViewLocked}
+        canUndo={historyIndex > 0}
+        canRedo={historyIndex < history.length - 1}
+        hasSelection={selectedElementId !== null || selectedElementIds.length > 0}
+        showTokenBadges={showTokenBadges}
+        selectedTokenHasBadge={
+          selectedElementId && scene
+            ? (scene.elements.find(e => e.id === selectedElementId) as any)?.showBadge || false
+            : selectedElementIds.length === 1 && scene
+              ? (scene.elements.find(e => e.id === selectedElementIds[0]) as any)?.showBadge || false
+              : false
+        }
+        onToggleBadges={() => {
+          if (selectedElementId || selectedElementIds.length > 0) {
             const idsToUpdate = selectedElementIds.length > 0 ? selectedElementIds : [selectedElementId!];
             const updates = new Map<string, Partial<MapElement>>();
             idsToUpdate.forEach(id => {
-              const element = scene.elements.find(e => e.id === id);
-              if (element) {
-                updates.set(id, { locked: !element.locked });
+              const element = scene?.elements.find(e => e.id === id);
+              if (element && element.type === 'token') {
+                updates.set(id, { showBadge: !element.showBadge });
               }
             });
             updateElements(updates);
-          }}
-        />
-      )}
+          } else {
+            setShowTokenBadges(!showTokenBadges);
+          }
+        }}
+        recentTokens={recentTokens}
+        tokenTemplates={tokenTemplates}
+        activeTokenTemplate={activeTokenTemplate}
+        onSelectToken={onSelectToken}
+        selectedColor={selectedColor}
+        onColorChange={onColorChange}
+        roomSubTool={roomSubTool}
+        setRoomSubTool={setRoomSubTool}
+        selectedElementLocked={
+          selectedElementId && scene
+            ? (scene.elements.find(e => e.id === selectedElementId) as any)?.locked || false
+            : selectedElementIds.length === 1 && scene
+              ? (scene.elements.find(e => e.id === selectedElementIds[0]) as any)?.locked || false
+              : false
+        }
+        onToggleLock={() => {
+          const idsToUpdate = selectedElementIds.length > 0 ? selectedElementIds : [selectedElementId!];
+          const updates = new Map<string, Partial<MapElement>>();
+          idsToUpdate.forEach(id => {
+            const element = scene?.elements.find(e => e.id === id);
+            if (element) {
+              updates.set(id, { locked: !element.locked });
+            }
+          });
+          updateElements(updates);
+        }}
+        showGrid={showGrid}
+        gridSize={gridSize}
+        onToggleGrid={() => setShowGrid(!showGrid)}
+        onGridSizeChange={setGridSize}
+        forceShowTokenSubmenu={showTokenSubmenuForShift}
+        onHideTokenPreview={() => setCursorPosition(null)}
+      />
 
       {/* Zoom Limit Error Message */}
       {zoomLimitError && (
@@ -3737,13 +4029,42 @@ const MapElementComponent = ({ element, isSelected, viewport, showTokenBadges }:
         {/* Selection indicator */}
         {isSelected && (
           <>
-            <path
-              d={relativePolygonPath}
-              fill="none"
-              stroke="#22c55e"
-              strokeWidth={2}
-              strokeDasharray="5,5"
-            />
+            {/* If walls exist, draw selection border outside the wall */}
+            {hasWalls && element.wallThickness > 0 ? (
+              <>
+                {/* Invisible larger stroke to create offset */}
+                <path
+                  d={relativePolygonPath}
+                  fill="none"
+                  stroke="transparent"
+                  strokeWidth={element.wallThickness}
+                  strokeLinejoin="miter"
+                  strokeLinecap="square"
+                />
+                {/* Actual selection line on top */}
+                <path
+                  d={relativePolygonPath}
+                  fill="none"
+                  stroke="#22c55e"
+                  strokeWidth={2}
+                  strokeDasharray="5,5"
+                  strokeLinejoin="miter"
+                  strokeLinecap="square"
+                  style={{
+                    transform: `scale(${1 + element.wallThickness / Math.max(width, height)})`,
+                    transformOrigin: `${width / 2}px ${height / 2}px`
+                  }}
+                />
+              </>
+            ) : (
+              <path
+                d={relativePolygonPath}
+                fill="none"
+                stroke="#22c55e"
+                strokeWidth={2}
+                strokeDasharray="5,5"
+              />
+            )}
             {/* Vertex handles for polygon */}
             {relativeVertices.map((v, i) => (
               <circle
@@ -3793,6 +4114,30 @@ const MapElementComponent = ({ element, isSelected, viewport, showTokenBadges }:
           </>
         )}
         </svg>
+        
+        {/* Room Label */}
+        {element.label && (
+          <div
+            style={{
+              position: 'absolute',
+              left: minX + width / 2,
+              top: minY + height / 2,
+              transform: 'translate(-50%, -50%)',
+              color: 'white',
+              fontSize: Math.max(12, 16 / viewport.zoom),
+              fontWeight: 'bold',
+              textShadow: '0 0 4px rgba(0, 0, 0, 0.8), 0 0 8px rgba(0, 0, 0, 0.6)',
+              pointerEvents: 'none',
+              userSelect: 'none',
+              whiteSpace: 'nowrap',
+              textAlign: 'center',
+              zIndex: 100,
+              lineHeight: 1
+            }}
+          >
+            {element.label}
+          </div>
+        )}
         
         {/* Corner rotation handles - rendered outside SVG */}
         {isSelected && (
