@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Scene, Collection, CollectionAppearance, MapElement } from '../types';
 import { Plus, ChevronDown, ChevronRight, Trash2, Palette, Eye, EyeOff, Edit2, MapPin } from 'lucide-react';
 import MapSelectorModal from './MapSelectorModal';
+import ConfirmDialog from './ConfirmDialog';
 import { DEFAULT_COLLECTION_NAME, DEFAULT_CANVAS_NAME, DEFAULT_NAMED_CANVAS_PREFIX } from '../constants';
 
 interface ScenesTabProps {
@@ -42,6 +43,14 @@ const ScenesTab = ({
   const [expandedCollections, setExpandedCollections] = useState<Set<string>>(new Set());
   const [expandedScenes, setExpandedScenes] = useState<Set<string>>(new Set());
   const [isMapSelectorOpen, setIsMapSelectorOpen] = useState(false);
+  
+  // Confirm dialog state
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({ isOpen: false, title: '', message: '', onConfirm: () => {} });
   
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [selectedMapUrl, setSelectedMapUrl] = useState('');
@@ -323,9 +332,12 @@ const ScenesTab = ({
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (confirm(`Delete scene "${scene.name}"?`)) {
-                    deleteScene(scene.id);
-                  }
+                  setConfirmDialog({
+                    isOpen: true,
+                    title: 'Delete Scene',
+                    message: `Are you sure you want to delete "${scene.name}"?`,
+                    onConfirm: () => deleteScene(scene.id)
+                  });
                 }}
                 className="p-1 hover:bg-dm-panel rounded transition-colors"
                 title="Delete"
@@ -409,9 +421,12 @@ const ScenesTab = ({
                     </button>
                     <button
                       onClick={() => {
-                        if (confirm(`Delete ${display.type.toLowerCase()} "${display.name}"?`)) {
-                          deleteElement(element.id);
-                        }
+                        setConfirmDialog({
+                          isOpen: true,
+                          title: `Delete ${display.type}`,
+                          message: `Are you sure you want to delete "${display.name}"?`,
+                          onConfirm: () => deleteElement(element.id)
+                        });
                       }}
                       className="p-1 hover:bg-dm-panel rounded transition-colors"
                       title="Delete"
@@ -590,9 +605,12 @@ const ScenesTab = ({
           <button
             onClick={(e) => {
               e.stopPropagation();
-              if (confirm(`Delete collection "${collection.name}"? Scenes will not be deleted.`)) {
-                deleteCollection(collection.id);
-              }
+              setConfirmDialog({
+                isOpen: true,
+                title: 'Delete Collection',
+                message: `Are you sure you want to delete "${collection.name}"? Scenes will not be deleted.`,
+                onConfirm: () => deleteCollection(collection.id)
+              });
             }}
             className="p-1 hover:bg-dm-panel rounded transition-colors relative z-10"
             title="Delete"
@@ -986,6 +1004,18 @@ const ScenesTab = ({
           </div>
         </div>
       )}
+
+      {/* Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        onConfirm={confirmDialog.onConfirm}
+        onCancel={() => setConfirmDialog({ isOpen: false, title: '', message: '', onConfirm: () => {} })}
+        confirmText="Delete"
+        cancelText="Cancel"
+        type="danger"
+      />
     </div>
   );
 };

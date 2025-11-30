@@ -507,6 +507,7 @@ const FloatingToolbar = ({
           </div>
         </div>
 
+        {/* Token Tool */}
         <div className="relative">
           <button
             ref={tokenButtonRef}
