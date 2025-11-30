@@ -622,9 +622,9 @@ const ScenesTab = ({
     // Only hide auto-created canvases that are still empty
     if (!scene.isAutoCreated) return false;
     
-    const isCanvas = scene.backgroundMapUrl.includes('fill="transparent"') || 
+    const isCanvas = (scene.backgroundMapUrl.includes('fill="transparent"') || 
                      scene.name === DEFAULT_CANVAS_NAME ||
-                     scene.name.match(/^Canvas( \(\d+\))?$/);
+                     scene.name.match(/^Canvas( \(\d+\))?$/)) ?? false;
     return isCanvas && scene.elements.length === 0;
   }
 

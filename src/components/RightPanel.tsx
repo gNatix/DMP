@@ -9,7 +9,7 @@ interface RightPanelProps {
   activeSceneId: string | null;
   setActiveSceneId: (id: string | null) => void;
   addScene: (name: string, backgroundMapUrl: string, backgroundMapName: string, collectionId?: string) => void;
-  addCanvasScene: (collectionId?: string) => void;
+  addCanvasScene: (collectionId?: string) => string | undefined;
   updateSceneName: (sceneId: string, newName: string) => void;
   deleteScene: (sceneId: string) => void;
   collections: Collection[];
