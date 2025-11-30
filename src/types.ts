@@ -4,7 +4,7 @@ export type ElementType = "annotation" | "token" | "room";
 
 export type ToolType = "pointer" | "marker" | "token" | "pan" | "zoom-in" | "zoom-out" | "room";
 
-export type RoomSubTool = "rectangle" | "pentagon" | "hexagon" | "octagon" | "erase" | "custom";
+export type RoomSubTool = "rectangle" | "pentagon" | "hexagon" | "octagon" | "erase" | "custom" | "subtract";
 
 export type IconType = "circle" | "square" | "triangle" | "star" | "diamond" | "heart" | "skull" | "quest" | "clue" | "hidden" | "door" | "landmark" | "footprint" | "info";
 
@@ -72,6 +72,9 @@ export interface RoomElement {
   
   // Polygon shape - ordered vertices forming the room
   vertices: Point[];
+  
+  // Holes inside the room (each hole is a polygon defined by vertices)
+  holes?: Point[][]; // Array of polygons, each representing a hole
   
   // Wall openings (doors/entrances) on polygon edges
   wallOpenings: WallOpening[];

@@ -129,6 +129,25 @@ const Canvas = ({
     return `Room ${counter}`;
   };
 
+  const generateUniqueName = (baseName: string): string => {
+    if (!scene) return baseName;
+    
+    const existingRooms = scene.elements.filter(el => el.type === 'room') as RoomElement[];
+    const existingNames = new Set(existingRooms.map(r => r.name));
+    
+    // If base name is unique, use it
+    if (!existingNames.has(baseName)) {
+      return baseName;
+    }
+    
+    // Otherwise add (1), (2), etc.
+    let counter = 1;
+    while (existingNames.has(`${baseName} (${counter})`)) {
+      counter++;
+    }
+    return `${baseName} (${counter})`;
+  };
+
   // Geometry helper functions for polygon operations
   const pointInPolygon = (point: { x: number; y: number }, vertices: { x: number; y: number }[]): boolean => {
     let inside = false;
@@ -504,10 +523,15 @@ const Canvas = ({
 
       const duplicates = toDuplicate.map(el => {
         if (el.type === 'room' && el.vertices) {
+          const room = el as RoomElement;
           return {
-            ...el,
+            ...room,
             id: `${el.type}-${Date.now()}-${Math.random()}`,
-            vertices: el.vertices.map(v => ({ x: v.x + offset, y: v.y + offset }))
+            name: generateUniqueName(room.name || 'Room'),
+            vertices: room.vertices.map(v => ({ x: v.x + offset, y: v.y + offset })),
+            holes: room.holes?.map(hole =>
+              hole.map(v => ({ x: v.x + offset, y: v.y + offset }))
+            )
           };
         } else if ('x' in el && 'y' in el) {
           return {
@@ -708,6 +732,7 @@ const Canvas = ({
     const mergedRoom: RoomElement = {
       ...firstRoom,
       id: `room-${Date.now()}-${Math.random()}`,
+      name: generateUniqueName(firstRoom.name || 'Room'),
       vertices: mergedVertices,
       wallOpenings: [],
       widgets: widgetsToUse
@@ -786,19 +811,27 @@ const Canvas = ({
     };
 
     // Merge polygons using proper polygon clipping union
-    const mergePolygons = (rooms: RoomElement[]): { x: number; y: number }[] => {
-      if (rooms.length === 0) return [];
-      if (rooms.length === 1) return rooms[0].vertices || [];
+    const mergePolygons = (rooms: RoomElement[]): { vertices: { x: number; y: number }[], holes?: { x: number; y: number }[][] } => {
+      if (rooms.length === 0) return { vertices: [] };
+      if (rooms.length === 1) return { vertices: rooms[0].vertices || [], holes: rooms[0].holes };
       
-      // Convert room vertices to polygon-clipping format
+      // Convert room vertices and holes to polygon-clipping format
       const polygons = rooms.map(room => {
         if (!room.vertices || room.vertices.length < 3) return null;
-        const coords = room.vertices.map(v => [v.x, v.y] as [number, number]);
-        coords.push(coords[0]); // Close the ring
-        return [coords];
+        const outerCoords = room.vertices.map(v => [v.x, v.y] as [number, number]);
+        outerCoords.push(outerCoords[0]); // Close the outer ring
+        
+        // Include holes if they exist
+        const innerRings = (room.holes || []).map(hole => {
+          const holeCoords = hole.map(v => [v.x, v.y] as [number, number]);
+          holeCoords.push(holeCoords[0]); // Close the hole ring
+          return holeCoords;
+        });
+        
+        return [outerCoords, ...innerRings];
       }).filter(p => p !== null);
 
-      if (polygons.length === 0) return rooms[0]?.vertices || [];
+      if (polygons.length === 0) return { vertices: rooms[0]?.vertices || [], holes: rooms[0]?.holes };
 
       try {
         // Perform union of all polygons
@@ -808,17 +841,25 @@ const Canvas = ({
         }
 
         if (result.length === 0 || result[0].length === 0) {
-          return rooms[0].vertices || [];
+          return { vertices: rooms[0].vertices || [], holes: rooms[0].holes };
         }
 
         // Take the first polygon's outer ring
         const outerRing = result[0][0] as [number, number][];
         const vertices = outerRing.slice(0, -1).map(coord => ({ x: coord[0], y: coord[1] }));
         
-        return vertices;
+        // Extract holes (inner rings)
+        const holes = result[0].slice(1).map((ring: [number, number][]) => 
+          ring.slice(0, -1).map(coord => ({ x: coord[0], y: coord[1] }))
+        );
+        
+        return { 
+          vertices,
+          holes: holes.length > 0 ? holes : undefined
+        };
       } catch (error) {
         console.error('Polygon union error:', error);
-        return rooms[0].vertices || [];
+        return { vertices: rooms[0].vertices || [], holes: rooms[0].holes };
       }
     };
 
@@ -834,7 +875,7 @@ const Canvas = ({
         const roomsWithWidgets = group.filter(room => room.widgets && room.widgets.length > 0);
         if (roomsWithWidgets.length > 1) {
           // Multiple rooms have widgets - show conflict dialog and stop
-          const mergedVertices = mergePolygons(group);
+          const { vertices: mergedVertices } = mergePolygons(group);
           setMergeWidgetConflict({
             rooms: group,
             mergedVertices
@@ -860,7 +901,7 @@ const Canvas = ({
       } else {
         // Multiple overlapping rooms, merge them
         console.log(`  Merging ${group.length} rooms`);
-        const mergedVertices = mergePolygons(group);
+        const { vertices: mergedVertices, holes: mergedHoles } = mergePolygons(group);
         
         // Determine which widgets to use (we already checked for conflicts above)
         const roomsWithWidgets = group.filter(room => room.widgets && room.widgets.length > 0);
@@ -870,7 +911,9 @@ const Canvas = ({
         const mergedRoom: RoomElement = {
           ...firstRoom,
           id: `room-${Date.now()}-${Math.random()}`,
+          name: generateUniqueName(firstRoom.name || 'Room'),
           vertices: mergedVertices,
+          holes: mergedHoles,
           wallOpenings: [],
           widgets: widgetsToUse
         };
@@ -1029,7 +1072,19 @@ const Canvas = ({
               x: v.x + dx,
               y: v.y + dy
             }));
-            updates.set(id, { vertices: newVertices });
+            
+            // Move holes if any
+            const newHoles = element.holes?.map(hole => 
+              hole.map(v => ({
+                x: v.x + dx,
+                y: v.y + dy
+              }))
+            );
+            
+            updates.set(id, { 
+              vertices: newVertices,
+              holes: newHoles
+            });
           } else if ('x' in element && 'y' in element) {
             // Move other elements (tokens, annotations, etc)
             updates.set(id, { x: element.x + dx, y: element.y + dy });
@@ -1089,10 +1144,15 @@ const Canvas = ({
 
           const newElements = clipboard.map(el => {
             if (el.type === 'room' && el.vertices) {
+              const room = el as RoomElement;
               return {
-                ...el,
+                ...room,
                 id: `${el.type}-${Date.now()}-${Math.random()}`,
-                vertices: el.vertices.map((v: { x: number; y: number }) => ({ x: v.x + offset, y: v.y + offset }))
+                name: generateUniqueName(room.name || 'Room'),
+                vertices: room.vertices.map((v: { x: number; y: number }) => ({ x: v.x + offset, y: v.y + offset })),
+                holes: room.holes?.map(hole => 
+                  hole.map((v: { x: number; y: number }) => ({ x: v.x + offset, y: v.y + offset }))
+                )
               };
             } else if ('x' in el && 'y' in el) {
               return {
@@ -1674,7 +1734,7 @@ const Canvas = ({
       };
       setTempElement(tempToken);
     } else if (effectiveTool === 'room') {
-      if (roomSubTool === 'custom' || roomSubTool === 'magnetic') {
+      if (roomSubTool === 'custom') {
         // Custom/Magnetic room drawing - click to place vertices
         const selectedRoom = scene.elements.find(el => el.id === selectedElementId && el.type === 'room') as RoomElement | undefined;
         const useFloorTexture = selectedRoom?.floorTextureUrl || selectedFloorTexture;
@@ -1770,6 +1830,28 @@ const Canvas = ({
             }
           });
         }
+      } else if (roomSubTool === 'subtract') {
+        // Subtract mode - draw rectangle to subtract from existing room
+        setRoomDrawStart({ x, y });
+        const tempRoomElement: RoomElement = {
+          id: 'temp',
+          type: 'room',
+          vertices: [{ x, y }, { x, y }, { x, y }, { x, y }],
+          floorTextureUrl: 'transparent', // Use transparent for subtract preview
+          tileSize: tileSize,
+          rotation: 0,
+          showWalls: true,
+          wallTextureUrl: 'transparent',
+          wallThickness: 2,
+          wallTileSize: 50,
+          wallOpenings: [],
+          zIndex: -100,
+          visible: true,
+          widgets: [],
+          name: '',
+          notes: ''
+        };
+        setTempRoom(tempRoomElement);
       }
     }
   };
@@ -1919,7 +2001,7 @@ const Canvas = ({
     // Update cursor position for token preview - only if scene exists
     if (activeTool === 'token' && activeTokenTemplate && scene) {
       setCursorPosition({ x, y });
-    } else if (activeTool !== 'room' || (roomSubTool !== 'custom' && roomSubTool !== 'magnetic')) {
+    } else if (activeTool !== 'room' || roomSubTool !== 'custom') {
       // Only clear cursor position if NOT in custom/magnetic room mode
       setCursorPosition(null);
     }
@@ -1988,7 +2070,18 @@ const Canvas = ({
               y: v.y + dy
             }));
             
-            updates.set(id, { vertices: newVertices });
+            // Move holes if any
+            const newHoles = element.holes?.map(hole =>
+              hole.map(v => ({
+                x: v.x + dx,
+                y: v.y + dy
+              }))
+            );
+            
+            updates.set(id, { 
+              vertices: newVertices,
+              holes: newHoles
+            });
           } else if ('x' in element && 'y' in element) {
             updates.set(id, {
               x: x - initialOffset.x,
@@ -2086,7 +2179,18 @@ const Canvas = ({
           y: oppositeCorner.y + (v.y - oppositeCorner.y) * scale
         }));
         
-        updateElement(element.id, { vertices: newVertices });
+        // Scale holes if any
+        const newHoles = element.holes?.map(hole =>
+          hole.map(v => ({
+            x: oppositeCorner.x + (v.x - oppositeCorner.x) * scale,
+            y: oppositeCorner.y + (v.y - oppositeCorner.y) * scale
+          }))
+        );
+        
+        updateElement(element.id, { 
+          vertices: newVertices,
+          holes: newHoles
+        });
       }
       return;
     }
@@ -2103,7 +2207,7 @@ const Canvas = ({
     }
 
     // Handle room drawing - update vertices based on shape
-    if (roomDrawStart && tempRoom) {
+    if (roomDrawStart && tempRoom && (roomSubTool === 'rectangle' || roomSubTool === 'pentagon' || roomSubTool === 'hexagon' || roomSubTool === 'octagon' || roomSubTool === 'subtract')) {
       const minX = Math.min(x, roomDrawStart.x);
       const maxX = Math.max(x, roomDrawStart.x);
       const minY = Math.min(y, roomDrawStart.y);
@@ -2200,7 +2304,18 @@ const Canvas = ({
             y: v.y + dy
           }));
           
-          updateElement(draggedElement.id, { vertices: newVertices });
+          // Move holes if any
+          const newHoles = element.holes?.map(hole =>
+            hole.map(v => ({
+              x: v.x + dx,
+              y: v.y + dy
+            }))
+          );
+          
+          updateElement(draggedElement.id, { 
+            vertices: newVertices,
+            holes: newHoles
+          });
         } else if ('x' in element && 'y' in element) {
           updateElement(draggedElement.id, {
             x: x - draggedElement.offsetX,
@@ -2211,7 +2326,7 @@ const Canvas = ({
     }
   };
 
-  const handleMouseUp = () => {
+  const handleMouseUp = async () => {
     // Save to history if we were dragging or resizing
     if (draggedElement || resizingElement || draggedMultiple || rotatingElement || scalingElement || movingVertex) {
       saveToHistory();
@@ -2283,12 +2398,98 @@ const Canvas = ({
       
       // Only create room if it has some size (at least 20x20)
       if (width >= 20 && height >= 20) {
-        console.log('[MOUSE UP] Size OK, creating final room');
-        saveToHistory();
-        const finalRoom = { ...tempRoom, id: `room-${Date.now()}`, tileSize, showWalls, wallTextureUrl: selectedWallTexture || '', wallThickness };
-        addElement(finalRoom);
-        setSelectedElementId(finalRoom.id);
-        setSelectedElementIds([]);
+        console.log('[MOUSE UP] Size OK, processing room');
+        
+        // Check if this is subtract mode
+        if (roomSubTool === 'subtract' && scene) {
+          // Find all rooms that contain or overlap with the subtract rectangle
+          const subtractVertices = tempRoom.vertices;
+          const roomsToSubtract = scene.elements.filter(el => {
+            if (el.type !== 'room' || !el.vertices) return false;
+            
+            // Check if ANY vertex of the subtract rectangle is inside the room
+            const hasVertexInside = subtractVertices.some(v => pointInPolygon(v, el.vertices!));
+            
+            // Also check if ANY vertex of the room is inside the subtract rectangle
+            const hasRoomVertexInside = el.vertices.some(v => pointInPolygon(v, subtractVertices));
+            
+            // If either condition is true, there's overlap/containment
+            return hasVertexInside || hasRoomVertexInside;
+          });
+          
+          if (roomsToSubtract.length > 0) {
+            saveToHistory();
+            // Use polygon-clipping to subtract the area
+            const polygonClipping = await import('polygon-clipping');
+            
+            const roomsToDelete = new Set<string>();
+            const newRooms: RoomElement[] = [];
+            
+            roomsToSubtract.forEach(room => {
+              if (room.type !== 'room' || !room.vertices) return;
+              
+              try {
+                // Convert vertices to polygon-clipping format
+                // Include existing holes if any
+                const roomPoly = [
+                  room.vertices.map(v => [v.x, v.y]),
+                  ...(room.holes || []).map(hole => hole.map(v => [v.x, v.y]))
+                ];
+                const subtractPoly = [subtractVertices.map(v => [v.x, v.y])];
+                
+                // Perform difference operation
+                const result = polygonClipping.default.difference(roomPoly as any, subtractPoly as any);
+                
+                console.log('[SUBTRACT] Result polygons:', result.length);
+                
+                if (result.length > 0) {
+                  // Mark original room for deletion
+                  roomsToDelete.add(room.id);
+                  
+                  // Process each resulting polygon
+                  result.forEach((polygon, polyIdx) => {
+                    console.log('[SUBTRACT] Polygon', polyIdx, 'has', polygon.length, 'rings');
+                    
+                    if (polygon.length >= 1) {
+                      // Outer ring + optional holes
+                      const outerRing = polygon[0].map(([x, y]) => ({ x, y }));
+                      const holes = polygon.slice(1).map(ring => 
+                        ring.map(([x, y]) => ({ x, y }))
+                      );
+                      
+                      if (outerRing.length >= 3) {
+                        const newRoom: RoomElement = {
+                          ...room,
+                          id: polyIdx === 0 ? room.id : `room-${Date.now()}-${polyIdx}`,
+                          name: polyIdx === 0 ? room.name : generateUniqueName(room.name || 'Room'),
+                          vertices: outerRing,
+                          holes: holes.length > 0 ? holes : undefined
+                        };
+                        newRooms.push(newRoom);
+                      }
+                    }
+                  });
+                }
+              } catch (error) {
+                console.error('Subtract operation failed:', error);
+              }
+            });
+            
+            // Update scene: remove old rooms and add new ones
+            if (activeSceneId && (roomsToDelete.size > 0 || newRooms.length > 0)) {
+              const updatedElements = scene.elements.filter(el => !roomsToDelete.has(el.id));
+              updatedElements.push(...newRooms);
+              updateScene(activeSceneId, { elements: updatedElements });
+            }
+          }
+        } else {
+          // Normal room creation
+          saveToHistory();
+          const finalRoom = { ...tempRoom, id: `room-${Date.now()}`, tileSize, showWalls, wallTextureUrl: selectedWallTexture || '', wallThickness };
+          addElement(finalRoom);
+          setSelectedElementId(finalRoom.id);
+          setSelectedElementIds([]);
+        }
       } else {
         console.log('[MOUSE UP] Room too small, not creating');
       }
@@ -2433,7 +2634,7 @@ const Canvas = ({
     if (activeTool === 'token' && scene) return 'cursor-none'; // Hide default cursor for token mode only when scene exists
     if (activeTool === 'room') {
       // Show cell cursor (precision cursor) when in erase mode, otherwise crosshair for drawing
-      return roomSubTool === 'erase' ? 'cursor-cell' : 'cursor-crosshair';
+      return roomSubTool === 'erase' ? 'cursor-cell' : roomSubTool === 'subtract' ? 'cursor-no-drop' : 'cursor-crosshair';
     }
     if (activeTool === 'zoom-in') return 'cursor-zoom-in';
     if (activeTool === 'zoom-out') return 'cursor-zoom-out';
@@ -2591,23 +2792,25 @@ const Canvas = ({
                   }}
                 >
                   <defs>
-                    <pattern
-                      id="temp-floor-pattern"
-                      x="0"
-                      y="0"
-                      width={tempRoom.tileSize}
-                      height={tempRoom.tileSize}
-                      patternUnits="userSpaceOnUse"
-                    >
-                      <image
-                        href={tempRoom.floorTextureUrl}
+                    {tempRoom.floorTextureUrl !== 'transparent' && (
+                      <pattern
+                        id="temp-floor-pattern"
                         x="0"
                         y="0"
                         width={tempRoom.tileSize}
                         height={tempRoom.tileSize}
-                      />
-                    </pattern>
-                    {tempRoom.showWalls && tempRoom.wallTextureUrl && (
+                        patternUnits="userSpaceOnUse"
+                      >
+                        <image
+                          href={tempRoom.floorTextureUrl}
+                          x="0"
+                          y="0"
+                          width={tempRoom.tileSize}
+                          height={tempRoom.tileSize}
+                        />
+                      </pattern>
+                    )}
+                    {tempRoom.showWalls && tempRoom.wallTextureUrl && tempRoom.wallTextureUrl !== 'transparent' && (
                       <pattern
                         id="temp-wall-pattern"
                         x="0"
@@ -2630,8 +2833,10 @@ const Canvas = ({
                   {/* Floor */}
                   <path
                     d={polygonPath}
-                    fill="url(#temp-floor-pattern)"
-                    stroke="none"
+                    fill={tempRoom.floorTextureUrl === 'transparent' ? 'none' : 'url(#temp-floor-pattern)'}
+                    stroke={roomSubTool === 'subtract' ? '#ef4444' : 'none'}
+                    strokeWidth={roomSubTool === 'subtract' ? 2 : 0}
+                    strokeDasharray={roomSubTool === 'subtract' ? '5,5' : 'none'}
                   />
                   
                   {/* Walls - as stroke on the polygon edge */}
@@ -2689,89 +2894,19 @@ const Canvas = ({
                   );
                 })}
                 
-                {/* Line/Path from last vertex to cursor */}
-                {cursorPosition && customRoomVertices.length > 0 && (() => {
-                  const startPoint = customRoomVertices[customRoomVertices.length - 1];
-                  
-                  if (roomSubTool === 'magnetic' && magneticPath.length > 0) {
-                    // Draw the magnetic path as connected line segments
-                    const pathSegments = [];
-                    
-                    // Line from last vertex to first path point
-                    pathSegments.push(
-                      <line
-                        key="path-start"
-                        x1={startPoint.x}
-                        y1={startPoint.y}
-                        x2={magneticPath[0].x}
-                        y2={magneticPath[0].y}
-                        stroke="#ffffff"
-                        strokeWidth={3}
-                        style={{ mixBlendMode: 'difference' }}
-                      />
-                    );
-                    
-                    // Lines between path points
-                    for (let i = 0; i < magneticPath.length - 1; i++) {
-                      pathSegments.push(
-                        <line
-                          key={`path-${i}`}
-                          x1={magneticPath[i].x}
-                          y1={magneticPath[i].y}
-                          x2={magneticPath[i + 1].x}
-                          y2={magneticPath[i + 1].y}
-                          stroke="#ffffff"
-                          strokeWidth={3}
-                          style={{ mixBlendMode: 'difference' }}
-                        />
-                      );
-                    }
-                    
-                    // Line from last path point to cursor
-                    const lastPathPoint = magneticPath[magneticPath.length - 1];
-                    pathSegments.push(
-                      <line
-                        key="path-to-cursor"
-                        x1={lastPathPoint.x}
-                        y1={lastPathPoint.y}
-                        x2={cursorPosition.x}
-                        y2={cursorPosition.y}
-                        stroke="#ffffff"
-                        strokeWidth={3}
-                        strokeDasharray="5,5"
-                        style={{ mixBlendMode: 'difference' }}
-                      />
-                    );
-                    
-                    // Show intermediate points on the path
-                    const pathPoints = magneticPath.map((point, i) => (
-                      <circle
-                        key={`path-point-${i}`}
-                        cx={point.x}
-                        cy={point.y}
-                        r={3 / viewport.zoom}
-                        fill="#ffffff"
-                        style={{ mixBlendMode: 'difference' }}
-                      />
-                    ));
-                    
-                    return <>{pathSegments}{pathPoints}</>;
-                  } else {
-                    // Regular straight line for custom mode OR magnetic mode without path
-                    return (
-                      <line
-                        x1={startPoint.x}
-                        y1={startPoint.y}
-                        x2={cursorPosition.x}
-                        y2={cursorPosition.y}
-                        stroke="#ffffff"
-                        strokeWidth={3}
-                        strokeDasharray="5,5"
-                        style={{ mixBlendMode: 'difference' }}
-                      />
-                    );
-                  }
-                })()}
+                {/* Line from last vertex to cursor */}
+                {cursorPosition && customRoomVertices.length > 0 && (
+                  <line
+                    x1={customRoomVertices[customRoomVertices.length - 1].x}
+                    y1={customRoomVertices[customRoomVertices.length - 1].y}
+                    x2={cursorPosition.x}
+                    y2={cursorPosition.y}
+                    stroke="#ffffff"
+                    strokeWidth={3}
+                    strokeDasharray="5,5"
+                    style={{ mixBlendMode: 'difference' }}
+                  />
+                )}
                 
                 {/* Closing line preview when near first vertex */}
                 {customRoomVertices.length >= 3 && cursorPosition && (() => {
@@ -3495,17 +3630,34 @@ const MapElementComponent = ({ element, isSelected, viewport, showTokenBadges }:
     const wallPatternId = `wall-pattern-${element.id}`;
     
     // Convert vertices to relative coordinates (relative to minX, minY)
+    const roomElement = element as RoomElement;
+    
     const relativeVertices = element.vertices.map(v => ({
       x: v.x - minX,
       y: v.y - minY
     }));
     
     // Recreate polygon path with relative vertices
-    const relativePolygonPath = relativeVertices.map((v, i) => 
+    // Include holes if any - each hole is a separate subpath
+    const outerPath = relativeVertices.map((v, i) => 
       `${i === 0 ? 'M' : 'L'}${v.x},${v.y}`
     ).join(' ') + ' Z';
     
-    const roomElement = element as RoomElement;
+    let relativePolygonPath = outerPath;
+    
+    // Add holes as additional subpaths (they will be subtracted due to evenodd fill-rule)
+    if (roomElement.holes && roomElement.holes.length > 0) {
+      const holePaths = roomElement.holes.map(hole => {
+        const relativeHole = hole.map(v => ({
+          x: v.x - minX,
+          y: v.y - minY
+        }));
+        return relativeHole.map((v, i) => 
+          `${i === 0 ? 'M' : 'L'}${v.x},${v.y}`
+        ).join(' ') + ' Z';
+      });
+      relativePolygonPath = outerPath + ' ' + holePaths.join(' ');
+    }
     
     return (
       <>
@@ -3524,23 +3676,25 @@ const MapElementComponent = ({ element, isSelected, viewport, showTokenBadges }:
         >
         <defs>
           {/* Floor texture pattern */}
-          <pattern
-            id={floorPatternId}
-            x="0"
-            y="0"
-            width={element.tileSize}
-            height={element.tileSize}
-            patternUnits="userSpaceOnUse"
-          >
-            <image
-              href={element.floorTextureUrl}
+          {element.floorTextureUrl !== 'transparent' && (
+            <pattern
+              id={floorPatternId}
               x="0"
               y="0"
               width={element.tileSize}
               height={element.tileSize}
-            />
-          </pattern>
-          {hasWalls && element.wallTextureUrl && (
+              patternUnits="userSpaceOnUse"
+            >
+              <image
+                href={element.floorTextureUrl}
+                x="0"
+                y="0"
+                width={element.tileSize}
+                height={element.tileSize}
+              />
+            </pattern>
+          )}
+          {hasWalls && element.wallTextureUrl && element.wallTextureUrl !== 'transparent' && (
             <pattern
               id={wallPatternId}
               x="0"
@@ -3563,7 +3717,8 @@ const MapElementComponent = ({ element, isSelected, viewport, showTokenBadges }:
         {/* Floor fill */}
         <path
           d={relativePolygonPath}
-          fill={`url(#${floorPatternId})`}
+          fill={element.floorTextureUrl === 'transparent' ? 'none' : `url(#${floorPatternId})`}
+          fillRule="evenodd"
           stroke="none"
         />
         
@@ -3572,7 +3727,7 @@ const MapElementComponent = ({ element, isSelected, viewport, showTokenBadges }:
           <path
             d={relativePolygonPath}
             fill="none"
-            stroke={element.wallTextureUrl ? `url(#${wallPatternId})` : "rgba(100, 100, 100, 0.8)"}
+            stroke={element.wallTextureUrl === 'transparent' ? 'none' : (element.wallTextureUrl ? `url(#${wallPatternId})` : "rgba(100, 100, 100, 0.8)")}
             strokeWidth={element.wallThickness}
             strokeLinejoin="miter"
             strokeLinecap="square"

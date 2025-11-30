@@ -279,6 +279,24 @@ const RoomBuilderPanel = ({
                   </svg>
                 </button>
 
+                {/* Subtract Tool */}
+                <button
+                  onClick={() => {
+                    setRoomSubTool('subtract');
+                    setActiveTool('room');
+                  }}
+                  className={`aspect-square rounded border-2 transition-all bg-dm-panel flex items-center justify-center ${
+                    roomSubTool === 'subtract'
+                      ? 'border-red-500 ring-2 ring-red-500/50'
+                      : 'border-dm-border hover:border-dm-highlight'
+                  }`}
+                  title="Subtract (Remove area from existing room)"
+                >
+                  <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <rect x="4" y="6" width="16" height="12" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M9 12 L15 12" strokeWidth="2.5" strokeLinecap="round" stroke="#ef4444"/>
+                  </svg>
+                </button>
               </div>
             </div>
 
@@ -312,6 +330,26 @@ const RoomBuilderPanel = ({
                         />
                       </button>
                     ))}
+                    {/* Transparent option */}
+                    <button
+                      onClick={() => handleWallTextureClick('transparent')}
+                      className={`aspect-square rounded overflow-hidden border-2 transition-all ${
+                        currentWallTexture === 'transparent'
+                          ? 'border-amber-500 ring-2 ring-amber-500/50'
+                          : 'border-dm-border hover:border-dm-highlight'
+                      }`}
+                      title="Transparent (No wall texture)"
+                    >
+                      <div className="w-full h-full relative" style={{
+                        backgroundImage: 'repeating-conic-gradient(#808080 0% 25%, #a0a0a0 0% 50%) 50% / 8px 8px'
+                      }}>
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                          <svg className="w-5 h-5 text-white drop-shadow-md" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                            <path d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        </div>
+                      </div>
+                    </button>
                   </div>
                 )}
               </div>
@@ -400,6 +438,26 @@ const RoomBuilderPanel = ({
                   />
                 </button>
               ))}
+              {/* Transparent option */}
+              <button
+                onClick={() => handleTextureClick('transparent')}
+                className={`aspect-square rounded overflow-hidden border-2 transition-all ${
+                  currentTexture === 'transparent'
+                    ? 'border-amber-500 ring-2 ring-amber-500/50'
+                    : 'border-dm-border hover:border-dm-highlight'
+                }`}
+                title="Transparent (No floor texture)"
+              >
+                <div className="w-full h-full relative" style={{
+                  backgroundImage: 'repeating-conic-gradient(#808080 0% 25%, #a0a0a0 0% 50%) 50% / 8px 8px'
+                }}>
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                    <svg className="w-5 h-5 text-white drop-shadow-md" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                      <path d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </div>
+                </div>
+              </button>
             </div>
             
             {/* Floor Tile Size */}
