@@ -258,13 +258,21 @@ const ScenesTab = ({
             const target = e.target as HTMLElement;
             if (target.closest('button') || target.closest('input')) return;
             
-            // Toggle expansion if scene has elements
+            // Single click: Open the scene
+            setActiveSceneId(scene.id);
+          }}
+          onDoubleClick={(e) => {
+            // Don't toggle if clicking on input or buttons
+            if (isEditing) return;
+            const target = e.target as HTMLElement;
+            if (target.closest('button') || target.closest('input')) return;
+            
+            // Double click: Toggle elements list
             if (elements.length > 0) {
               toggleSceneExpanded(e);
-            } else {
-              setActiveSceneId(scene.id);
             }
           }}
+          title={elements.length > 0 ? "Click to open scene, double-click to view elements" : "Click to open scene"}
           className={`p-2 rounded-lg cursor-pointer transition-all border-2 ${
             isActive
               ? 'bg-dm-dark border-dm-highlight'

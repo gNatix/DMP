@@ -3,7 +3,6 @@ import { Scene, MapElement, AnnotationElement, TokenElement, RoomElement, ToolTy
 import { Circle, Square, Triangle, Star, Diamond, Heart, Skull, MapPin, Search, Eye, DoorOpen, Landmark, Footprints, Info } from 'lucide-react';
 import FloatingToolbar from './FloatingToolbar';
 import polygonClipping from 'polygon-clipping';
-import { DEFAULT_CANVAS_NAME } from '../constants';
 
 interface CanvasProps {
   scene: Scene | null;
@@ -62,7 +61,7 @@ const Canvas = ({
   activeSceneId,
   leftPanelOpen,
   showTokenBadges,
-  setShowTokenBadges,
+  setShowTokenBadges: _setShowTokenBadges,
   onDoubleClickElement,
   recentTokens,
   tokenTemplates,
@@ -111,6 +110,7 @@ const Canvas = ({
   const [lastClickedElement, setLastClickedElement] = useState<string | null>(null);
   const [fitToViewLocked, setFitToViewLocked] = useState(false);
   const [zoomLimitError, setZoomLimitError] = useState(false);
+  const [canvasInfiniteError, setCanvasInfiniteError] = useState(false);
   const [shouldRotateMap, setShouldRotateMap] = useState(false);
   const [isErasing, setIsErasing] = useState(false);
   const [mergeNotification, setMergeNotification] = useState<string | null>(null);
@@ -226,30 +226,54 @@ const Canvas = ({
         const width = img.naturalWidth;
         const height = img.naturalHeight;
         
-        // Check if image is landscape (width > height) - just set rotation flag
-        const isLandscape = width > height;
-        setShouldRotateMap(isLandscape);
+        // Check if this is a canvas (transparent background) - infinite drawing area
+        const isCanvas = scene.backgroundMapUrl.includes('fill="transparent"');
         
-        // Use actual image dimensions - rotation is purely visual via CSS
-        const padding = Math.max(width, height) * 0.2;
-        
-        setMapDimensions({ width, height, padding });
-        
-        // If NOT fit-to-view locked, center the map
-        if (!fitToViewLocked && !hasInitializedViewport) {
-          // Center the map in viewport only on initial load when not locked
-          const containerRect = container.getBoundingClientRect();
-          const visualWidth = isLandscape ? height : width;
-          const visualHeight = isLandscape ? width : height;
-          const totalWidth = visualWidth + padding * 2;
-          const totalHeight = visualHeight + padding * 2;
+        if (isCanvas) {
+          // For canvas, set dimensions to 0 to indicate infinite
+          setMapDimensions({ width: 0, height: 0, padding: 0 });
+          setShouldRotateMap(false);
           
-          setViewport({
-            x: (containerRect.width - totalWidth) / 2,
-            y: (containerRect.height - totalHeight) / 2,
-            zoom: 1
-          });
-          setHasInitializedViewport(true);
+          // For canvas, center viewport on (0,0) in world space
+          if (!fitToViewLocked && !hasInitializedViewport) {
+            const containerRect = container.getBoundingClientRect();
+            // Center the viewport so (0,0) in world space is in center of visible area
+            // Account for left panel if open
+            const availableWidth = leftPanelOpen ? containerRect.width - 450 : containerRect.width;
+            const xOffset = leftPanelOpen ? 450 : 0;
+            setViewport({ 
+              x: xOffset + availableWidth / 2, 
+              y: containerRect.height / 2, 
+              zoom: 1 
+            });
+            setHasInitializedViewport(true);
+          }
+        } else {
+          // Check if image is landscape (width > height) - just set rotation flag
+          const isLandscape = width > height;
+          setShouldRotateMap(isLandscape);
+          
+          // Use actual image dimensions - rotation is purely visual via CSS
+          const padding = Math.max(width, height) * 0.2;
+          
+          setMapDimensions({ width, height, padding });
+        
+          // If NOT fit-to-view locked, center the map
+          if (!fitToViewLocked && !hasInitializedViewport) {
+            // Center the map in viewport only on initial load when not locked
+            const containerRect = container.getBoundingClientRect();
+            const visualWidth = isLandscape ? height : width;
+            const visualHeight = isLandscape ? width : height;
+            const totalWidth = visualWidth + padding * 2;
+            const totalHeight = visualHeight + padding * 2;
+            
+            setViewport({
+              x: (containerRect.width - totalWidth) / 2,
+              y: (containerRect.height - totalHeight) / 2,
+              zoom: 1
+            });
+            setHasInitializedViewport(true);
+          }
         }
         // If fit-to-view IS locked, the useEffect above will handle it
       };
@@ -486,9 +510,48 @@ const Canvas = ({
     }
   };
 
+  // Toggle badges on selected tokens individually
+  const handleToggleBadges = () => {
+    const idsToUpdate = selectedElementIds.length > 0 ? selectedElementIds : (selectedElementId ? [selectedElementId] : []);
+    if (idsToUpdate.length === 0) return;
+    
+    const updates = new Map<string, Partial<MapElement>>();
+    idsToUpdate.forEach(id => {
+      const element = scene?.elements.find(e => e.id === id);
+      if (element && element.type === 'token') {
+        const tokenElement = element as TokenElement;
+        updates.set(id, { showBadge: !tokenElement.showBadge });
+      }
+    });
+    updateElements(updates);
+  };
+
+  // Toggle lock on selected elements
+  const handleToggleLock = () => {
+    const idsToUpdate = selectedElementIds.length > 0 ? selectedElementIds : (selectedElementId ? [selectedElementId] : []);
+    if (idsToUpdate.length === 0) return;
+    
+    const updates = new Map<string, Partial<MapElement>>();
+    idsToUpdate.forEach(id => {
+      const element = scene?.elements.find(e => e.id === id);
+      if (element) {
+        updates.set(id, { locked: !element.locked });
+      }
+    });
+    updateElements(updates);
+  };
+
   // Apply fit to view - zoom map to fill container width exactly (100% width only)
   const applyFitToView = () => {
     if (!containerRef.current || !mapDimensions.width || !mapDimensions.height) return;
+
+    // Check if this is a canvas scene (infinite drawing area)
+    const isCanvas = scene?.backgroundMapUrl.includes('fill="transparent"');
+    if (isCanvas) {
+      setCanvasInfiniteError(true);
+      setTimeout(() => setCanvasInfiniteError(false), 3000);
+      return;
+    }
 
     const container = containerRef.current;
     const containerRect = container.getBoundingClientRect();
@@ -496,42 +559,36 @@ const Canvas = ({
     // Account for left panel width when it's open (450px fixed width)
     const availableWidth = leftPanelOpen ? containerRect.width - 450 : containerRect.width;
     
-    // Check if this is a canvas scene (transparent background)
-    const isCanvas = scene?.backgroundMapUrl.includes('fill="transparent"') || scene?.name === DEFAULT_CANVAS_NAME;
+    // When rotated, the visual width is the height and visual height is the width
+    const visualWidth = shouldRotateMap ? mapDimensions.height : mapDimensions.width;
+    const visualHeight = shouldRotateMap ? mapDimensions.width : mapDimensions.height;
     
-    if (isCanvas) {
-      // For canvas, fit to the container width as if it was the canvas size
-      // Set zoom to 1 and center
-      const xOffset = leftPanelOpen ? 450 : 0;
-      setViewport({
-        x: xOffset,
-        y: 0,
-        zoom: 1
-      });
-    } else {
-      // When rotated, the visual width is the height and visual height is the width
-      const visualWidth = shouldRotateMap ? mapDimensions.height : mapDimensions.width;
-      const visualHeight = shouldRotateMap ? mapDimensions.width : mapDimensions.height;
-      
-      // Only fit to width - calculate zoom so map fills 100% of available width
-      const newZoom = availableWidth / visualWidth;
-      
-      // The map container includes padding, so we need to account for that
-      const totalWidth = (visualWidth + mapDimensions.padding * 2) * newZoom;
-      const totalHeight = (visualHeight + mapDimensions.padding * 2) * newZoom;
-      
-      // Center horizontally in available space, and vertically
-      const xOffset = leftPanelOpen ? 450 : 0;
-      setViewport({
-        x: xOffset + (availableWidth - totalWidth) / 2,
-        y: (containerRect.height - totalHeight) / 2,
-        zoom: newZoom
-      });
-    }
+    // Calculate zoom based on map image width only (not including padding)
+    const newZoom = availableWidth / visualWidth;
+    
+    // The map image dimensions when scaled
+    const scaledHeight = visualHeight * newZoom;
+    const scaledPadding = mapDimensions.padding * newZoom;
+    
+    // Position to center the map image (not the padded container)
+    const xOffset = leftPanelOpen ? 450 : 0;
+    setViewport({
+      x: xOffset - scaledPadding,
+      y: (containerRect.height - scaledHeight) / 2 - scaledPadding,
+      zoom: newZoom
+    });
   };
 
   // Toggle fit to view lock
   const handleFitToView = () => {
+    // Check if this is a canvas scene - don't allow fit to view on infinite canvas
+    const isCanvas = scene?.backgroundMapUrl.includes('fill="transparent"');
+    if (isCanvas) {
+      setCanvasInfiniteError(true);
+      setTimeout(() => setCanvasInfiniteError(false), 3000);
+      return;
+    }
+    
     setFitToViewLocked(!fitToViewLocked);
     if (!fitToViewLocked) {
       applyFitToView();
@@ -1127,7 +1184,18 @@ const Canvas = ({
         }
       }
       if (e.key === 'f' || e.key === 'F') {
-        setActiveTool('marker');
+        e.preventDefault();
+        handleFitToView();
+        return;
+      }
+      if (e.key === 'l' || e.key === 'L') {
+        e.preventDefault();
+        handleToggleLock();
+        return;
+      }
+      if (e.key === 'n' || e.key === 'N') {
+        e.preventDefault();
+        handleToggleBadges();
         return;
       }
       if (e.key === 'r' || e.key === 'R') {
@@ -1157,7 +1225,14 @@ const Canvas = ({
         const colors: ColorType[] = ['red', 'blue', 'yellow', 'green', 'purple', 'orange', 'pink', 'brown', 'gray', 'black', 'white', 'cyan', 'magenta', 'lime', 'indigo', 'teal'];
         const currentIndex = colors.indexOf(selectedColor);
         const nextIndex = (currentIndex + 1) % colors.length;
-        onColorChange(colors[nextIndex]);
+        const newColor = colors[nextIndex];
+        onColorChange(newColor);
+        
+        // Apply color to selected element(s) if any
+        if (selectedElementId || selectedElementIds.length > 0) {
+          const event = new CustomEvent('applyColorToSelection', { detail: { color: newColor } });
+          window.dispatchEvent(event);
+        }
         return;
       }
 
@@ -2727,11 +2802,34 @@ const Canvas = ({
     // Otherwise, handle zoom as before
     e.preventDefault();
     const rect = containerRef.current?.getBoundingClientRect();
-    if (!rect || !mapDimensions.width) return;
+    if (!rect) return;
+    
+    const isCanvas = mapDimensions.width === 0 && mapDimensions.height === 0;
+    
+    // For regular maps, need valid dimensions
+    if (!isCanvas && !mapDimensions.width) return;
+    
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
     const delta = e.deltaY > 0 ? 0.9 : 1.1;
     setViewport(prev => {
+      // For canvas, no fit to view restrictions
+      if (isCanvas) {
+        const desiredZoom = prev.zoom * delta;
+        const newZoom = Math.max(0.1, Math.min(5, desiredZoom));
+        const worldX = (mouseX - prev.x) / prev.zoom;
+        const worldY = (mouseY - prev.y) / prev.zoom;
+        const newX = mouseX - worldX * newZoom;
+        const newY = mouseY - worldY * newZoom;
+        return {
+          ...prev,
+          zoom: newZoom,
+          x: newX,
+          y: newY
+        };
+      }
+      
+      // For maps with fit to view
       const availableWidth = leftPanelOpen ? rect.width - 450 : rect.width;
       const visualWidth = shouldRotateMap ? mapDimensions.height : mapDimensions.width;
       const minZoomForFit = availableWidth / visualWidth;
@@ -2905,7 +3003,114 @@ const Canvas = ({
         onContextMenu={handleContextMenu}
       >
         {/* ...no token submenu rendered... */}
-        {scene && (
+        {scene && (() => {
+          const isCanvas = mapDimensions.width === 0 && mapDimensions.height === 0;
+          
+          if (isCanvas) {
+            // Large canvas with static grid - centered so user starts in middle
+            const canvasSize = 50000; // Large but not infinite
+            
+            return (
+              <>
+                {/* Hidden img for canvas to trigger load event */}
+                <img
+                  ref={imgRef}
+                  src={scene.backgroundMapUrl}
+                  alt="canvas"
+                  style={{ display: 'none' }}
+                />
+                <div
+                  style={{
+                    position: 'absolute',
+                    left: viewport.x - canvasSize / 2 * viewport.zoom,
+                    top: viewport.y - canvasSize / 2 * viewport.zoom,
+                    transform: `scale(${viewport.zoom})`,
+                    transformOrigin: '0 0',
+                    width: canvasSize,
+                    height: canvasSize,
+                    pointerEvents: 'none'
+                  }}
+                >
+                {/* Large Static Grid */}
+                {showGrid && (
+                  <svg
+                    style={{
+                      position: 'absolute',
+                      left: 0,
+                      top: 0,
+                      width: canvasSize,
+                      height: canvasSize,
+                      pointerEvents: 'none',
+                      opacity: 0.3
+                    }}
+                  >
+                    <defs>
+                      <pattern
+                        id="canvas-grid-pattern"
+                        x={0}
+                        y={0}
+                        width={gridSize}
+                        height={gridSize}
+                        patternUnits="userSpaceOnUse"
+                      >
+                        <path
+                          d={`M ${gridSize} 0 L 0 0 0 ${gridSize}`}
+                          fill="none"
+                          stroke="rgba(255, 255, 255, 0.8)"
+                          strokeWidth="1"
+                        />
+                      </pattern>
+                    </defs>
+                    <rect
+                      x={0}
+                      y={0}
+                      width={canvasSize}
+                      height={canvasSize}
+                      fill="url(#canvas-grid-pattern)"
+                    />
+                  </svg>
+                )}
+
+                {/* Elements wrapper - offset to center at (0,0) */}
+                <div
+                  style={{
+                    position: 'absolute',
+                    left: canvasSize / 2,
+                    top: canvasSize / 2,
+                    width: 0,
+                    height: 0
+                  }}
+                >
+                  {/* Elements for infinite canvas */}
+                  {[...scene.elements]
+                    .sort((a, b) => ((a as any).zIndex || 0) - ((b as any).zIndex || 0))
+                    .map(element => (
+                    <MapElementComponent
+                      key={element.id}
+                      element={element}
+                      isSelected={selectedElementId === element.id || selectedElementIds.includes(element.id)}
+                      viewport={viewport}
+                      showTokenBadges={showTokenBadges}
+                    />
+                  ))}
+
+                  {/* Temp element during creation */}
+                  {tempElement && tempElement.id === 'temp' && (
+                    <MapElementComponent
+                      element={tempElement}
+                      isSelected={false}
+                      viewport={viewport}
+                      showTokenBadges={showTokenBadges}
+                    />
+                  )}
+                </div>
+              </div>
+              </>
+            );
+          }
+          
+          // Regular map with fixed dimensions
+          return (
           <div
             style={{
               position: 'absolute',
@@ -2997,9 +3202,12 @@ const Canvas = ({
                 showTokenBadges={showTokenBadges}
               />
             )}
+          </div>
+          );
+        })()}
 
-            {/* Temp room preview during drawing */}
-            {(() => {
+        {/* Temp room preview during drawing - works for both canvas and maps */}
+        {scene && (() => {
               if (!tempRoom || tempRoom.id !== 'temp' || !tempRoom.vertices || tempRoom.vertices.length < 3) {
                 return null;
               }
@@ -3028,14 +3236,18 @@ const Canvas = ({
                 `${i === 0 ? 'M' : 'L'}${v.x},${v.y}`
               ).join(' ') + ' Z';
               
+              // Calculate positioning - same for both canvas and maps
+              const leftPos = viewport.x + minX * viewport.zoom;
+              const topPos = viewport.y + minY * viewport.zoom;
+              
               return (
                 <svg
                   style={{
                     position: 'absolute',
-                    left: minX,
-                    top: minY,
-                    width,
-                    height,
+                    left: leftPos,
+                    top: topPos,
+                    width: width * viewport.zoom,
+                    height: height * viewport.zoom,
                     opacity: 0.7,
                     pointerEvents: 'none',
                     overflow: 'visible'
@@ -3141,13 +3353,20 @@ const Canvas = ({
               );
             })()}
 
-            {/* Custom room drawing preview */}
-            {customRoomVertices.length > 0 && (
+        {/* Custom room drawing preview - works for both canvas and maps */}
+        {scene && customRoomVertices.length > 0 && (() => {
+          const isCanvas = mapDimensions.width === 0 && mapDimensions.height === 0;
+          const canvasSize = 50000;
+          const offset = isCanvas ? canvasSize / 2 : 0;
+          
+          return (
               <svg
                 style={{
                   position: 'absolute',
-                  left: 0,
-                  top: 0,
+                  left: isCanvas ? viewport.x - canvasSize / 2 * viewport.zoom : viewport.x,
+                  top: isCanvas ? viewport.y - canvasSize / 2 * viewport.zoom : viewport.y,
+                  transform: `scale(${viewport.zoom})`,
+                  transformOrigin: '0 0',
                   width: '100%',
                   height: '100%',
                   pointerEvents: 'none',
@@ -3175,10 +3394,10 @@ const Canvas = ({
                   return (
                     <line
                       key={`line-${i}`}
-                      x1={prev.x}
-                      y1={prev.y}
-                      x2={vertex.x}
-                      y2={vertex.y}
+                      x1={prev.x + offset}
+                      y1={prev.y + offset}
+                      x2={vertex.x + offset}
+                      y2={vertex.y + offset}
                       stroke={isSubtractMode(roomSubTool) ? "#ef4444" : "#22c55e"}
                       strokeWidth={3}
                       filter="url(#blackGlow)"
@@ -3189,10 +3408,10 @@ const Canvas = ({
                 {/* Line from last vertex to cursor */}
                 {cursorPosition && customRoomVertices.length > 0 && (
                   <line
-                    x1={customRoomVertices[customRoomVertices.length - 1].x}
-                    y1={customRoomVertices[customRoomVertices.length - 1].y}
-                    x2={cursorPosition.x}
-                    y2={cursorPosition.y}
+                    x1={customRoomVertices[customRoomVertices.length - 1].x + offset}
+                    y1={customRoomVertices[customRoomVertices.length - 1].y + offset}
+                    x2={cursorPosition.x + offset}
+                    y2={cursorPosition.y + offset}
                     stroke={isSubtractMode(roomSubTool) ? "#ef4444" : "#22c55e"}
                     strokeWidth={3}
                     strokeDasharray="5,5"
@@ -3210,10 +3429,10 @@ const Canvas = ({
                   if (distance < 10 / viewport.zoom) {
                     return (
                       <line
-                        x1={customRoomVertices[customRoomVertices.length - 1].x}
-                        y1={customRoomVertices[customRoomVertices.length - 1].y}
-                        x2={firstVertex.x}
-                        y2={firstVertex.y}
+                        x1={customRoomVertices[customRoomVertices.length - 1].x + offset}
+                        y1={customRoomVertices[customRoomVertices.length - 1].y + offset}
+                        x2={firstVertex.x + offset}
+                        y2={firstVertex.y + offset}
                         stroke={isSubtractMode(roomSubTool) ? "#ef4444" : "#22c55e"}
                         strokeWidth={3}
                         filter="url(#blackGlow)"
@@ -3237,8 +3456,8 @@ const Canvas = ({
                   return (
                     <circle
                       key={`vertex-${i}`}
-                      cx={vertex.x}
-                      cy={vertex.y}
+                      cx={vertex.x + offset}
+                      cy={vertex.y + offset}
                       r={isHoveringFirst ? 8 / viewport.zoom : 5 / viewport.zoom}
                       fill={isSubtractMode(roomSubTool) ? "#ef4444" : "#22c55e"}
                       stroke="#000000"
@@ -3248,17 +3467,18 @@ const Canvas = ({
                   );
                 })}
               </svg>
-            )}
+          );
+        })()}
 
-            {/* Selection box */}
-            {selectionBox && (
+        {/* Selection box - works for both canvas and maps */}
+        {scene && selectionBox && (
               <div
                 style={{
                   position: 'absolute',
-                  left: Math.min(selectionBox.startX, selectionBox.endX),
-                  top: Math.min(selectionBox.startY, selectionBox.endY),
-                  width: Math.abs(selectionBox.endX - selectionBox.startX),
-                  height: Math.abs(selectionBox.endY - selectionBox.startY),
+                  left: viewport.x + Math.min(selectionBox.startX, selectionBox.endX) * viewport.zoom,
+                  top: viewport.y + Math.min(selectionBox.startY, selectionBox.endY) * viewport.zoom,
+                  width: Math.abs(selectionBox.endX - selectionBox.startX) * viewport.zoom,
+                  height: Math.abs(selectionBox.endY - selectionBox.startY) * viewport.zoom,
                   border: '2px dashed #22c55e',
                   backgroundColor: 'rgba(34, 197, 94, 0.1)',
                   pointerEvents: 'none'
@@ -3266,9 +3486,8 @@ const Canvas = ({
               />
             )}
 
-            {/* Merge Rooms Button - appears when 2+ overlapping rooms are selected */}
-            {(() => {
-              if (!scene) return null;
+        {/* Merge Rooms Button - works for both canvas and maps */}
+        {scene && (() => {
               
               const selectedIds = selectedElementIds.length > 0 ? selectedElementIds : selectedElementId ? [selectedElementId] : [];
               const selectedRooms = scene.elements.filter(el => 
@@ -3315,8 +3534,8 @@ const Canvas = ({
                   }}
                   style={{
                     position: 'absolute',
-                    left: maxX + 20,
-                    top: centerY - 20,
+                    left: viewport.x + (maxX + 20) * viewport.zoom,
+                    top: viewport.y + (centerY - 20) * viewport.zoom,
                     padding: '8px 16px',
                     backgroundColor: '#1f2937',
                     border: '1px solid #4ade80',
@@ -3346,13 +3565,13 @@ const Canvas = ({
               );
             })()}
 
-            {/* Token cursor preview */}
-            {activeTool === 'token' && activeTokenTemplate && cursorPosition && (
+        {/* Token cursor preview - works for both canvas and maps */}
+        {scene && activeTool === 'token' && activeTokenTemplate && cursorPosition && (
               <div
                 style={{
                   position: 'absolute',
-                  left: cursorPosition.x - 30,
-                  top: cursorPosition.y - 30,
+                  left: viewport.x + cursorPosition.x * viewport.zoom - 30,
+                  top: viewport.y + cursorPosition.y * viewport.zoom - 30,
                   width: 60,
                   height: 60,
                   pointerEvents: 'none',
@@ -3384,8 +3603,6 @@ const Canvas = ({
                 ) : null}
               </div>
             )}
-          </div>
-        )}
       </div>
 
       {/* Floating Toolbar */}
@@ -3411,21 +3628,7 @@ const Canvas = ({
               ? (scene.elements.find(e => e.id === selectedElementIds[0]) as any)?.showBadge || false
               : false
         }
-        onToggleBadges={() => {
-          if (selectedElementId || selectedElementIds.length > 0) {
-            const idsToUpdate = selectedElementIds.length > 0 ? selectedElementIds : [selectedElementId!];
-            const updates = new Map<string, Partial<MapElement>>();
-            idsToUpdate.forEach(id => {
-              const element = scene?.elements.find(e => e.id === id);
-              if (element && element.type === 'token') {
-                updates.set(id, { showBadge: !element.showBadge });
-              }
-            });
-            updateElements(updates);
-          } else {
-            setShowTokenBadges(!showTokenBadges);
-          }
-        }}
+        onToggleBadges={handleToggleBadges}
         recentTokens={recentTokens}
         tokenTemplates={tokenTemplates}
         activeTokenTemplate={activeTokenTemplate}
@@ -3441,17 +3644,7 @@ const Canvas = ({
               ? (scene.elements.find(e => e.id === selectedElementIds[0]) as any)?.locked || false
               : false
         }
-        onToggleLock={() => {
-          const idsToUpdate = selectedElementIds.length > 0 ? selectedElementIds : [selectedElementId!];
-          const updates = new Map<string, Partial<MapElement>>();
-          idsToUpdate.forEach(id => {
-            const element = scene?.elements.find(e => e.id === id);
-            if (element) {
-              updates.set(id, { locked: !element.locked });
-            }
-          });
-          updateElements(updates);
-        }}
+        onToggleLock={handleToggleLock}
         showGrid={showGrid}
         gridSize={gridSize}
         onToggleGrid={() => setShowGrid(!showGrid)}
@@ -3466,6 +3659,17 @@ const Canvas = ({
           <div className="bg-red-900/80 border border-red-700/50 rounded-lg shadow-lg px-5 py-3">
             <p className="text-red-200 text-sm text-center">
               Disable fit to screen to zoom further out
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Canvas Infinite Error Message */}
+      {canvasInfiniteError && (
+        <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50">
+          <div className="bg-yellow-900/80 border border-yellow-700/50 rounded-lg shadow-lg px-5 py-3">
+            <p className="text-yellow-200 text-sm text-center">
+              Fit to view only works on maps with fixed dimensions. This is a freeform canvas.
             </p>
           </div>
         </div>

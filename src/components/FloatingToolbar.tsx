@@ -101,6 +101,26 @@ const FloatingToolbar = ({
   const roomMenuTimeoutRef = useRef<number | null>(null);
   const gridMenuTimeoutRef = useRef<number | null>(null);
   const colorMenuTimeoutRef = useRef<number | null>(null);
+  const colorCycleTimeoutRef = useRef<number | null>(null);
+
+  // Show color picker briefly when cycling colors with C key
+  useEffect(() => {
+    // Track if color picker is already manually open
+    if (!showColorPicker) {
+      // Show color picker when color changes (from keyboard)
+      if (colorCycleTimeoutRef.current) clearTimeout(colorCycleTimeoutRef.current);
+      setShowColorPicker(true);
+      
+      // Auto-hide after 1.5 seconds
+      colorCycleTimeoutRef.current = window.setTimeout(() => {
+        setShowColorPicker(false);
+      }, 1500);
+    }
+    
+    return () => {
+      if (colorCycleTimeoutRef.current) clearTimeout(colorCycleTimeoutRef.current);
+    };
+  }, [selectedColor]);
 
   // Close picker when clicking outside (only for token and color pickers)
   useEffect(() => {
@@ -460,17 +480,19 @@ const FloatingToolbar = ({
       className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 floating-toolbar"
       onMouseEnter={() => onHideTokenPreview?.()}
     >
-      <div className="bg-dm-panel border border-dm-border rounded-lg shadow-2xl px-3 py-2 flex items-center gap-1">
+      <div className="bg-dm-panel border border-dm-border rounded-lg shadow-2xl px-3 pt-2 pb-1 flex flex-col gap-0.5">
+        {/* Main toolbar buttons row */}
+        <div className="flex items-center gap-1">
         {/* Pointer Tools Group */}
-        <div className="relative">
+        <div className="relative flex flex-col items-center">
           <button
             onClick={() => setActiveTool('pointer')}
             onMouseEnter={(e) => {
-              const badge = e.currentTarget.nextElementSibling as HTMLElement;
+              const badge = e.currentTarget.parentElement?.querySelector('.badge-tooltip') as HTMLElement;
               if (badge) badge.style.display = 'block';
             }}
             onMouseLeave={(e) => {
-              const badge = e.currentTarget.nextElementSibling as HTMLElement;
+              const badge = e.currentTarget.parentElement?.querySelector('.badge-tooltip') as HTMLElement;
               if (badge) badge.style.display = 'none';
             }}
             className={`p-2.5 rounded transition-colors ${
@@ -482,7 +504,9 @@ const FloatingToolbar = ({
           >
             <MousePointer2 size={18} />
           </button>
+          <span className="text-[9px] text-gray-500 font-medium mt-0.5">V</span>
           <div 
+            className="badge-tooltip"
             style={{
               display: 'none',
               position: 'absolute',
@@ -503,12 +527,12 @@ const FloatingToolbar = ({
               zIndex: 1000
             }}
           >
-            Select
+            Select (V)
           </div>
         </div>
 
         {/* Token Tool */}
-        <div className="relative">
+        <div className="relative flex flex-col items-center">
           <button
             ref={tokenButtonRef}
             onClick={() => setActiveTool('token')}
@@ -524,6 +548,7 @@ const FloatingToolbar = ({
           >
             <Stamp size={18} />
           </button>
+          <span className="text-[9px] text-gray-500 font-medium mt-0.5">B</span>
 
           {/* Token Submenu with all tokens and pagination */}
           {(showTokenSubmenu || forceShowTokenSubmenu) && tokenTemplates.length > 0 && (
@@ -573,7 +598,7 @@ const FloatingToolbar = ({
           )}
         </div>
 
-        <div className="relative">
+        <div className="relative flex flex-col items-center">
           <button
             ref={roomButtonRef}
             onClick={() => setActiveTool('room')}
@@ -589,10 +614,14 @@ const FloatingToolbar = ({
           >
             <Home size={18} />
           </button>
+          <span className="text-[9px] text-gray-500 font-medium mt-0.5">R</span>
 
           {/* Room Sub-Tool Picker */}
           {showRoomSubToolPicker && (
-            <div className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2">
+            <div 
+              className="absolute bottom-full mb-3"
+              style={{ left: '-96px' }}
+            >
               {/* Room tool badge */}
               <div 
                 style={{
@@ -614,7 +643,7 @@ const FloatingToolbar = ({
                 }}
               >
                 {roomSubTool?.startsWith('subtract-') ? 'Subtract ' : 'Add '}
-                {roomSubTool?.replace('subtract-', '').charAt(0).toUpperCase() + roomSubTool?.replace('subtract-', '').slice(1)}
+                {roomSubTool?.replace('subtract-', '').charAt(0).toUpperCase() + roomSubTool?.replace('subtract-', '').slice(1)} (R)
               </div>
               
               <div
@@ -771,15 +800,15 @@ const FloatingToolbar = ({
           )}
         </div>
 
-        <div className="relative">
+        <div className="relative flex flex-col items-center">
           <button
             onClick={() => setActiveTool('pan')}
             onMouseEnter={(e) => {
-              const badge = e.currentTarget.nextElementSibling as HTMLElement;
+              const badge = e.currentTarget.parentElement?.querySelector('.badge-tooltip') as HTMLElement;
               if (badge) badge.style.display = 'block';
             }}
             onMouseLeave={(e) => {
-              const badge = e.currentTarget.nextElementSibling as HTMLElement;
+              const badge = e.currentTarget.parentElement?.querySelector('.badge-tooltip') as HTMLElement;
               if (badge) badge.style.display = 'none';
             }}
             className={`p-2.5 rounded transition-colors ${
@@ -791,7 +820,9 @@ const FloatingToolbar = ({
           >
             <Hand size={18} />
           </button>
+          <span className="text-[9px] text-gray-500 font-medium mt-0.5">D</span>
           <div 
+            className="badge-tooltip"
             style={{
               display: 'none',
               position: 'absolute',
@@ -812,19 +843,19 @@ const FloatingToolbar = ({
               zIndex: 1000
             }}
           >
-            Drag Canvas
+            Drag Canvas (D)
           </div>
         </div>
 
-        <div className="relative">
+        <div className="relative flex flex-col items-center">
           <button
             onClick={() => setActiveTool('zoom-in')}
             onMouseEnter={(e) => {
-              const badge = e.currentTarget.nextElementSibling as HTMLElement;
+              const badge = e.currentTarget.parentElement?.querySelector('.badge-tooltip') as HTMLElement;
               if (badge) badge.style.display = 'block';
             }}
             onMouseLeave={(e) => {
-              const badge = e.currentTarget.nextElementSibling as HTMLElement;
+              const badge = e.currentTarget.parentElement?.querySelector('.badge-tooltip') as HTMLElement;
               if (badge) badge.style.display = 'none';
             }}
             className={`p-2.5 rounded transition-colors ${
@@ -840,7 +871,9 @@ const FloatingToolbar = ({
               <ZoomIn size={18} />
             )}
           </button>
+          <span className="text-[9px] text-gray-500 font-medium mt-0.5">Z</span>
           <div 
+            className="badge-tooltip" 
             style={{
               display: 'none',
               position: 'absolute',
@@ -861,7 +894,7 @@ const FloatingToolbar = ({
               zIndex: 1000
             }}
           >
-            Alt+Click to Zoom Out
+            Zoom (Z) - Alt+Click to Zoom Out
           </div>
         </div>
 
@@ -869,105 +902,393 @@ const FloatingToolbar = ({
         <div className="w-px h-6 bg-dm-border mx-1"></div>
 
         {/* Undo/Redo */}
-        <button
-          onClick={onUndo}
-          disabled={!canUndo}
-          className="p-2.5 rounded transition-colors bg-dm-dark hover:bg-dm-border text-gray-300 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
-          title="Undo (Ctrl+Z)"
+        <div 
+          className="relative flex flex-col items-center"
+          onMouseEnter={(e) => {
+            const badge = e.currentTarget.querySelector('.undo-badge') as HTMLElement;
+            if (badge) badge.style.display = 'block';
+          }}
+          onMouseLeave={(e) => {
+            const badge = e.currentTarget.querySelector('.undo-badge') as HTMLElement;
+            if (badge) badge.style.display = 'none';
+          }}
         >
-          <Undo size={18} />
-        </button>
+          <button
+            onClick={onUndo}
+            disabled={!canUndo}
+            className="p-2.5 rounded transition-colors bg-dm-dark hover:bg-dm-border text-gray-300 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-dm-dark"
+          >
+            <Undo size={18} />
+          </button>
+          <span className="text-[9px] text-gray-500 font-medium mt-0.5">Ctrl+Z</span>
+          <div 
+            className="undo-badge"
+            style={{
+              display: 'none',
+              position: 'absolute',
+              bottom: '100%',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              marginBottom: '20px',
+              backgroundColor: '#1f2937',
+              border: '1px solid #374151',
+              borderRadius: '6px',
+              padding: '4px 12px',
+              fontSize: '12px',
+              color: '#9ca3af',
+              fontWeight: '500',
+              whiteSpace: 'nowrap',
+              pointerEvents: 'none',
+              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)',
+              zIndex: 1000
+            }}
+          >
+            Undo (Ctrl+Z)
+          </div>
+        </div>
 
-        <button
-          onClick={onRedo}
-          disabled={!canRedo}
-          className="p-2.5 rounded transition-colors bg-dm-dark hover:bg-dm-border text-gray-300 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
-          title="Redo (Ctrl+Y)"
+        <div 
+          className="relative flex flex-col items-center"
+          onMouseEnter={(e) => {
+            const badge = e.currentTarget.querySelector('.redo-badge') as HTMLElement;
+            if (badge) badge.style.display = 'block';
+          }}
+          onMouseLeave={(e) => {
+            const badge = e.currentTarget.querySelector('.redo-badge') as HTMLElement;
+            if (badge) badge.style.display = 'none';
+          }}
         >
-          <Redo size={18} />
-        </button>
+          <button
+            onClick={onRedo}
+            disabled={!canRedo}
+            className="p-2.5 rounded transition-colors bg-dm-dark hover:bg-dm-border text-gray-300 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-dm-dark"
+          >
+            <Redo size={18} />
+          </button>
+          <span className="text-[9px] text-gray-500 font-medium mt-0.5">Ctrl+Y</span>
+          <div 
+            className="redo-badge"
+            style={{
+              display: 'none',
+              position: 'absolute',
+              bottom: '100%',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              marginBottom: '20px',
+              backgroundColor: '#1f2937',
+              border: '1px solid #374151',
+              borderRadius: '6px',
+              padding: '4px 12px',
+              fontSize: '12px',
+              color: '#9ca3af',
+              fontWeight: '500',
+              whiteSpace: 'nowrap',
+              pointerEvents: 'none',
+              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)',
+              zIndex: 1000
+            }}
+          >
+            Redo (Ctrl+Y)
+          </div>
+        </div>
 
         {/* Divider */}
         <div className="w-px h-6 bg-dm-border mx-1"></div>
 
         {/* Edit Actions Group */}
-        <button
-          onClick={onDuplicate}
-          disabled={!hasSelection}
-          className="p-2.5 rounded transition-colors bg-dm-dark hover:bg-dm-border text-gray-300 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
-          title="Duplicate (Ctrl+D)"
+        <div 
+          className="relative flex flex-col items-center"
+          onMouseEnter={(e) => {
+            const badge = e.currentTarget.querySelector('.duplicate-badge') as HTMLElement;
+            if (badge) badge.style.display = 'block';
+          }}
+          onMouseLeave={(e) => {
+            const badge = e.currentTarget.querySelector('.duplicate-badge') as HTMLElement;
+            if (badge) badge.style.display = 'none';
+          }}
         >
-          <Copy size={18} />
-        </button>
+          <button
+            onClick={onDuplicate}
+            disabled={!hasSelection}
+            className="p-2.5 rounded transition-colors bg-dm-dark hover:bg-dm-border text-gray-300 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-dm-dark"
+          >
+            <Copy size={18} />
+          </button>
+          <span className="text-[9px] text-gray-500 font-medium mt-0.5">Ctrl+D</span>
+          <div 
+            className="duplicate-badge"
+            style={{
+              display: 'none',
+              position: 'absolute',
+              bottom: '100%',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              marginBottom: '20px',
+              backgroundColor: '#1f2937',
+              border: '1px solid #374151',
+              borderRadius: '6px',
+              padding: '4px 12px',
+              fontSize: '12px',
+              color: '#9ca3af',
+              fontWeight: '500',
+              whiteSpace: 'nowrap',
+              pointerEvents: 'none',
+              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)',
+              zIndex: 1000
+            }}
+          >
+            Duplicate (Ctrl+D)
+          </div>
+        </div>
 
-        <button
-          onClick={onDelete}
-          disabled={!hasSelection}
-          className="p-2.5 rounded transition-colors bg-dm-dark hover:bg-dm-border text-red-400 hover:text-red-300 disabled:opacity-30 disabled:cursor-not-allowed"
-          title="Delete (Delete)"
+        <div 
+          className="relative flex flex-col items-center"
+          onMouseEnter={(e) => {
+            const badge = e.currentTarget.querySelector('.delete-badge') as HTMLElement;
+            if (badge) badge.style.display = 'block';
+          }}
+          onMouseLeave={(e) => {
+            const badge = e.currentTarget.querySelector('.delete-badge') as HTMLElement;
+            if (badge) badge.style.display = 'none';
+          }}
         >
-          <Trash2 size={18} />
-        </button>
+          <button
+            onClick={onDelete}
+            disabled={!hasSelection}
+            className="p-2.5 rounded transition-colors bg-dm-dark hover:bg-dm-border text-red-400 hover:text-red-300 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-dm-dark disabled:hover:text-red-400"
+          >
+            <Trash2 size={18} />
+          </button>
+          <span className="text-[9px] text-gray-500 font-medium mt-0.5">Del</span>
+          <div 
+            className="delete-badge"
+            style={{
+              display: 'none',
+              position: 'absolute',
+              bottom: '100%',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              marginBottom: '20px',
+              backgroundColor: '#1f2937',
+              border: '1px solid #374151',
+              borderRadius: '6px',
+              padding: '4px 12px',
+              fontSize: '12px',
+              color: '#9ca3af',
+              fontWeight: '500',
+              whiteSpace: 'nowrap',
+              pointerEvents: 'none',
+              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)',
+              zIndex: 1000
+            }}
+          >
+            Delete (Del)
+          </div>
+        </div>
 
-        <button
-          onClick={onLayerUp}
-          disabled={!hasSelection}
-          className="p-2.5 rounded transition-colors bg-dm-dark hover:bg-dm-border text-gray-300 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
-          title="Layer Up (Ctrl+↑)"
+        <div 
+          className="relative flex flex-col items-center"
+          onMouseEnter={(e) => {
+            const badge = e.currentTarget.querySelector('.layerup-badge') as HTMLElement;
+            if (badge) badge.style.display = 'block';
+          }}
+          onMouseLeave={(e) => {
+            const badge = e.currentTarget.querySelector('.layerup-badge') as HTMLElement;
+            if (badge) badge.style.display = 'none';
+          }}
         >
-          <ArrowUp size={18} />
-        </button>
+          <button
+            onClick={onLayerUp}
+            disabled={!hasSelection}
+            className="p-2.5 rounded transition-colors bg-dm-dark hover:bg-dm-border text-gray-300 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-dm-dark"
+          >
+            <ArrowUp size={18} />
+          </button>
+          <span className="text-[9px] text-gray-500 font-medium mt-0.5">Ctrl+↑</span>
+          <div 
+            className="layerup-badge"
+            style={{
+              display: 'none',
+              position: 'absolute',
+              bottom: '100%',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              marginBottom: '20px',
+              backgroundColor: '#1f2937',
+              border: '1px solid #374151',
+              borderRadius: '6px',
+              padding: '4px 12px',
+              fontSize: '12px',
+              color: '#9ca3af',
+              fontWeight: '500',
+              whiteSpace: 'nowrap',
+              pointerEvents: 'none',
+              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)',
+              zIndex: 1000
+            }}
+          >
+            Layer Up (Ctrl+↑)
+          </div>
+        </div>
 
-        <button
-          onClick={onLayerDown}
-          disabled={!hasSelection}
-          className="p-2.5 rounded transition-colors bg-dm-dark hover:bg-dm-border text-gray-300 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
-          title="Layer Down (Ctrl+↓)"
+        <div 
+          className="relative flex flex-col items-center"
+          onMouseEnter={(e) => {
+            const badge = e.currentTarget.querySelector('.layerdown-badge') as HTMLElement;
+            if (badge) badge.style.display = 'block';
+          }}
+          onMouseLeave={(e) => {
+            const badge = e.currentTarget.querySelector('.layerdown-badge') as HTMLElement;
+            if (badge) badge.style.display = 'none';
+          }}
         >
-          <ArrowDown size={18} />
-        </button>
+          <button
+            onClick={onLayerDown}
+            disabled={!hasSelection}
+            className="p-2.5 rounded transition-colors bg-dm-dark hover:bg-dm-border text-gray-300 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-dm-dark"
+          >
+            <ArrowDown size={18} />
+          </button>
+          <span className="text-[9px] text-gray-500 font-medium mt-0.5">Ctrl+↓</span>
+          <div 
+            className="layerdown-badge"
+            style={{
+              display: 'none',
+              position: 'absolute',
+              bottom: '100%',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              marginBottom: '20px',
+              backgroundColor: '#1f2937',
+              border: '1px solid #374151',
+              borderRadius: '6px',
+              padding: '4px 12px',
+              fontSize: '12px',
+              color: '#9ca3af',
+              fontWeight: '500',
+              whiteSpace: 'nowrap',
+              pointerEvents: 'none',
+              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)',
+              zIndex: 1000
+            }}
+          >
+            Layer Down (Ctrl+↓)
+          </div>
+        </div>
 
         {/* Divider */}
         <div className="w-px h-6 bg-dm-border mx-1"></div>
 
         {/* Token Badges Toggle */}
-        <button
-          onClick={onToggleBadges}
-          className={`p-2.5 rounded transition-colors ${
-            showTokenBadges
-              ? 'bg-dm-highlight text-white'
-              : 'bg-dm-dark hover:bg-dm-border text-gray-300 hover:text-white'
-          } ${
-            selectedTokenHasBadge && hasSelection
-              ? 'border-2 border-yellow-500 box-content'
-              : 'border-2 border-transparent box-content'
-          }`}
-          title={hasSelection ? "Toggle Badge for Selected Token(s)" : "Toggle All Token Badges"}
+        <div 
+          className="relative flex flex-col items-center"
+          onMouseEnter={(e) => {
+            const badge = e.currentTarget.querySelector('.badge-toggle-badge') as HTMLElement;
+            if (badge) badge.style.display = 'block';
+          }}
+          onMouseLeave={(e) => {
+            const badge = e.currentTarget.querySelector('.badge-toggle-badge') as HTMLElement;
+            if (badge) badge.style.display = 'none';
+          }}
         >
-          <Tag size={18} />
-        </button>
+          <button
+            onClick={onToggleBadges}
+            className={`p-2.5 rounded transition-colors ${
+              showTokenBadges
+                ? 'bg-dm-highlight text-white'
+                : 'bg-dm-dark hover:bg-dm-border text-gray-300 hover:text-white'
+            } ${
+              selectedTokenHasBadge && hasSelection
+                ? 'border-2 border-yellow-500 box-content'
+                : 'border-2 border-transparent box-content'
+            }`}
+          >
+            <Tag size={18} />
+          </button>
+          <span className="text-[9px] text-gray-500 font-medium mt-0.5">N</span>
+          <div 
+            className="badge-toggle-badge"
+            style={{
+              display: 'none',
+              position: 'absolute',
+              bottom: '100%',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              marginBottom: '20px',
+              backgroundColor: '#1f2937',
+              border: '1px solid #374151',
+              borderRadius: '6px',
+              padding: '4px 12px',
+              fontSize: '12px',
+              color: '#9ca3af',
+              fontWeight: '500',
+              whiteSpace: 'nowrap',
+              pointerEvents: 'none',
+              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)',
+              zIndex: 1000
+            }}
+          >
+            Toggle Badges (N)
+          </div>
+        </div>
 
         {/* Lock Toggle */}
-        <button
-          onClick={onToggleLock}
-          disabled={!hasSelection}
-          className={`p-2.5 rounded transition-colors ${
-            !hasSelection
-              ? 'opacity-50 cursor-not-allowed bg-dm-dark text-gray-500'
-              : selectedElementLocked
-              ? 'bg-red-600 hover:bg-red-700 text-white'
-              : 'bg-dm-dark hover:bg-dm-border text-gray-300 hover:text-white'
-          } border-2 border-transparent box-content`}
-          title={hasSelection ? (selectedElementLocked ? "Unlock Selected Element(s)" : "Lock Selected Element(s)") : "Lock/Unlock Element"}
+        <div 
+          className="relative flex flex-col items-center"
+          onMouseEnter={(e) => {
+            const badge = e.currentTarget.querySelector('.lock-badge') as HTMLElement;
+            if (badge) badge.style.display = 'block';
+          }}
+          onMouseLeave={(e) => {
+            const badge = e.currentTarget.querySelector('.lock-badge') as HTMLElement;
+            if (badge) badge.style.display = 'none';
+          }}
         >
-          <Lock size={18} />
-        </button>
+          <button
+            onClick={onToggleLock}
+            disabled={!hasSelection}
+            className={`p-2.5 rounded transition-colors ${
+              !hasSelection
+                ? 'opacity-50 cursor-not-allowed bg-dm-dark text-gray-500'
+                : selectedElementLocked
+                ? 'bg-red-600 hover:bg-red-700 text-white'
+                : 'bg-dm-dark hover:bg-dm-border text-gray-300 hover:text-white'
+            } border-2 border-transparent box-content`}
+          >
+            <Lock size={18} />
+          </button>
+          <span className="text-[9px] text-gray-500 font-medium mt-0.5">L</span>
+          <div 
+            className="lock-badge"
+            style={{
+              display: 'none',
+              position: 'absolute',
+              bottom: '100%',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              marginBottom: '20px',
+              backgroundColor: '#1f2937',
+              border: '1px solid #374151',
+              borderRadius: '6px',
+              padding: '4px 12px',
+              fontSize: '12px',
+              color: '#9ca3af',
+              fontWeight: '500',
+              whiteSpace: 'nowrap',
+              pointerEvents: 'none',
+              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)',
+              zIndex: 1000
+            }}
+          >
+            Lock Selection (L)
+          </div>
+        </div>
 
         {/* Divider */}
         <div className="w-px h-6 bg-dm-border mx-1"></div>
 
         {/* Grid Toggle with Submenu */}
-        <div className="relative">
+        <div className="relative flex flex-col items-center">
           <button
             ref={gridButtonRef}
             onClick={onToggleGrid}
@@ -983,6 +1304,7 @@ const FloatingToolbar = ({
           >
             <Grid3x3 size={18} />
           </button>
+          <span className="text-[9px] text-gray-500 font-medium mt-0.5">G</span>
 
           {/* Grid Controls Submenu */}
           {showGridControls && (
@@ -993,6 +1315,28 @@ const FloatingToolbar = ({
               onMouseLeave={handleGridMenuLeave}
               onWheel={handleGridScroll}
             >
+              {/* Grid Badge */}
+              <div
+                style={{
+                  position: 'absolute',
+                  bottom: '100%',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  marginBottom: '8px',
+                  backgroundColor: '#1f2937',
+                  border: '1px solid #374151',
+                  borderRadius: '6px',
+                  padding: '4px 12px',
+                  fontSize: '12px',
+                  color: '#9ca3af',
+                  fontWeight: '500',
+                  whiteSpace: 'nowrap',
+                  pointerEvents: 'none',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)'
+                }}
+              >
+                Scroll to Resize Grid (G)
+              </div>
               <div className="flex flex-col gap-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-gray-400">Grid Size</span>
@@ -1016,15 +1360,22 @@ const FloatingToolbar = ({
         </div>
 
         {/* Color Picker */}
-        <div className="relative">
+        <div className="relative flex flex-col items-center">
           <button
             ref={colorButtonRef}
             onClick={handleColorClick}
-            onMouseEnter={handleColorMenuEnter}
-            onMouseLeave={handleColorMenuLeave}
+            onMouseEnter={(e) => {
+              handleColorMenuEnter();
+              const badge = e.currentTarget.parentElement?.querySelector('.color-picker-badge') as HTMLElement;
+              if (badge) badge.style.display = 'block';
+            }}
+            onMouseLeave={(e) => {
+              handleColorMenuLeave();
+              const badge = e.currentTarget.parentElement?.querySelector('.color-picker-badge') as HTMLElement;
+              if (badge) badge.style.display = 'none';
+            }}
             onWheel={handleColorScroll}
             className="p-2.5 rounded transition-colors bg-dm-dark hover:bg-dm-border border-2 border-transparent box-content"
-            title="Vælg farve"
           >
             <Paintbrush 
               size={18} 
@@ -1035,6 +1386,7 @@ const FloatingToolbar = ({
               }} 
             />
           </button>
+          <span className="text-[9px] text-gray-500 font-medium mt-0.5">C</span>
 
           {/* Color Picker Menu */}
           {showColorPicker && (
@@ -1073,26 +1425,87 @@ const FloatingToolbar = ({
               </div>
             </div>
           )}
+          
+          {/* Color Picker Badge */}
+          <div 
+            className="color-picker-badge"
+            style={{
+              display: 'none',
+              position: 'absolute',
+              bottom: '100%',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              marginBottom: '20px',
+              backgroundColor: '#1f2937',
+              border: '1px solid #374151',
+              borderRadius: '6px',
+              padding: '4px 12px',
+              fontSize: '12px',
+              color: '#9ca3af',
+              fontWeight: '500',
+              whiteSpace: 'nowrap',
+              pointerEvents: 'none',
+              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)',
+              zIndex: 1000
+            }}
+          >
+            Color Picker (C)
+          </div>
         </div>
 
         {/* Divider */}
         <div className="w-px h-6 bg-dm-border mx-1"></div>
 
         {/* Fit to View */}
-        <button
-          onClick={onFitToView}
-          className={`p-2.5 rounded transition-colors relative ${
-            fitToViewLocked
-              ? 'bg-dm-dark border-2 border-red-500 text-gray-300 hover:text-white box-content'
-              : 'bg-dm-dark hover:bg-dm-border text-gray-300 hover:text-white border-2 border-transparent box-content'
-          }`}
-          title={fitToViewLocked ? "Unlock Fit to View (F)" : "Lock Fit to View (F)"}
-        >
-          <Maximize2 size={18} />
-          {fitToViewLocked && (
-            <Lock size={10} className="absolute top-0.5 right-0.5 text-white opacity-60" />
-          )}
-        </button>
+        <div className="relative flex flex-col items-center">
+          <button
+            onClick={onFitToView}
+            onMouseEnter={(e) => {
+              const badge = e.currentTarget.parentElement?.querySelector('.fit-to-view-badge') as HTMLElement;
+              if (badge) badge.style.display = 'block';
+            }}
+            onMouseLeave={(e) => {
+              const badge = e.currentTarget.parentElement?.querySelector('.fit-to-view-badge') as HTMLElement;
+              if (badge) badge.style.display = 'none';
+            }}
+            className={`p-2.5 rounded transition-colors relative ${
+              fitToViewLocked
+                ? 'bg-dm-dark border-2 border-red-500 text-gray-300 hover:text-white box-content'
+                : 'bg-dm-dark hover:bg-dm-border text-gray-300 hover:text-white border-2 border-transparent box-content'
+            }`}
+          >
+            <Maximize2 size={18} />
+            {fitToViewLocked && (
+              <Lock size={10} className="absolute top-0.5 right-0.5 text-white opacity-60" />
+            )}
+          </button>
+          <span className="text-[9px] text-gray-500 font-medium mt-0.5">F</span>
+          <div 
+            className="fit-to-view-badge"
+            style={{
+              display: 'none',
+              position: 'absolute',
+              bottom: '100%',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              marginBottom: '20px',
+              backgroundColor: '#1f2937',
+              border: '1px solid #374151',
+              borderRadius: '6px',
+              padding: '4px 12px',
+              fontSize: '12px',
+              color: '#9ca3af',
+              fontWeight: '500',
+              whiteSpace: 'nowrap',
+              pointerEvents: 'none',
+              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)',
+              zIndex: 1000
+            }}
+          >
+            Fit to View (F)
+          </div>
+        </div>
+        </div>
       </div>
     </div>
   );
