@@ -37,7 +37,7 @@ const EncounterTableWidget = ({ widget, onUpdate, onDelete }: EncounterTableWidg
   };
 
   return (
-    <div className="bg-dm-dark rounded-lg p-4 border border-dm-border">
+    <div className="bg-neutral-800/90 border-2 border-neutral-700 rounded-lg p-4 shadow-lg">
       {/* Header with inline dice dropdown */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2 flex-1">

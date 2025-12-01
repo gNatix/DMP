@@ -52,7 +52,7 @@ const StatBlockWidget = ({ widget, onChange, onDelete }: StatBlockWidgetProps) =
   };
 
   return (
-    <div className="bg-dm-panel border border-dm-border rounded-lg p-4 relative group">
+    <div className="bg-neutral-800/90 border-2 border-neutral-700 rounded-lg p-4 relative group shadow-lg">
       <button
         onClick={onDelete}
         className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 transition-all z-10 p-1 hover:bg-red-900/20 rounded"

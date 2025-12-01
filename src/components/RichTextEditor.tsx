@@ -18,6 +18,18 @@ const RichTextEditor = ({ content, onChange, placeholder }: RichTextEditorProps)
   const [currentColor, setCurrentColor] = useState('#ffffff');
   const [currentHighlight, setCurrentHighlight] = useState('transparent');
 
+  // Handle color picker hover - close highlight picker when opening color picker
+  const handleColorPickerEnter = () => {
+    setShowColorPicker(true);
+    setShowHighlightPicker(false);
+  };
+
+  // Handle highlight picker hover - close color picker when opening highlight picker
+  const handleHighlightPickerEnter = () => {
+    setShowHighlightPicker(true);
+    setShowColorPicker(false);
+  };
+
   // Initialize content
   useEffect(() => {
     if (editorRef.current && editorRef.current.innerHTML !== content) {
@@ -305,10 +317,13 @@ const RichTextEditor = ({ content, onChange, placeholder }: RichTextEditorProps)
         </div>
 
         {/* Text Color */}
-        <div className="relative">
+        <div 
+          className="relative"
+          onMouseEnter={handleColorPickerEnter}
+          onMouseLeave={() => setShowColorPicker(false)}
+        >
           <button
             type="button"
-            onClick={() => setShowColorPicker(!showColorPicker)}
             className="p-1.5 rounded hover:bg-dm-hover transition-colors"
             title="Text Color"
           >
@@ -345,7 +360,6 @@ const RichTextEditor = ({ content, onChange, placeholder }: RichTextEditorProps)
                     onClick={() => {
                       console.log('Color clicked:', name, color);
                       execCommand('foreColor', color);
-                      setShowColorPicker(false);
                     }}
                     style={{ 
                       backgroundColor: color,
@@ -365,10 +379,13 @@ const RichTextEditor = ({ content, onChange, placeholder }: RichTextEditorProps)
         </div>
 
         {/* Text Highlight */}
-        <div className="relative">
+        <div 
+          className="relative"
+          onMouseEnter={handleHighlightPickerEnter}
+          onMouseLeave={() => setShowHighlightPicker(false)}
+        >
           <button
             type="button"
-            onClick={() => setShowHighlightPicker(!showHighlightPicker)}
             className="p-1.5 rounded hover:bg-dm-hover transition-colors"
             title="Highlight Color"
           >
@@ -408,7 +425,6 @@ const RichTextEditor = ({ content, onChange, placeholder }: RichTextEditorProps)
                     type="button"
                     onClick={() => {
                       execCommand('backColor', color);
-                      setShowHighlightPicker(false);
                     }}
                     style={{ 
                       backgroundColor: color,

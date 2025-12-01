@@ -89,16 +89,14 @@ const RightPanel = ({
 }: RightPanelProps) => {
   const [activeTab, setActiveTab] = useState<TabType>('scenes');
 
-  // Auto-switch to rooms tab when room tool is active or when a room element is selected
+  // Auto-switch to rooms tab when room tool is active
   useEffect(() => {
     if (activeTool === 'room') {
-      setActiveTab('rooms');
-    } else if (selectedElement?.type === 'room') {
       setActiveTab('rooms');
     } else if (activeTool === 'token') {
       setActiveTab('tokens');
     }
-  }, [activeTool, selectedElement]);
+  }, [activeTool]);
 
   return (
     <div className="w-80 bg-dm-panel border-l border-dm-border flex flex-col">

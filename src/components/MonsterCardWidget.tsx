@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Skull, Trash2, Image as ImageIcon } from 'lucide-react';
+import { Trash2, Image as ImageIcon } from 'lucide-react';
 import { MonsterCardWidget as MonsterCardWidgetType } from '../types';
+import RichTextEditor from './RichTextEditor';
 
 interface MonsterCardWidgetProps {
   widget: MonsterCardWidgetType;
@@ -31,13 +32,88 @@ const MonsterCardWidget = ({ widget, onUpdate, onDelete }: MonsterCardWidgetProp
     return mod >= 0 ? `+${mod}` : `${mod}`;
   };
 
+  const handleCRScroll = (e: React.WheelEvent) => {
+    e.preventDefault();
+    const crValues = ['0', '1/8', '1/4', '1/2', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30'];
+    const currentIndex = crValues.indexOf(widget.challenge);
+    
+    if (e.deltaY < 0 && currentIndex < crValues.length - 1) {
+      onUpdate({ challenge: crValues[currentIndex + 1] });
+    } else if (e.deltaY > 0 && currentIndex > 0) {
+      onUpdate({ challenge: crValues[currentIndex - 1] });
+    }
+  };
+
+  const handleNumberScroll = (e: React.WheelEvent, field: 'ac' | 'hp' | 'speed') => {
+    e.preventDefault();
+    const currentValue = widget[field];
+    const delta = e.deltaY < 0 ? 1 : -1;
+    const newValue = Math.max(0, currentValue + delta);
+    onUpdate({ [field]: newValue });
+  };
+
+  const handleAbilityScroll = (e: React.WheelEvent, stat: keyof MonsterCardWidgetType['abilities']) => {
+    e.preventDefault();
+    const currentValue = widget.abilities[stat];
+    const delta = e.deltaY < 0 ? 1 : -1;
+    const newValue = Math.max(1, Math.min(30, currentValue + delta));
+    onUpdate({
+      abilities: {
+        ...widget.abilities,
+        [stat]: newValue
+      }
+    });
+  };
+
+  const renderStat = (label: string, stat: keyof MonsterCardWidgetType['abilities']) => {
+    const value = widget.abilities[stat];
+    const modifier = calculateModifier(value);
+    
+    return (
+      <div className="flex flex-col items-center">
+        <div className="text-xs font-bold text-amber-600 uppercase mb-1">{label}</div>
+        <div className="border-2 border-gray-600 rounded-lg px-2 py-1 bg-dm-dark relative">
+          <input
+            type="number"
+            value={value}
+            onChange={(e) => onUpdate({
+              abilities: {
+                ...widget.abilities,
+                [stat]: parseInt(e.target.value) || 10
+              }
+            })}
+            onWheel={(e) => handleAbilityScroll(e, stat)}
+            className="w-8 bg-transparent text-center text-base font-bold focus:outline-none text-white [-moz-appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            min="1"
+            max="30"
+          />
+          <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 w-8 h-6 flex items-center justify-center">
+            <div className="w-full h-full border border-gray-600 rounded bg-dm-panel flex items-center justify-center">
+              <span className="text-xs font-semibold">{modifier}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
-    <div className="bg-dm-dark rounded-lg border border-gray-600 overflow-hidden" style={{ fontFamily: 'serif' }}>
-      {/* Header with scroll design */}
-      <div className="relative bg-gradient-to-r from-amber-900 via-amber-800 to-amber-900 border-b-2 border-amber-950">
-        <div className="flex items-center justify-between px-4 py-2">
-          <div className="flex items-center gap-2 flex-1">
-            <Skull size={18} className="text-amber-200" />
+    <div className="bg-neutral-800/90 border-2 border-neutral-700 rounded-lg p-4 relative group shadow-lg">
+      <button
+        onClick={onDelete}
+        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 transition-all z-10 p-1 hover:bg-red-900/20 rounded"
+        title="Remove widget"
+      >
+        <Trash2 size={16} />
+      </button>
+
+      {/* Row 1: Info/Stats and Image */}
+      <div className="grid gap-3 mb-4" style={{ gridTemplateColumns: '2fr 1fr' }}>
+        {/* Column 1 (2/3): Name, Info, Stats */}
+        <div className="flex flex-col gap-3">
+          {/* Row 1: Monster Name and Info */}
+          <div className="bg-dm-dark border border-gray-600 rounded p-2 flex flex-col gap-1">
+            {/* Monster Name */}
             {isEditingName ? (
               <input
                 type="text"
@@ -45,155 +121,123 @@ const MonsterCardWidget = ({ widget, onUpdate, onDelete }: MonsterCardWidgetProp
                 onChange={(e) => setNameInput(e.target.value)}
                 onBlur={handleNameSave}
                 onKeyDown={handleNameKeyDown}
-                className="flex-1 bg-amber-950/50 border border-amber-700 rounded px-2 py-1 text-base text-amber-100 focus:outline-none focus:border-amber-500 font-bold"
+                className="w-full bg-transparent text-center text-base font-bold focus:outline-none text-white border-b border-gray-600 pb-1"
                 placeholder="Monster Name"
                 autoFocus
               />
             ) : (
-              <h3
+              <div
                 onClick={() => setIsEditingName(true)}
-                className="text-base font-bold text-amber-100 cursor-pointer hover:text-amber-200 transition-colors uppercase tracking-wide"
+                className="text-center text-base font-bold text-white cursor-pointer hover:text-amber-400 transition-colors border-b border-gray-600 pb-1"
               >
                 {widget.name || 'Monster'}
-              </h3>
+              </div>
             )}
+            {/* Monster Info */}
+            <input
+              type="text"
+              placeholder="Medium Beast, Neutral..."
+              value={widget.monsterType || ''}
+              onChange={(e) => onUpdate({ monsterType: e.target.value })}
+              className="w-full bg-transparent text-center text-xs text-gray-300 focus:outline-none placeholder:text-gray-600 italic"
+            />
           </div>
-          <button
-            onClick={onDelete}
-            className="p-1 hover:bg-red-900/40 rounded transition-colors"
-            title="Delete widget"
-          >
-            <Trash2 size={14} className="text-red-300" />
-          </button>
+
+          {/* Row 2: Stats (CR, AC, HP, SPD) */}
+          <div className="grid grid-cols-4 gap-3">
+            <div className="flex flex-col items-center">
+              <div className="text-xs font-bold text-amber-600 uppercase mb-1">CR</div>
+              <div className="border-2 border-gray-600 rounded-lg px-2 py-1 bg-dm-dark">
+                <input
+                  type="text"
+                  value={widget.challenge}
+                  onChange={(e) => onUpdate({ challenge: e.target.value })}
+                  onWheel={handleCRScroll}
+                  placeholder="1/4"
+                  className="w-8 bg-transparent text-center text-base font-bold focus:outline-none text-white"
+                />
+              </div>
+            </div>
+            <div className="flex flex-col items-center">
+              <div className="text-xs font-bold text-amber-600 uppercase mb-1">AC</div>
+              <div className="border-2 border-gray-600 rounded-lg px-2 py-1 bg-dm-dark">
+                <input
+                  type="text"
+                  value={widget.ac}
+                  onChange={(e) => onUpdate({ ac: parseInt(e.target.value) || 0 })}
+                  onWheel={(e) => handleNumberScroll(e, 'ac')}
+                  className="w-8 bg-transparent text-center text-base font-bold focus:outline-none text-white [-moz-appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                />
+              </div>
+            </div>
+            <div className="flex flex-col items-center">
+              <div className="text-xs font-bold text-amber-600 uppercase mb-1">HP</div>
+              <div className="border-2 border-gray-600 rounded-lg px-2 py-1 bg-dm-dark">
+                <input
+                  type="text"
+                  value={widget.hp}
+                  onChange={(e) => onUpdate({ hp: parseInt(e.target.value) || 0 })}
+                  onWheel={(e) => handleNumberScroll(e, 'hp')}
+                  className="w-8 bg-transparent text-center text-base font-bold focus:outline-none text-white [-moz-appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                />
+              </div>
+            </div>
+            <div className="flex flex-col items-center">
+              <div className="text-xs font-bold text-amber-600 uppercase mb-1">SPD</div>
+              <div className="border-2 border-gray-600 rounded-lg px-2 py-1 bg-dm-dark">
+                <input
+                  type="text"
+                  value={widget.speed}
+                  onChange={(e) => onUpdate({ speed: parseInt(e.target.value) || 0 })}
+                  onWheel={(e) => handleNumberScroll(e, 'speed')}
+                  className="w-8 bg-transparent text-center text-base font-bold focus:outline-none text-white [-moz-appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Column 2 (1/3): Monster Image - Full height */}
+        <div className="bg-dm-dark border border-gray-600 rounded overflow-hidden h-full">
+          {widget.image && widget.image.trim() !== '' ? (
+            <img src={widget.image} alt={widget.name} className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <div className="text-center">
+                <ImageIcon size={20} className="mx-auto mb-1 text-gray-600" />
+                <input
+                  type="text"
+                  placeholder="Image URL..."
+                  value={widget.image || ''}
+                  onChange={(e) => onUpdate({ image: e.target.value })}
+                  className="w-20 px-1 py-0.5 text-[10px] bg-dm-panel border border-gray-600 rounded focus:outline-none text-gray-300 text-center"
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Card Content */}
-      <div className="p-3 bg-gradient-to-br from-amber-50 to-yellow-50 text-gray-900">
-        {/* Monster Image */}
-        {widget.image && widget.image.trim() !== '' ? (
-          <div className="mb-3 rounded border-2 border-amber-900 overflow-hidden">
-            <img src={widget.image} alt={widget.name} className="w-full h-32 object-cover" />
-          </div>
-        ) : (
-          <div className="mb-3 rounded border-2 border-dashed border-amber-700/40 bg-amber-100/30 h-32 flex items-center justify-center">
-            <div className="text-center">
-              <ImageIcon size={24} className="mx-auto mb-1 text-amber-700/40" />
-              <input
-                type="text"
-                placeholder="Image URL..."
-                value={widget.image || ''}
-                onChange={(e) => onUpdate({ image: e.target.value })}
-                className="w-full max-w-[200px] px-2 py-1 text-xs bg-white border border-amber-700/30 rounded focus:outline-none focus:border-amber-600"
-              />
-            </div>
-          </div>
-        )}
-
-        {/* AC, HP, Speed */}
-        <div className="grid grid-cols-3 gap-2 mb-3 text-center">
-          <div className="bg-amber-100 border border-amber-800 rounded p-1.5">
-            <div className="text-[10px] uppercase text-amber-900 font-semibold">AC</div>
-            <input
-              type="number"
-              value={widget.ac}
-              onChange={(e) => onUpdate({ ac: parseInt(e.target.value) || 0 })}
-              className="w-full text-center font-bold text-lg bg-transparent focus:outline-none"
-            />
-          </div>
-          <div className="bg-amber-100 border border-amber-800 rounded p-1.5">
-            <div className="text-[10px] uppercase text-amber-900 font-semibold">HP</div>
-            <input
-              type="number"
-              value={widget.hp}
-              onChange={(e) => onUpdate({ hp: parseInt(e.target.value) || 0 })}
-              className="w-full text-center font-bold text-lg bg-transparent focus:outline-none"
-            />
-          </div>
-          <div className="bg-amber-100 border border-amber-800 rounded p-1.5">
-            <div className="text-[10px] uppercase text-amber-900 font-semibold">Speed</div>
-            <input
-              type="number"
-              value={widget.speed}
-              onChange={(e) => onUpdate({ speed: parseInt(e.target.value) || 0 })}
-              className="w-full text-center font-bold text-lg bg-transparent focus:outline-none"
-            />
-            <div className="text-[9px] text-amber-800">ft.</div>
-          </div>
+      {/* Row 2: DnD Stat Block */}
+      <div className="my-4 py-4 border-t border-b border-gray-600">
+        <div className="grid grid-cols-6 gap-3 pb-4">
+          {renderStat('STR', 'str')}
+          {renderStat('DEX', 'dex')}
+          {renderStat('CON', 'con')}
+          {renderStat('INT', 'int')}
+          {renderStat('WIS', 'wis')}
+          {renderStat('CHA', 'cha')}
         </div>
+      </div>
 
-        {/* Ability Scores */}
-        <div className="border-t-2 border-b-2 border-amber-900 py-2 mb-3">
-          <div className="grid grid-cols-6 gap-1 text-center">
-            {(['str', 'dex', 'con', 'int', 'wis', 'cha'] as const).map((ability) => (
-              <div key={ability} className="bg-white/50 rounded p-1">
-                <div className="text-[9px] uppercase font-bold text-amber-900">{ability}</div>
-                <input
-                  type="number"
-                  value={widget.abilities[ability]}
-                  onChange={(e) => onUpdate({
-                    abilities: {
-                      ...widget.abilities,
-                      [ability]: parseInt(e.target.value) || 10
-                    }
-                  })}
-                  className="w-full text-center text-sm font-semibold bg-transparent focus:outline-none"
-                />
-                <div className="text-[10px] font-bold text-amber-800">
-                  {calculateModifier(widget.abilities[ability])}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Skills */}
-        <div className="mb-2">
-          <label className="text-[10px] uppercase font-bold text-amber-900 block mb-0.5">Skills</label>
-          <input
-            type="text"
-            value={widget.skills}
-            onChange={(e) => onUpdate({ skills: e.target.value })}
-            placeholder="Perception +4, Deception +5"
-            className="w-full px-2 py-1 text-xs bg-white border border-amber-700/30 rounded focus:outline-none focus:border-amber-600"
-          />
-        </div>
-
-        {/* Languages */}
-        <div className="mb-2">
-          <label className="text-[10px] uppercase font-bold text-amber-900 block mb-0.5">Languages</label>
-          <input
-            type="text"
-            value={widget.languages}
-            onChange={(e) => onUpdate({ languages: e.target.value })}
-            placeholder="Common, Draconic"
-            className="w-full px-2 py-1 text-xs bg-white border border-amber-700/30 rounded focus:outline-none focus:border-amber-600"
-          />
-        </div>
-
-        {/* Challenge Rating */}
-        <div className="mb-3">
-          <label className="text-[10px] uppercase font-bold text-amber-900 block mb-0.5">Challenge</label>
-          <input
-            type="text"
-            value={widget.challenge}
-            onChange={(e) => onUpdate({ challenge: e.target.value })}
-            placeholder="1/4 or 5"
-            className="w-full px-2 py-1 text-xs bg-white border border-amber-700/30 rounded focus:outline-none focus:border-amber-600"
-          />
-        </div>
-
-        {/* Special Abilities */}
-        <div>
-          <label className="text-[10px] uppercase font-bold text-amber-900 block mb-0.5">Special Abilities</label>
-          <textarea
-            value={widget.special}
-            onChange={(e) => onUpdate({ special: e.target.value })}
-            placeholder="SKILLS: Acura +5, Deception +5&#13;&#10;PASSIVE PERCEPTION: 14&#13;&#10;LANGUAGES: —&#13;&#10;CHALLENGE RATING: 1/4"
-            className="w-full px-2 py-1.5 text-xs bg-white border border-amber-700/30 rounded focus:outline-none focus:border-amber-600 resize-none min-h-[60px]"
-            rows={4}
-          />
-        </div>
+      {/* Row 3: Abilities Table */}
+      <div className="bg-dm-dark border border-gray-600 rounded">
+        <div className="text-xs font-bold text-amber-600 uppercase p-2 text-center border-b border-gray-600">Special Abilities</div>
+        <RichTextEditor
+          content={widget.special}
+          onChange={(content) => onUpdate({ special: content })}
+          placeholder="Skills, Languages, Traits, Actions..."
+        />
       </div>
     </div>
   );

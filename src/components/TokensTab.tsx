@@ -37,7 +37,7 @@ const SHAPE_TOKENS: TokenTemplate[] = [
 ];
 
 const LIBRARY_TOKENS: TokenTemplate[] = [...SHAPE_TOKENS, ...POI_TOKENS];
-const COLORS: ColorType[] = ['red', 'blue', 'green', 'yellow', 'purple', 'orange'];
+// const COLORS: ColorType[] = ['red', 'blue', 'green', 'yellow', 'purple', 'orange'];
 
 const TokensTab = ({
   tokenTemplates: _tokenTemplates,
@@ -49,7 +49,7 @@ const TokensTab = ({
 }: TokensTabProps) => {
   const [selectedCategory, setSelectedCategory] = useState<TokenCategory | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
-  const [selectedColor, setSelectedColor] = useState<ColorType>('red');
+  const [selectedColor] = useState<ColorType>('red');
   const [driveTokens, setDriveTokens] = useState<TokenTemplate[]>([]);
   const [selectedTokenId, setSelectedTokenId] = useState<string | null>(null);
   const [currentTemplate, setCurrentTemplate] = useState<TokenTemplate | null>(null);
@@ -252,27 +252,6 @@ const TokensTab = ({
 
   return (
     <div className="flex flex-col h-full">
-      {/* Color Selector */}
-      <div className="p-4 border-b border-dm-border">
-        <h4 className="text-sm font-medium mb-2">Token Color</h4>
-        <div className="flex gap-2">
-          {COLORS.map(color => (
-            <button
-              key={color}
-              onClick={() => setSelectedColor(color)}
-              className={`w-8 h-8 rounded-full transition-all ${
-                selectedColor === color ? 'ring-2 ring-white ring-offset-2 ring-offset-dm-panel scale-110' : 'hover:scale-105'
-              }`}
-              style={{ backgroundColor: colorMap[color] }}
-              title={color}
-            />
-          ))}
-        </div>
-        <p className="text-xs text-gray-400 mt-2">
-          Shapes use this as fill color. Images use this as border color.
-        </p>
-      </div>
-
       {/* Choose Token Type */}
       <div className="p-4 border-b border-dm-border">
         <h4 className="text-sm font-medium mb-2">Choose Token Type</h4>
