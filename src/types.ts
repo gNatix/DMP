@@ -150,7 +150,7 @@ export interface ViewportState {
 }
 
 // Widget types for properties panel
-export type WidgetType = "text" | "statblock";
+export type WidgetType = "text" | "statblock" | "encountertable" | "monstercard";
 
 export interface BaseWidget {
   id: string;
@@ -175,4 +175,36 @@ export interface StatBlockWidget extends BaseWidget {
   };
 }
 
-export type Widget = TextWidget | StatBlockWidget;
+export interface EventRollTableWidget extends BaseWidget {
+  type: "encountertable";
+  diceType: "d4" | "d6" | "d8" | "d10" | "d12";
+  title?: string;
+  events: string[];
+}
+
+export interface MonsterCardWidget extends BaseWidget {
+  type: "monstercard";
+  name: string;
+  size?: string; // e.g., "Medium", "Large"
+  monsterType?: string; // e.g., "Beast", "Dragon"
+  alignment?: string; // e.g., "Neutral", "Lawful Good"
+  image?: string; // Optional monster image URL
+  ac: number; // Armor Class
+  hp: number; // Hit Points
+  speed: number; // Speed in ft
+  initiative?: string; // Initiative bonus, e.g., "+2"
+  abilities: {
+    str: number;
+    dex: number;
+    con: number;
+    int: number;
+    wis: number;
+    cha: number;
+  };
+  skills: string; // e.g., "Perception +4, Deception +5"
+  languages: string; // e.g., "Common, Draconic"
+  challenge: string; // e.g., "1/4" or "5"
+  special: string; // Special abilities text
+}
+
+export type Widget = TextWidget | StatBlockWidget | EventRollTableWidget | MonsterCardWidget;

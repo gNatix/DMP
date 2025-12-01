@@ -1,8 +1,10 @@
 import { useState } from 'react';
-import { MapElement, Widget, TextWidget, StatBlockWidget, WidgetType } from '../types';
+import { MapElement, Widget, TextWidget, StatBlockWidget, EventRollTableWidget, MonsterCardWidget, WidgetType } from '../types';
 import { ChevronRight, ChevronLeft, Navigation, Plus, GripVertical, Eye, EyeOff, Trash2 } from 'lucide-react';
 import TextWidgetComponent from './TextWidgetComponent';
 import StatBlockWidgetComponent from './StatBlockWidget';
+import EncounterTableWidgetComponent from './EncounterTableWidget';
+import MonsterCardWidgetComponent from './MonsterCardWidget';
 import AddWidgetPopup from './AddWidgetPopup';
 
 interface LeftPanelProps {
@@ -80,6 +82,40 @@ const LeftPanel = ({
           cha: 10
         }
       } as StatBlockWidget;
+    } else if (widgetType === 'encountertable') {
+      newWidget = {
+        id: generateWidgetId(),
+        type: 'encountertable',
+        order: newOrder,
+        diceType: 'd6',
+        events: ['', '', '', '', '', '']
+      } as EventRollTableWidget;
+    } else if (widgetType === 'monstercard') {
+      newWidget = {
+        id: generateWidgetId(),
+        type: 'monstercard',
+        order: newOrder,
+        name: 'Monster',
+        size: 'Medium',
+        monsterType: 'Beast',
+        alignment: 'Neutral',
+        ac: 10,
+        hp: 10,
+        speed: 30,
+        initiative: '+0',
+        abilities: {
+          str: 10,
+          dex: 10,
+          con: 10,
+          int: 10,
+          wis: 10,
+          cha: 10
+        },
+        skills: '',
+        languages: '',
+        challenge: '1/4',
+        special: ''
+      } as MonsterCardWidget;
     } else {
       return;
     }
@@ -257,6 +293,20 @@ const LeftPanel = ({
             <StatBlockWidgetComponent
               widget={widget as StatBlockWidget}
               onChange={(updates) => handleUpdateWidget(widget.id, updates)}
+              onDelete={() => handleDeleteWidget(widget.id)}
+            />
+          )}
+          {widget.type === 'encountertable' && (
+            <EncounterTableWidgetComponent
+              widget={widget as EventRollTableWidget}
+              onUpdate={(updates) => handleUpdateWidget(widget.id, updates)}
+              onDelete={() => handleDeleteWidget(widget.id)}
+            />
+          )}
+          {widget.type === 'monstercard' && (
+            <MonsterCardWidgetComponent
+              widget={widget as MonsterCardWidget}
+              onUpdate={(updates) => handleUpdateWidget(widget.id, updates)}
               onDelete={() => handleDeleteWidget(widget.id)}
             />
           )}

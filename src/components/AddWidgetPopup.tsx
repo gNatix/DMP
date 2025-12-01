@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Type, Dices } from 'lucide-react';
+import { Type, Dices, Table, Skull } from 'lucide-react';
 import { WidgetType } from '../types';
 
 interface AddWidgetPopupProps {
@@ -43,6 +43,20 @@ const AddWidgetPopup = ({ onAdd, onClose }: AddWidgetPopupProps) => {
       description: 'Character ability scores',
       icon: Dices,
       color: 'purple'
+    },
+    {
+      type: 'encountertable' as WidgetType,
+      name: 'Event Table D4-12',
+      description: 'Random event table with dice',
+      icon: Table,
+      color: 'green'
+    },
+    {
+      type: 'monstercard' as WidgetType,
+      name: 'Monster Card',
+      description: 'D&D monster stat block',
+      icon: Skull,
+      color: 'amber'
     }
   ];
 
@@ -72,7 +86,9 @@ const AddWidgetPopup = ({ onAdd, onClose }: AddWidgetPopupProps) => {
             const isSelected = selectedType === widget.type;
             const colorClasses = {
               blue: 'border-blue-500 bg-blue-500/10',
-              purple: 'border-purple-500 bg-purple-500/10'
+              purple: 'border-purple-500 bg-purple-500/10',
+              green: 'border-green-500 bg-green-500/10',
+              amber: 'border-amber-500 bg-amber-500/10'
             };
             const selectedClass = isSelected ? colorClasses[widget.color as keyof typeof colorClasses] : 'border-dm-border';
 
