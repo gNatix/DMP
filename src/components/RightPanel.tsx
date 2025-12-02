@@ -12,6 +12,8 @@ interface RightPanelProps {
   addCanvasScene: (collectionId?: string) => string | undefined;
   updateSceneName: (sceneId: string, newName: string) => void;
   deleteScene: (sceneId: string) => void;
+  moveSceneToCollection: (sceneId: string, targetCollectionId: string | undefined) => void;
+  duplicateScene: (sceneId: string) => void;
   collections: Collection[];
   addCollection: (name: string) => string;
   updateCollectionName: (collectionId: string, newName: string) => void;
@@ -45,7 +47,7 @@ interface RightPanelProps {
   onCenterElement?: (elementId: string) => void;
 }
 
-type TabType = 'scenes' | 'tokens' | 'rooms';
+type TabType = 'scenes' | 'tokens' | 'draw';
 
 const RightPanel = ({
   scenes,
@@ -55,6 +57,8 @@ const RightPanel = ({
   addCanvasScene,
   updateSceneName,
   deleteScene,
+  moveSceneToCollection,
+  duplicateScene,
   collections,
   addCollection,
   updateCollectionName,
@@ -89,10 +93,10 @@ const RightPanel = ({
 }: RightPanelProps) => {
   const [activeTab, setActiveTab] = useState<TabType>('scenes');
 
-  // Auto-switch to rooms tab when room tool is active
+  // Auto-switch to draw tab when room tool is active
   useEffect(() => {
     if (activeTool === 'room') {
-      setActiveTab('rooms');
+      setActiveTab('draw');
     } else if (activeTool === 'token') {
       setActiveTab('tokens');
     }
@@ -123,14 +127,14 @@ const RightPanel = ({
           Tokens
         </button>
         <button
-          onClick={() => setActiveTab('rooms')}
+          onClick={() => setActiveTab('draw')}
           className={`flex-1 py-3 text-sm font-medium transition-colors ${
-            activeTab === 'rooms'
+            activeTab === 'draw'
               ? 'bg-dm-dark text-dm-highlight border-b-2 border-dm-highlight'
               : 'text-gray-400 hover:text-gray-200'
           }`}
         >
-          Rooms
+          Draw
         </button>
       </div>
 
@@ -145,12 +149,13 @@ const RightPanel = ({
             addCanvasScene={addCanvasScene}
             updateSceneName={updateSceneName}
             deleteScene={deleteScene}
+            moveSceneToCollection={moveSceneToCollection}
+            duplicateScene={duplicateScene}
             collections={collections}
             addCollection={addCollection}
             updateCollectionName={updateCollectionName}
             updateCollectionAppearance={updateCollectionAppearance}
             deleteCollection={deleteCollection}
-            updateElement={updateElement}
             deleteElement={deleteElement}
             onCenterElement={onCenterElement}
           />
@@ -165,7 +170,7 @@ const RightPanel = ({
             onRecentTokensChange={onRecentTokensChange}
           />
         )}
-        {activeTab === 'rooms' && (
+        {activeTab === 'draw' && (
           <RoomBuilderPanel
             selectedFloorTexture={selectedFloorTexture}
             onSelectFloorTexture={onSelectFloorTexture}

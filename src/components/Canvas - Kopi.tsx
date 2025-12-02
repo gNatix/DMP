@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from 'react';
-import { Scene, MapElement, AnnotationElement, TokenElement, RoomElement, ToolType, IconType, ColorType, TokenTemplate, RoomSubTool, Point } from '../types';
+import { Scene, MapElement, AnnotationElement, TokenElement, RoomElement, ToolType, IconType, ColorType, TokenTemplate, RoomSubTool } from '../types';
 import { Circle, Square, Triangle, Star, Diamond, Heart, Skull, MapPin, Search, Eye, DoorOpen, Landmark, Footprints, Info } from 'lucide-react';
 import FloatingToolbar from './FloatingToolbar';
 import polygonClipping from 'polygon-clipping';
@@ -992,50 +992,15 @@ const Canvas = ({
       if (rooms.length === 0) return { vertices: [] };
       if (rooms.length === 1) return { vertices: rooms[0].vertices || [], holes: rooms[0].holes };
       
-      // Helper function to apply rotation to vertices
-      const applyRotation = (vertices: Point[], rotation: number): Point[] => {
-        if (!rotation || rotation === 0) return vertices;
-        
-        // Calculate bounding box (same as how SVG is positioned)
-        const xs = vertices.map(v => v.x);
-        const ys = vertices.map(v => v.y);
-        const minX = Math.min(...xs);
-        const maxX = Math.max(...xs);
-        const minY = Math.min(...ys);
-        const maxY = Math.max(...ys);
-        
-        // Center of the bounding box (matches SVG transformOrigin: center center)
-        const centerX = (minX + maxX) / 2;
-        const centerY = (minY + maxY) / 2;
-        
-        // Rotate each vertex around bounding box center
-        const radians = (rotation * Math.PI) / 180;
-        const cos = Math.cos(radians);
-        const sin = Math.sin(radians);
-        
-        return vertices.map(v => {
-          const dx = v.x - centerX;
-          const dy = v.y - centerY;
-          return {
-            x: centerX + dx * cos - dy * sin,
-            y: centerY + dx * sin + dy * cos
-          };
-        });
-      };
-      
       // Convert room vertices and holes to polygon-clipping format
       const polygons = rooms.map(room => {
         if (!room.vertices || room.vertices.length < 3) return null;
-        
-        // Apply rotation to outer vertices
-        const rotatedVertices = applyRotation(room.vertices, room.rotation || 0);
-        const outerCoords = rotatedVertices.map(v => [v.x, v.y] as [number, number]);
+        const outerCoords = room.vertices.map(v => [v.x, v.y] as [number, number]);
         outerCoords.push(outerCoords[0]); // Close the outer ring
         
-        // Include holes if they exist, also applying rotation
+        // Include holes if they exist
         const innerRings = (room.holes || []).map(hole => {
-          const rotatedHole = applyRotation(hole, room.rotation || 0);
-          const holeCoords = rotatedHole.map(v => [v.x, v.y] as [number, number]);
+          const holeCoords = hole.map(v => [v.x, v.y] as [number, number]);
           holeCoords.push(holeCoords[0]); // Close the hole ring
           return holeCoords;
         });
@@ -1127,8 +1092,7 @@ const Canvas = ({
           vertices: mergedVertices,
           holes: mergedHoles,
           wallOpenings: [],
-          widgets: widgetsToUse,
-          rotation: 0  // Reset rotation - merged vertices are already in final position
+          widgets: widgetsToUse
         };
         mergedRooms.push(mergedRoom);
         
@@ -2530,8 +2494,8 @@ const Canvas = ({
           { x: minX, y: maxY }
         ];
       } else {
-        // For polygons: inscribe inside SQUARE bounding box for regular shapes
-        // Compute drag bounds - roomDrawStart is anchor corner
+        // For polygons: inscribe inside drag bounding box (same logic as rectangle)
+        // Compute drag bounds exactly like rectangle tool
         const left = Math.min(roomDrawStart.x, x);
         const top = Math.min(roomDrawStart.y, y);
         const right = Math.max(roomDrawStart.x, x);
@@ -2539,25 +2503,16 @@ const Canvas = ({
         const boxWidth = right - left;
         const boxHeight = bottom - top;
         
-        // Force square: use the smaller dimension for both width and height
-        const size = Math.min(boxWidth, boxHeight);
-        
-        // Adjust box to be square, keeping the anchor corner (roomDrawStart) fixed
-        const squareRight = roomDrawStart.x + (x >= roomDrawStart.x ? size : 0);
-        const squareLeft = roomDrawStart.x + (x >= roomDrawStart.x ? 0 : -size);
-        const squareBottom = roomDrawStart.y + (y >= roomDrawStart.y ? size : 0);
-        const squareTop = roomDrawStart.y + (y >= roomDrawStart.y ? 0 : -size);
-        
-        // Center and radius for inscribed polygon in the SQUARE
-        const centerX = (squareLeft + squareRight) / 2;
-        const centerY = (squareTop + squareBottom) / 2;
-        const radius = size / 2;
+        // Center and radius for inscribed polygon
+        const centerX = left + boxWidth / 2;
+        const centerY = top + boxHeight / 2;
+        const radius = Math.min(boxWidth, boxHeight) / 2;
         
         let numSides = 5;
         if (baseShape === 'hexagon') numSides = 6;
         else if (baseShape === 'octagon') numSides = 8;
         
-        // Generate polygon vertices around center - already in world coordinates
+        // Generate polygon vertices directly in world coordinates
         vertices = [];
         for (let i = 0; i < numSides; i++) {
           const angle = (i * 2 * Math.PI / numSides) - Math.PI / 2; // Start from top
@@ -2569,20 +2524,10 @@ const Canvas = ({
         
         console.log('[POLYGON]', {
           dragBox: `(${left.toFixed(0)},${top.toFixed(0)}) to (${right.toFixed(0)},${bottom.toFixed(0)})`,
-          squareBox: `(${squareLeft.toFixed(0)},${squareTop.toFixed(0)}) to (${squareRight.toFixed(0)},${squareBottom.toFixed(0)})`,
           center: `(${centerX.toFixed(0)},${centerY.toFixed(0)})`,
           radius: radius.toFixed(0)
         });
       }
-      
-      const calcMinX = Math.min(...vertices.map(v => v.x));
-      const calcMinY = Math.min(...vertices.map(v => v.y));
-      console.log('[VERTICES CHECK]', {
-        count: vertices.length,
-        calculatedMin: `(${calcMinX.toFixed(0)},${calcMinY.toFixed(0)})`,
-        roomDrawStart: `(${roomDrawStart.x.toFixed(0)},${roomDrawStart.y.toFixed(0)})`,
-        matches: Math.abs(calcMinX - roomDrawStart.x) < 1 && Math.abs(calcMinY - roomDrawStart.y) < 1
-      });
       
       setTempRoom({ 
         ...tempRoom, 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Scene, Collection, CollectionAppearance, MapElement } from '../types';
-import { Plus, ChevronDown, ChevronRight, Trash2, Palette, Eye, EyeOff, Edit2, MapPin } from 'lucide-react';
+import { Plus, ChevronDown, ChevronRight, Trash2, Palette, Edit2, MapPin, Copy } from 'lucide-react';
 import MapSelectorModal from './MapSelectorModal';
 import ConfirmDialog from './ConfirmDialog';
 import { DEFAULT_COLLECTION_NAME, DEFAULT_CANVAS_NAME, DEFAULT_NAMED_CANVAS_PREFIX } from '../constants';
@@ -13,12 +13,13 @@ interface ScenesTabProps {
   addCanvasScene: (collectionId?: string) => string | undefined;
   updateSceneName: (sceneId: string, newName: string) => void;
   deleteScene: (id: string) => void;
+  moveSceneToCollection: (sceneId: string, targetCollectionId: string | undefined) => void;
+  duplicateScene: (sceneId: string) => void;
   collections: Collection[];
   addCollection: (name: string) => string;
   updateCollectionName: (collectionId: string, newName: string) => void;
   updateCollectionAppearance: (collectionId: string, appearance?: CollectionAppearance) => void;
   deleteCollection: (collectionId: string) => void;
-  updateElement: (elementId: string, updates: Partial<MapElement>) => void;
   deleteElement: (elementId: string) => void;
   onCenterElement?: (elementId: string) => void;
 }
@@ -31,12 +32,13 @@ const ScenesTab = ({
   addCanvasScene,
   updateSceneName,
   deleteScene,
+  moveSceneToCollection,
+  duplicateScene,
   collections,
   addCollection,
   updateCollectionName,
   updateCollectionAppearance,
   deleteCollection,
-  updateElement,
   deleteElement,
   onCenterElement
 }: ScenesTabProps) => {
@@ -74,6 +76,10 @@ const ScenesTab = ({
   const [editingCollectionName, setEditingCollectionName] = useState('');
   
   const [gradientPickerCollectionId, setGradientPickerCollectionId] = useState<string | null>(null);
+
+  // Drag and drop state
+  const [draggedSceneId, setDraggedSceneId] = useState<string | null>(null);
+  const [dropTargetCollectionId, setDropTargetCollectionId] = useState<string | null>(null);
 
   // Predefined gradients
   const GRADIENTS = [
@@ -252,6 +258,19 @@ const ScenesTab = ({
     return (
       <div key={scene.id} className="mb-2">
         <div
+          draggable={!isEditing}
+          onDragStart={(e) => {
+            if (isEditing) {
+              e.preventDefault();
+              return;
+            }
+            setDraggedSceneId(scene.id);
+            e.dataTransfer.effectAllowed = 'move';
+          }}
+          onDragEnd={() => {
+            setDraggedSceneId(null);
+            setDropTargetCollectionId(null);
+          }}
           onClick={(e) => {
             // Don't toggle if clicking on input or buttons
             if (isEditing) return;
@@ -277,7 +296,7 @@ const ScenesTab = ({
             isActive
               ? 'bg-dm-dark border-dm-highlight'
               : 'bg-dm-dark/50 border-transparent hover:border-dm-border'
-          }`}
+          } ${draggedSceneId === scene.id ? 'opacity-50' : ''}`}
         >
           <div className="flex items-center gap-3">
             <button
@@ -329,13 +348,25 @@ const ScenesTab = ({
             </div>
             <div className="flex gap-1">
               {!isEditing && (
-                <button
-                  onClick={(e) => handleStartEditScene(scene, e)}
-                  className="p-1 hover:bg-dm-panel rounded transition-colors"
-                  title="Edit name"
-                >
-                  <Edit2 size={14} className="text-gray-400 hover:text-gray-300" />
-                </button>
+                <>
+                  <button
+                    onClick={(e) => handleStartEditScene(scene, e)}
+                    className="p-1 hover:bg-dm-panel rounded transition-colors"
+                    title="Edit name"
+                  >
+                    <Edit2 size={14} className="text-gray-400 hover:text-gray-300" />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      duplicateScene(scene.id);
+                    }}
+                    className="p-1 hover:bg-dm-panel rounded transition-colors"
+                    title="Duplicate"
+                  >
+                    <Copy size={14} className="text-blue-400 hover:text-blue-300" />
+                  </button>
+                </>
               )}
               <button
                 onClick={(e) => {
@@ -417,17 +448,6 @@ const ScenesTab = ({
                       </button>
                     )}
                     <button
-                      onClick={() => updateElement(element.id, { visible: !(element.visible ?? true) })}
-                      className="p-1 hover:bg-dm-panel rounded transition-colors"
-                      title={element.visible === false ? 'Show' : 'Hide'}
-                    >
-                      {element.visible === false ? (
-                        <EyeOff size={12} className="text-gray-500" />
-                      ) : (
-                        <Eye size={12} className="text-gray-400" />
-                      )}
-                    </button>
-                    <button
                       onClick={() => {
                         setConfirmDialog({
                           isOpen: true,
@@ -469,13 +489,36 @@ const ScenesTab = ({
     return (
       <div key={collection.id} className="border-b border-dm-border/50">
         <div 
+          onDragOver={(e) => {
+            if (draggedSceneId) {
+              e.preventDefault();
+              e.dataTransfer.dropEffect = 'move';
+              setDropTargetCollectionId(collection.id);
+            }
+          }}
+          onDragLeave={(e) => {
+            // Only clear if leaving the element, not when entering children
+            if (e.currentTarget === e.target) {
+              setDropTargetCollectionId(null);
+            }
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            if (draggedSceneId && draggedSceneId !== collection.id) {
+              moveSceneToCollection(draggedSceneId, collection.id);
+            }
+            setDraggedSceneId(null);
+            setDropTargetCollectionId(null);
+          }}
           onClick={(e) => {
             // Don't toggle if clicking on buttons or in edit mode
             const target = e.target as HTMLElement;
             if (target.closest('button') || target.closest('input')) return;
             toggleCollection(collection.id);
           }}
-          className="flex items-center gap-2 p-3 hover:bg-dm-dark/20 transition-colors relative cursor-pointer"
+          className={`flex items-center gap-2 p-3 hover:bg-dm-dark/20 transition-colors relative cursor-pointer ${
+            dropTargetCollectionId === collection.id ? 'ring-2 ring-dm-highlight' : ''
+          }`}
           style={backgroundStyle}
         >
           {/* Semi-transparent overlay for readability */}
@@ -655,18 +698,6 @@ const ScenesTab = ({
   }
 
   // Helper function to check if a collection should be hidden
-  function shouldHideCollection(collection: Collection): boolean {
-    // Show collection if it has any visible scenes (non-auto-created empty canvases)
-    const collectionScenes = scenes.filter(s => s.collectionId === collection.id && !isEmptyCanvas(s));
-    
-    // Hide only if collection is auto-created AND has no visible scenes
-    if (collection.isAutoCreated && collectionScenes.length === 0) {
-      return true;
-    }
-    
-    return false;
-  }
-
   return (
     <div className="h-full flex flex-col bg-dm-panel overflow-hidden">
       {/* Create New Section */}
@@ -707,7 +738,7 @@ const ScenesTab = ({
 
       {/* Collections and Scenes List */}
       <div className="flex-1 overflow-y-auto">
-        {collections.filter(c => !shouldHideCollection(c)).map(renderCollectionSection)}
+        {collections.map(renderCollectionSection)}
         
         {uncategorizedScenes.length > 0 && (
           <div className="border-b border-dm-border/50">

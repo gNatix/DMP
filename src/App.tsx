@@ -433,6 +433,43 @@ function App() {
     setScenes(prev => prev.map(s => s.collectionId === collectionId ? { ...s, collectionId: undefined } : s));
   };
 
+  // Move scene to different collection
+  const moveSceneToCollection = (sceneId: string, targetCollectionId: string | undefined) => {
+    setScenes(prev => prev.map(s => 
+      s.id === sceneId ? { ...s, collectionId: targetCollectionId } : s
+    ));
+    
+    // If moving to an auto-created collection, make it visible
+    if (targetCollectionId) {
+      setCollections(prev => {
+        const targetCollection = prev.find(c => c.id === targetCollectionId);
+        if (targetCollection?.isAutoCreated) {
+          return prev.map(c => 
+            c.id === targetCollectionId ? { ...c, isAutoCreated: false } : c
+          );
+        }
+        return prev;
+      });
+    }
+  };
+
+  // Duplicate scene
+  const duplicateScene = (sceneId: string) => {
+    const sceneToDuplicate = scenes.find(s => s.id === sceneId);
+    if (!sceneToDuplicate) return;
+
+    const newScene: Scene = {
+      ...sceneToDuplicate,
+      id: `scene-${Date.now()}`,
+      name: `${sceneToDuplicate.name} (Copy)`,
+      // Deep copy elements array to avoid reference issues
+      elements: sceneToDuplicate.elements.map(el => ({ ...el, id: `${el.type}-${Date.now()}-${Math.random()}` }))
+    };
+    
+    setScenes(prev => [...prev, newScene]);
+    setActiveSceneId(newScene.id);
+  };
+
   // Add token template
   const addTokenTemplate = (name: string, imageUrl: string) => {
     const newTemplate: TokenTemplate = {
@@ -514,6 +551,8 @@ function App() {
         addCanvasScene={addCanvasScene}
         updateSceneName={updateSceneName}
         deleteScene={deleteScene}
+        moveSceneToCollection={moveSceneToCollection}
+        duplicateScene={duplicateScene}
         collections={collections}
         addCollection={addCollection}
         updateCollectionName={updateCollectionName}

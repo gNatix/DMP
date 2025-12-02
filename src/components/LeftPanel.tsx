@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { MapElement, Widget, TextWidget, StatBlockWidget, EventRollTableWidget, MonsterCardWidget, WidgetType } from '../types';
-import { ChevronRight, ChevronLeft, Navigation, Plus, GripVertical, Eye, EyeOff, Trash2 } from 'lucide-react';
+import { ChevronRight, ChevronLeft, MapPin, Plus, GripVertical, Trash2 } from 'lucide-react';
 import TextWidgetComponent from './TextWidgetComponent';
 import StatBlockWidgetComponent from './StatBlockWidget';
 import EncounterTableWidgetComponent from './EncounterTableWidget';
@@ -337,24 +337,13 @@ const LeftPanel = ({
             <div className="flex items-center gap-2">
               {hasSingleSelection && selectedElement && (
                 <>
-                  <button
-                    onClick={() => updateElement(selectedElement.id, { visible: selectedElement.visible === false })}
-                    className="p-1 hover:bg-dm-hover rounded transition-colors"
-                    title={selectedElement.visible === false ? 'Show in list' : 'Hide from list'}
-                  >
-                    {selectedElement.visible === false ? (
-                      <EyeOff className="w-5 h-5 text-gray-500" />
-                    ) : (
-                      <Eye className="w-5 h-5 text-gray-400" />
-                    )}
-                  </button>
                   {centerViewportOnElement && (
                     <button
                       onClick={() => centerViewportOnElement(selectedElement.id)}
                       className="p-1 hover:bg-dm-hover rounded transition-colors"
                       title="Go to element"
                     >
-                      <Navigation className="w-5 h-5 text-gray-400" />
+                      <MapPin className="w-5 h-5 text-blue-400 hover:text-blue-300" />
                     </button>
                   )}
                   <button
