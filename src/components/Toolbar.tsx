@@ -1,4 +1,4 @@
-import { MousePointer2, MapPin, Users } from 'lucide-react';
+import { MousePointer2, MapPin, Users, Mountain, Image } from 'lucide-react';
 import { ToolType, ColorType, IconType, RoomSubTool } from '../types';
 import { useState } from 'react';
 
@@ -82,6 +82,18 @@ const Toolbar = ({
         </button>
 
         <button
+          onClick={() => setActiveTool('background')}
+          className={`p-3 rounded-lg transition-colors ${
+            activeTool === 'background'
+              ? 'bg-dm-highlight text-white'
+              : 'bg-dm-dark hover:bg-dm-border text-gray-400'
+          }`}
+          title="Background Tool - Paint terrain textures"
+        >
+          <Image size={20} />
+        </button>
+
+        <button
           onClick={() => {
             setActiveTool('room');
             setShowRoomSubmenu(!showRoomSubmenu);
@@ -94,9 +106,7 @@ const Toolbar = ({
           }`}
           title="Room Tool (R)"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <rect x="4" y="6" width="16" height="12" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
+          <Mountain size={20} />
         </button>
       </div>
 

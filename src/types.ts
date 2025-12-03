@@ -2,7 +2,7 @@
 
 export type ElementType = "annotation" | "token" | "room";
 
-export type ToolType = "pointer" | "marker" | "token" | "pan" | "zoom-in" | "zoom-out" | "room";
+export type ToolType = "pointer" | "marker" | "token" | "pan" | "zoom-in" | "zoom-out" | "room" | "background";
 
 export type RoomSubTool = "rectangle" | "pentagon" | "hexagon" | "octagon" | "erase" | "custom" | 
   "subtract-rectangle" | "subtract-pentagon" | "subtract-hexagon" | "subtract-octagon" | "subtract-custom";
@@ -112,12 +112,41 @@ export interface Collection {
   isAutoCreated?: boolean; // True if auto-created with default canvas
 }
 
+export type TerrainType = 'grass' | 'sand' | 'rock' | 'dirt' | 'stone' | 'water' | null;
+
+export interface TerrainStamp {
+  x: number;
+  y: number;
+  size: number;
+  textureUrl: string;
+}
+
+export interface TerrainTile {
+  x: number;  // Tile origin X in world coordinates (e.g., 0, 2000, 4000...)
+  y: number;  // Tile origin Y in world coordinates
+  stamps: TerrainStamp[];  // All brush stamps on this tile
+}
+
+export interface TerrainGridCell {
+  terrainType: TerrainType;
+}
+
+export interface BackgroundTile {
+  id: string;
+  x: number; // Grid X coordinate
+  y: number; // Grid Y coordinate
+  terrainType: TerrainType;
+}
+
 export interface Scene {
   id: string;
   name: string;
   backgroundMapUrl: string;
   backgroundMapName: string;
   elements: MapElement[];
+  backgroundTiles?: BackgroundTile[]; // Painted background tiles
+  terrainStamps?: Array<{ x: number; y: number; size: number; textureUrl: string }>; // Terrain brush stamps (deprecated - use terrainTiles)
+  terrainTiles?: { [key: string]: TerrainTile }; // New tile-based terrain system
   width: number;
   height: number;
   collectionId?: string; // Optional reference to a collection

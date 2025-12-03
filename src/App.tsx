@@ -109,6 +109,30 @@ function App() {
   const [wallTileSize, setWallTileSize] = useState<number>(50);
   const [roomSubTool, setRoomSubTool] = useState<RoomSubTool>('rectangle');
 
+  // Background painter state
+  const [backgroundBrushSize, setBackgroundBrushSize] = useState<number>(100);
+  const [terrainBrushes, setTerrainBrushes] = useState<{ name: string; download_url: string }[]>([]);
+  const [selectedTerrainBrush, setSelectedTerrainBrush] = useState<string | null>(null);
+  const [rightPanelActiveTab, setRightPanelActiveTab] = useState<'scenes' | 'tokens' | 'draw'>('scenes');
+
+  // Load terrain brushes on mount
+  useEffect(() => {
+    const loadTerrainBrushes = async () => {
+      try {
+        const response = await fetch('https://dmp.natixlabs.com/list-files.php?path=terrain-brushes');
+        const data = await response.json();
+        setTerrainBrushes(data);
+        // Auto-select first brush
+        if (data.length > 0) {
+          setSelectedTerrainBrush(data[0].download_url);
+        }
+      } catch (error) {
+        console.error('Failed to load terrain brushes:', error);
+      }
+    };
+    loadTerrainBrushes();
+  }, []);
+
   // Merge rooms handler ref
   const mergeRoomsHandlerRef = useRef<(() => void) | null>(null);
   const setMergeRoomsHandler = (handler: () => void) => {
@@ -170,14 +194,15 @@ function App() {
         isAutoCreated: true
       };
       
+      // Use same canvas2-mode setup as +Canvas button
       const defaultCanvas: Scene = {
         id: `scene-${Date.now()}`,
         name: DEFAULT_CANVAS_NAME,
-        backgroundMapUrl: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="3200" height="2400"%3E%3Crect width="3200" height="2400" fill="transparent"/%3E%3C/svg%3E',
+        backgroundMapUrl: 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2250000%22 height=%2250000%22%3E%3Crect width=%2250000%22 height=%2250000%22 fill=%22transparent%22/%3E%3C/svg%3E',
         backgroundMapName: DEFAULT_CANVAS_NAME,
         elements: [],
-        width: 3200,
-        height: 2400,
+        width: 50000,
+        height: 50000,
         collectionId: defaultCollectionId,
         isAutoCreated: true
       };
@@ -197,6 +222,40 @@ function App() {
 
   // Update scene
   const updateScene = (sceneId: string, updates: Partial<Scene>) => {
+    // Check if we're adding terrain stamps to an auto-created canvas
+    const currentScene = scenes.find(s => s.id === sceneId);
+    if (currentScene?.isAutoCreated && 
+        updates.terrainStamps && 
+        updates.terrainStamps.length > 0 && 
+        (!currentScene.terrainStamps || currentScene.terrainStamps.length === 0)) {
+      
+      console.log('[APP] First terrain paint on auto-created canvas - converting to real scene');
+      
+      // Create a new real scene to replace the auto-created one
+      const newSceneId = `scene-${Date.now()}`;
+      const newSceneName = 'New Map';
+      
+      const newScene: Scene = {
+        id: newSceneId,
+        name: newSceneName,
+        backgroundMapUrl: currentScene.backgroundMapUrl,
+        backgroundMapName: newSceneName,
+        elements: currentScene.elements || [],
+        terrainStamps: updates.terrainStamps,
+        width: currentScene.width,
+        height: currentScene.height,
+        collectionId: currentScene.collectionId,
+        isAutoCreated: false
+      };
+      
+      // Replace the auto-created scene with the new one
+      setScenes(prev => prev.map(s => s.id === sceneId ? newScene : s));
+      setActiveSceneId(newSceneId);
+      
+      return;
+    }
+    
+    // Normal flow: update existing scene
     setScenes(prev => prev.map(s => s.id === sceneId ? { ...s, ...updates } : s));
   };
 
@@ -266,6 +325,49 @@ function App() {
     });
   };
 
+  // Activate auto-created scene (called when first terrain brush is painted)
+  const activateAutoCreatedScene = () => {
+    if (!activeSceneId) return;
+    
+    const currentScene = scenes.find(s => s.id === activeSceneId);
+    if (currentScene?.isAutoCreated && currentScene.elements.length === 0) {
+      // This is the first action on the auto-created canvas
+      // Create a new scene to replace it
+      const newSceneId = `scene-${Date.now()}`;
+      const newSceneName = 'New Map';
+      
+      const newScene: Scene = {
+        id: newSceneId,
+        name: newSceneName,
+        backgroundMapUrl: currentScene.backgroundMapUrl,
+        backgroundMapName: newSceneName,
+        elements: [],
+        terrainTiles: currentScene.terrainTiles, // Preserve any terrain tiles
+        width: currentScene.width,
+        height: currentScene.height,
+        collectionId: currentScene.collectionId,
+        isAutoCreated: false
+      };
+      
+      // Replace the auto-created scene with the new one
+      setScenes(prev => prev.map(s => s.id === activeSceneId ? newScene : s));
+      setActiveSceneId(newSceneId);
+      
+      // Make the collection visible if it was auto-created
+      if (currentScene.collectionId) {
+        setCollections(prev => {
+          const targetCollection = prev.find(c => c.id === currentScene.collectionId);
+          if (targetCollection?.isAutoCreated) {
+            return prev.map(c => 
+              c.id === currentScene.collectionId ? { ...c, isAutoCreated: false } : c
+            );
+          }
+          return prev;
+        });
+      }
+    }
+  };
+
   // Update multiple elements at once (for batch operations)
   const updateElements = (updates: Map<string, Partial<MapElement>>) => {
     if (!activeSceneId || !activeScene) return;
@@ -301,14 +403,17 @@ function App() {
 
   // Add new scene
   const addScene = (name: string, backgroundMapUrl: string, backgroundMapName: string, collectionId?: string) => {
+    // Check if this is a transparent canvas (SVG with transparent fill)
+    const isTransparentCanvas = backgroundMapUrl.includes('fill="transparent"');
+    
     const newScene: Scene = {
       id: `scene-${Date.now()}`,
       name,
       backgroundMapUrl,
       backgroundMapName,
       elements: [],
-      width: 0,
-      height: 0,
+      width: isTransparentCanvas ? 50000 : 0,
+      height: isTransparentCanvas ? 50000 : 0,
       collectionId
     };
     setScenes(prev => [...prev, newScene]);
@@ -349,8 +454,8 @@ function App() {
     
     const canvasName = canvasNumber === 1 ? 'Canvas (1)' : `Canvas (${canvasNumber})`;
     
-    // Create empty canvas with transparent background
-    const canvasUrl = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="3200" height="2400"%3E%3Crect width="3200" height="2400" fill="transparent"/%3E%3C/svg%3E';
+    // Create canvas2-mode scene with transparent SVG
+    const canvasUrl = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2250000%22 height=%2250000%22%3E%3Crect width=%2250000%22 height=%2250000%22 fill=%22transparent%22/%3E%3C/svg%3E';
     
     const newScene: Scene = {
       id: `scene-${Date.now()}`,
@@ -358,8 +463,8 @@ function App() {
       backgroundMapUrl: canvasUrl,
       backgroundMapName: canvasName,
       elements: [],
-      width: 3200,
-      height: 2400,
+      width: 50000,
+      height: 50000,
       collectionId,
       isAutoCreated: false
     };
@@ -519,6 +624,7 @@ function App() {
         updateElements={updateElements}
         deleteElements={deleteElements}
         updateScene={updateScene}
+        activateAutoCreatedScene={activateAutoCreatedScene}
         setActiveTool={setActiveTool}
         activeSceneId={activeSceneId}
         leftPanelOpen={leftPanelOpen}
@@ -540,6 +646,12 @@ function App() {
         setRoomSubTool={setRoomSubTool}
         onMergeRooms={setMergeRoomsHandler}
         onCenterElementReady={setCenterElementHandler}
+        selectedBackgroundTexture={selectedTerrainBrush}
+        backgroundBrushSize={backgroundBrushSize}
+        terrainBrushes={terrainBrushes}
+        selectedTerrainBrush={selectedTerrainBrush}
+        onSelectTerrainBrush={setSelectedTerrainBrush}
+        onSwitchToDrawTab={() => setRightPanelActiveTab('draw')}
       />
 
       {/* Right Panel */}
@@ -584,6 +696,12 @@ function App() {
         setRoomSubTool={setRoomSubTool}
         onMergeRooms={mergeRoomsHandlerRef.current || undefined}
         onCenterElement={handleCenterElement}
+        selectedTerrainBrush={selectedTerrainBrush}
+        onSelectTerrainBrush={setSelectedTerrainBrush}
+        backgroundBrushSize={backgroundBrushSize}
+        onBackgroundBrushSizeChange={setBackgroundBrushSize}
+        activeTab={rightPanelActiveTab}
+        onActiveTabChange={setRightPanelActiveTab}
       />
     </div>
   );

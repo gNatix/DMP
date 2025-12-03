@@ -691,7 +691,7 @@ const ScenesTab = ({
     // Only hide auto-created canvases that are still empty
     if (!scene.isAutoCreated) return false;
     
-    const isCanvas = (scene.backgroundMapUrl.includes('fill="transparent"') || 
+    const isCanvas = (scene.backgroundMapUrl.includes('transparent1x1px.png') || 
                      scene.name === DEFAULT_CANVAS_NAME ||
                      scene.name.match(/^Canvas( \(\d+\))?$/)) ?? false;
     return isCanvas && scene.elements.length === 0;
@@ -703,7 +703,7 @@ const ScenesTab = ({
       {/* Create New Section */}
       <div className="p-4 border-b border-dm-border">
         <div className="text-xs text-gray-400 mb-2 uppercase tracking-wide">Create new</div>
-        <div className="flex gap-2">
+        <div className="grid grid-cols-3 gap-2">
           <button
             onClick={handleNewMapClick}
             className="flex-1 py-2.5 px-3 bg-dm-highlight text-white rounded-lg hover:bg-dm-highlight/80 transition-colors flex flex-col items-center justify-center gap-1"

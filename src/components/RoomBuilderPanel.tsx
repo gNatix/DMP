@@ -16,10 +16,16 @@ interface RoomBuilderPanelProps {
   onWallTileSizeChange: (size: number) => void;
   selectedRoom: RoomElement | null;
   updateElement: (id: string, updates: Partial<MapElement>) => void;
-  setActiveTool: (tool: 'room') => void;
+  setActiveTool: (tool: 'room' | 'background') => void;
   roomSubTool: RoomSubTool;
   setRoomSubTool: (subTool: RoomSubTool) => void;
   onMergeRooms?: () => void;
+  selectedTerrainBrush: string | null;
+  onSelectTerrainBrush: (url: string) => void;
+  backgroundBrushSize: number;
+  onBrushSizeChange: (size: number) => void;
+  activeDrawTab?: 'room' | 'terrain' | 'walls';
+  onActiveDrawTabChange?: (tab: 'room' | 'terrain' | 'walls') => void;
 }
 
 interface AssetFile {
@@ -45,13 +51,26 @@ const RoomBuilderPanel = ({
   updateElement,
   setActiveTool,
   roomSubTool,
-  setRoomSubTool
+  setRoomSubTool,
+  selectedTerrainBrush,
+  onSelectTerrainBrush,
+  backgroundBrushSize,
+  onBrushSizeChange,
+  activeDrawTab: externalActiveTab,
+  onActiveDrawTabChange
 }: RoomBuilderPanelProps) => {
   const [floorTextures, setFloorTextures] = useState<AssetFile[]>([]);
   const [loadingFloors, setLoadingFloors] = useState(true);
   const [wallTextures, setWallTextures] = useState<AssetFile[]>([]);
   const [loadingWalls, setLoadingWalls] = useState(true);
+  const [backgroundTextures, setBackgroundTextures] = useState<AssetFile[]>([]);
+  const [loadingBackgrounds, setLoadingBackgrounds] = useState(true);
   const [isSubtractMode, setIsSubtractMode] = useState(false);
+  const [internalActiveTab, setInternalActiveTab] = useState<'room' | 'terrain' | 'walls'>('room');
+  
+  // Use external tab if provided, otherwise use internal
+  const activeTab = externalActiveTab || internalActiveTab;
+  const setActiveTab = onActiveDrawTabChange || setInternalActiveTab;
 
   // Get base shape from subtract tool (e.g., 'subtract-rectangle' -> 'rectangle')
   const getBaseShape = (tool: RoomSubTool): RoomSubTool => {
@@ -93,6 +112,23 @@ const RoomBuilderPanel = ({
     };
 
     loadWallTextures();
+  }, []);
+
+  // Load background textures
+  useEffect(() => {
+    const loadBackgroundTextures = async () => {
+      try {
+        const response = await fetch('https://dmp.natixlabs.com/list-files.php?path=terrain-brushes');
+        const data = await response.json();
+        setBackgroundTextures(data);
+      } catch (error) {
+        console.error('Failed to load terrain brushes:', error);
+      } finally {
+        setLoadingBackgrounds(false);
+      }
+    };
+
+    loadBackgroundTextures();
   }, []);
 
   // Set default floor texture when textures load and none is selected
@@ -159,9 +195,6 @@ const RoomBuilderPanel = ({
   const currentWallTexture = selectedRoom?.wallTextureUrl ?? selectedWallTexture;
   const currentWallThickness = selectedRoom?.wallThickness ?? wallThickness;
 
-  // Tab state
-  const [activeTab, setActiveTab] = useState<'shape-room' | 'draw-walls'>('shape-room');
-
   return (
     <div className="h-full flex flex-col bg-dm-panel overflow-hidden">
       {/* Scrollable Content */}
@@ -170,31 +203,41 @@ const RoomBuilderPanel = ({
         {/* Tab Navigation */}
         <div className="flex gap-1 mb-0">
           <button
-            onClick={() => setActiveTab('shape-room')}
+            onClick={() => setActiveTab('room')}
             className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-all ${
-              activeTab === 'shape-room'
+              activeTab === 'room'
                 ? 'bg-dm-dark/50 text-dm-highlight border-t border-l border-r border-dm-border/50'
                 : 'bg-dm-panel/30 text-gray-400 hover:text-gray-300 border-t border-l border-r border-transparent'
             }`}
           >
-            Shape Room
+            Room
           </button>
           <button
-            onClick={() => setActiveTab('draw-walls')}
+            onClick={() => setActiveTab('terrain')}
             className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-all ${
-              activeTab === 'draw-walls'
+              activeTab === 'terrain'
                 ? 'bg-dm-dark/50 text-dm-highlight border-t border-l border-r border-dm-border/50'
                 : 'bg-dm-panel/30 text-gray-400 hover:text-gray-300 border-t border-l border-r border-transparent'
             }`}
           >
-            Draw Walls
+            Terrain
+          </button>
+          <button
+            onClick={() => setActiveTab('walls')}
+            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-all ${
+              activeTab === 'walls'
+                ? 'bg-dm-dark/50 text-dm-highlight border-t border-l border-r border-dm-border/50'
+                : 'bg-dm-panel/30 text-gray-400 hover:text-gray-300 border-t border-l border-r border-transparent'
+            }`}
+          >
+            Walls
           </button>
         </div>
 
         {/* Content Widget */}
         <div className="bg-dm-dark/50 rounded-b-lg rounded-tr-lg p-4 border border-dm-border/50">
 
-        {activeTab === 'shape-room' && (
+        {activeTab === 'room' && (
           <>
             {/* Shape Picker with Mode Badges */}
             <div className="mb-4">
@@ -524,9 +567,68 @@ const RoomBuilderPanel = ({
         </>
         )}
 
-        {activeTab === 'draw-walls' && (
+        {activeTab === 'terrain' && (
+          <div>
+            <p className="text-sm text-gray-300 mb-4">Paint terrain textures on the background</p>
+            
+            {/* Brush Size Slider */}
+            <div className="mb-4">
+              <label className="block text-xs text-gray-400 mb-2">Brush Size</label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="range"
+                  min="50"
+                  max="300"
+                  value={backgroundBrushSize}
+                  onChange={(e) => onBrushSizeChange(Number(e.target.value))}
+                  className="flex-1 h-2 bg-dm-dark rounded-lg appearance-none cursor-pointer slider"
+                  style={{
+                    background: `linear-gradient(to right, #8b5cf6 0%, #8b5cf6 ${((backgroundBrushSize - 50) / 250) * 100}%, #1f2937 ${((backgroundBrushSize - 50) / 250) * 100}%, #1f2937 100%)`
+                  }}
+                />
+                <span className="text-sm text-gray-400 w-12 text-right">{backgroundBrushSize}px</span>
+              </div>
+            </div>
+
+            {/* Texture Selection */}
+            <div className="mb-4">
+              <label className="block text-xs text-gray-400 mb-2">Select Texture</label>
+              {loadingBackgrounds ? (
+                <div className="text-center py-4 text-sm text-gray-500">Loading textures...</div>
+              ) : (
+                <div className="grid grid-cols-3 gap-2 max-h-96 overflow-y-auto pr-2">
+                  {backgroundTextures.map((texture) => (
+                    <button
+                      key={texture.download_url}
+                      onClick={() => {
+                        console.log('[TERRAIN PANEL] Texture selected:', texture.name, texture.download_url);
+                        onSelectTerrainBrush(texture.download_url);
+                        console.log('[TERRAIN PANEL] Setting tool to background');
+                        setActiveTool('background');
+                      }}
+                      className={`aspect-square rounded border-2 overflow-hidden transition-all ${
+                        selectedTerrainBrush === texture.download_url
+                          ? 'border-dm-highlight ring-2 ring-dm-highlight/50'
+                          : 'border-dm-border hover:border-dm-highlight/50'
+                      }`}
+                      title={texture.name}
+                    >
+                      <img
+                        src={texture.download_url}
+                        alt={texture.name}
+                        className="w-full h-full object-cover"
+                      />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'walls' && (
           <div className="text-center py-8">
-            <p className="text-sm text-gray-400">Draw Walls functionality coming soon...</p>
+            <p className="text-sm text-gray-400">Walls functionality coming soon...</p>
           </div>
         )}
 

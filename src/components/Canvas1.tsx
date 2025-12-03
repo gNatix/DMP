@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from 'react';
-import { Scene, MapElement, AnnotationElement, TokenElement, RoomElement, ToolType, IconType, ColorType, TokenTemplate, RoomSubTool, Point, TerrainTile, TerrainStamp } from '../types';
+import { Scene, MapElement, AnnotationElement, TokenElement, RoomElement, ToolType, IconType, ColorType, TokenTemplate, RoomSubTool, Point } from '../types';
 import { Circle, Square, Triangle, Star, Diamond, Heart, Skull, MapPin, Search, Eye, DoorOpen, Landmark, Footprints, Info } from 'lucide-react';
 import FloatingToolbar from './FloatingToolbar';
 import polygonClipping from 'polygon-clipping';
@@ -19,7 +19,6 @@ interface CanvasProps {
   updateElements: (updates: Map<string, Partial<MapElement>>) => void;
   deleteElements: (ids: string[]) => void;
   updateScene: (sceneId: string, updates: Partial<Scene>) => void;
-  activateAutoCreatedScene: () => void;
   setActiveTool: (tool: ToolType) => void;
   activeSceneId: string | null;
   leftPanelOpen: boolean;
@@ -41,12 +40,11 @@ interface CanvasProps {
   setRoomSubTool: (subTool: RoomSubTool) => void;
   onMergeRooms?: (handler: () => void) => void;
   onCenterElementReady?: (centerFn: (elementId: string) => void) => void;
-  selectedBackgroundTexture: string | null;
   backgroundBrushSize: number;
-  terrainBrushes: Array<{ name: string; download_url: string }>;
+  terrainBrushes: { name: string; download_url: string }[];
   selectedTerrainBrush: string | null;
   onSelectTerrainBrush: (url: string) => void;
-  onSwitchToDrawTab: () => void;
+  onSwitchToDrawTab?: () => void;
 }
 
 const Canvas = ({
@@ -64,7 +62,6 @@ const Canvas = ({
   updateElements,
   deleteElements,
   updateScene,
-  activateAutoCreatedScene,
   setActiveTool,
   activeSceneId,
   leftPanelOpen,
@@ -86,7 +83,6 @@ const Canvas = ({
   setRoomSubTool,
   onMergeRooms,
   onCenterElementReady,
-  selectedBackgroundTexture,
   backgroundBrushSize,
   terrainBrushes,
   selectedTerrainBrush,
@@ -95,13 +91,7 @@ const Canvas = ({
 }: CanvasProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
-  
-  // Tile-based terrain system
-  const TILE_SIZE = 2000; // Each tile is 2000×2000 px
-  const [terrainTiles, setTerrainTiles] = useState<Map<string, TerrainTile>>(new Map());
-  const tileCanvasRefs = useRef<Map<string, HTMLCanvasElement>>(new Map());
-  const hasActivatedSceneRef = useRef(false); // Track if we've activated auto-created scene
-  
+  const terrainCanvasRef = useRef<HTMLCanvasElement>(null);
   const [viewport, setViewport] = useState({ x: 0, y: 0, zoom: 1 });
   const [mapDimensions, setMapDimensions] = useState({ width: 0, height: 0, padding: 0 });
   const [isPanning, setIsPanning] = useState(false);
@@ -150,46 +140,7 @@ const Canvas = ({
   const [lastBrushStamp, setLastBrushStamp] = useState<{ x: number; y: number } | null>(null);
   const [brushAnchorPoint, setBrushAnchorPoint] = useState<{ x: number; y: number } | null>(null);
   const brushImageRef = useRef<HTMLImageElement | null>(null);
-
-  // Tile management helper functions
-  const getTileKey = (worldX: number, worldY: number): string => {
-    const tileX = Math.floor(worldX / TILE_SIZE) * TILE_SIZE;
-    const tileY = Math.floor(worldY / TILE_SIZE) * TILE_SIZE;
-    return `${tileX},${tileY}`;
-  };
-
-  const getTileCoords = (tileKey: string): { x: number; y: number } => {
-    const [x, y] = tileKey.split(',').map(Number);
-    return { x, y };
-  };
-
-  const getVisibleTileKeys = (): string[] => {
-    if (!containerRef.current) return [];
-    
-    const rect = containerRef.current.getBoundingClientRect();
-    
-    // Calculate world coordinates of viewport corners
-    const topLeftX = -viewport.x / viewport.zoom;
-    const topLeftY = -viewport.y / viewport.zoom;
-    const bottomRightX = (rect.width - viewport.x) / viewport.zoom;
-    const bottomRightY = (rect.height - viewport.y) / viewport.zoom;
-    
-    // Add 1 tile margin
-    const startTileX = Math.floor(topLeftX / TILE_SIZE) - 1;
-    const startTileY = Math.floor(topLeftY / TILE_SIZE) - 1;
-    const endTileX = Math.floor(bottomRightX / TILE_SIZE) + 1;
-    const endTileY = Math.floor(bottomRightY / TILE_SIZE) + 1;
-    
-    const visibleKeys: string[] = [];
-    for (let tileY = startTileY; tileY <= endTileY; tileY++) {
-      for (let tileX = startTileX; tileX <= endTileX; tileX++) {
-        const key = `${tileX * TILE_SIZE},${tileY * TILE_SIZE}`;
-        visibleKeys.push(key);
-      }
-    }
-    
-    return visibleKeys;
-  };
+  const terrainStampsRef = useRef<Array<{ x: number; y: number; size: number; textureUrl: string }>>([]);
 
   // Generate unique room name
   const generateRoomName = (): string => {
@@ -292,17 +243,12 @@ const Canvas = ({
         const width = img.naturalWidth;
         const height = img.naturalHeight;
         
-        // Check if this is a canvas (transparent background) - infinite drawing area
-        const isCanvas = scene.backgroundMapUrl.includes('fill="transparent"') ||
-                        scene.backgroundMapUrl.includes('fill=%22transparent%22');
+        // Check if this is canvas2-mode (1x1 transparent PNG with large dimensions)
+        const isCanvas = scene.backgroundMapUrl.includes('transparent1x1px.png');
         
         if (isCanvas) {
-          // For canvas mode, use scene dimensions if provided, otherwise infinite
-          const canvasWidth = scene.width || 0;
-          const canvasHeight = scene.height || 0;
-          const canvasPadding = 0;
-          
-          setMapDimensions({ width: canvasWidth, height: canvasHeight, padding: canvasPadding });
+          // For canvas, set dimensions to 0 to indicate infinite
+          setMapDimensions({ width: 0, height: 0, padding: 0 });
           setShouldRotateMap(false);
           
           // For canvas, center viewport on (0,0) in world space
@@ -361,66 +307,12 @@ const Canvas = ({
   // Reset initialization flag when scene changes
   useEffect(() => {
     setHasInitializedViewport(false);
-    hasActivatedSceneRef.current = false; // Reset terrain activation flag
     // Initialize history with current scene state
     if (scene) {
-      setHistory([{ elements: JSON.parse(JSON.stringify(scene.elements)) }]);
+      setHistory([{ elements: JSON.parse(JSON.stringify(scene.elements)), terrainStamps: JSON.parse(JSON.stringify(terrainStampsRef.current)) }]);
       setHistoryIndex(0);
     }
   }, [scene?.id]);
-
-  // Load terrain tiles from scene
-  useEffect(() => {
-    if (!scene) {
-      setTerrainTiles(new Map());
-      return;
-    }
-    
-    // Load from new tile-based format if available
-    if (scene.terrainTiles) {
-      const tilesMap = new Map<string, TerrainTile>();
-      Object.entries(scene.terrainTiles).forEach(([key, tile]) => {
-        tilesMap.set(key, tile);
-      });
-      setTerrainTiles(tilesMap);
-    }
-    // Legacy: convert old terrainStamps to tiles
-    else if (scene.terrainStamps && scene.terrainStamps.length > 0) {
-      const tilesMap = new Map<string, TerrainTile>();
-      scene.terrainStamps.forEach(stamp => {
-        const tileKey = getTileKey(stamp.x, stamp.y);
-        let tile = tilesMap.get(tileKey);
-        if (!tile) {
-          const { x, y } = getTileCoords(tileKey);
-          tile = { x, y, stamps: [] };
-          tilesMap.set(tileKey, tile);
-        }
-        tile.stamps.push(stamp);
-      });
-      setTerrainTiles(tilesMap);
-    } else {
-      setTerrainTiles(new Map());
-    }
-  }, [scene?.id]);
-
-  // Save terrain tiles to scene when they change
-  useEffect(() => {
-    if (!scene || !activeSceneId) return;
-    
-    // Convert Map to plain object for JSON serialization
-    const tilesObject: { [key: string]: TerrainTile } = {};
-    terrainTiles.forEach((tile, key) => {
-      tilesObject[key] = tile;
-    });
-    
-    // Only update if tiles actually changed
-    const currentTilesJSON = JSON.stringify(scene.terrainTiles || {});
-    const newTilesJSON = JSON.stringify(tilesObject);
-    
-    if (currentTilesJSON !== newTilesJSON) {
-      updateScene(activeSceneId, { terrainTiles: tilesObject });
-    }
-  }, [terrainTiles, scene?.id, activeSceneId]);
 
   // Expose merge handler to parent (only pass the function reference, don't call it)
   useEffect(() => {
@@ -474,78 +366,84 @@ const Canvas = ({
     return () => window.removeEventListener('applyColorToSelection', handleApplyColor as EventListener);
   }, [selectedElementId, selectedElementIds, scene, updateElement, updateElements]);
 
-  // Render terrain tiles based on visible tiles
+  // Set up terrain canvas size and re-render when viewport changes
   useEffect(() => {
-    const visibleTileKeys = getVisibleTileKeys();
+    const canvas = terrainCanvasRef.current;
     
-    // Render each visible tile
-    visibleTileKeys.forEach(tileKey => {
-      const tile = terrainTiles.get(tileKey);
-      if (!tile) return;
+    if (!canvas) return;
+
+    // Set canvas size based on mode
+    const isCanvas = mapDimensions.width === 0 && mapDimensions.height === 0;
+    const canvasSize = 50000;
+    
+    if (isCanvas) {
+      canvas.width = canvasSize;
+      canvas.height = canvasSize;
+    } else {
+      canvas.width = (shouldRotateMap ? mapDimensions.height : mapDimensions.width) + mapDimensions.padding * 2;
+      canvas.height = (shouldRotateMap ? mapDimensions.width : mapDimensions.height) + mapDimensions.padding * 2;
+    }
+
+    // Re-render all terrain stamps
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Render each stamp in world coordinates
+    const imageCache = new Map<string, HTMLImageElement>();
+    let pendingImages = 0;
+    
+    const offsetX = isCanvas ? canvasSize / 2 : 0;
+    const offsetY = isCanvas ? canvasSize / 2 : 0;
+
+    terrainStampsRef.current.forEach(stamp => {
+      let img = imageCache.get(stamp.textureUrl);
       
-      const canvas = tileCanvasRefs.current.get(tileKey);
-      if (!canvas) return;
-      
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-      
-      // Clear canvas
-      ctx.clearRect(0, 0, TILE_SIZE, TILE_SIZE);
-      
-      // Render all stamps on this tile
-      const imageCache = new Map<string, HTMLImageElement>();
-      let pendingImages = 0;
-      
-      tile.stamps.forEach(stamp => {
-        let img = imageCache.get(stamp.textureUrl);
+      if (!img) {
+        img = new Image();
+        img.src = stamp.textureUrl;
+        imageCache.set(stamp.textureUrl, img);
         
-        if (!img) {
-          img = new Image();
-          img.src = stamp.textureUrl;
-          imageCache.set(stamp.textureUrl, img);
-          
-          if (!img.complete) {
-            pendingImages++;
-            img.onload = () => {
-              pendingImages--;
-              if (pendingImages === 0) {
-                // All images loaded, re-render this tile
-                ctx.clearRect(0, 0, TILE_SIZE, TILE_SIZE);
-                tile.stamps.forEach(s => {
-                  const cachedImg = imageCache.get(s.textureUrl);
-                  if (cachedImg && cachedImg.complete) {
-                    // Convert world coordinates to tile-local coordinates
-                    const localX = s.x - tile.x;
-                    const localY = s.y - tile.y;
-                    ctx.drawImage(
-                      cachedImg,
-                      localX - s.size / 2,
-                      localY - s.size / 2,
-                      s.size,
-                      s.size
-                    );
-                  }
-                });
-              }
-            };
-          }
+        if (!img.complete) {
+          pendingImages++;
+          img.onload = () => {
+            pendingImages--;
+            if (pendingImages === 0) {
+              // All images loaded, re-render
+              ctx.clearRect(0, 0, canvas.width, canvas.height);
+              terrainStampsRef.current.forEach(s => {
+                const cachedImg = imageCache.get(s.textureUrl);
+                if (cachedImg && cachedImg.complete) {
+                  const drawX = s.x + offsetX;
+                  const drawY = s.y + offsetY;
+                  ctx.drawImage(
+                    cachedImg,
+                    drawX - s.size / 2,
+                    drawY - s.size / 2,
+                    s.size,
+                    s.size
+                  );
+                }
+              });
+            }
+          };
         }
-        
-        if (img.complete) {
-          // Convert world coordinates to tile-local coordinates
-          const localX = stamp.x - tile.x;
-          const localY = stamp.y - tile.y;
-          ctx.drawImage(
-            img,
-            localX - stamp.size / 2,
-            localY - stamp.size / 2,
-            stamp.size,
-            stamp.size
-          );
-        }
-      });
+      }
+
+      if (img.complete) {
+        const drawX = stamp.x + offsetX;
+        const drawY = stamp.y + offsetY;
+        ctx.drawImage(
+          img,
+          drawX - stamp.size / 2,
+          drawY - stamp.size / 2,
+          stamp.size,
+          stamp.size
+        );
+      }
     });
-  }, [terrainTiles, viewport.x, viewport.y, viewport.zoom]);
+  }, [viewport.x, viewport.y, viewport.zoom, mapDimensions, shouldRotateMap]);
 
   // Helper to check if text input is focused
   const isTextInputFocused = (): boolean => {
@@ -677,15 +575,50 @@ const Canvas = ({
   // Clipboard state for copy/paste
   const [clipboard, setClipboard] = useState<MapElement[]>([]);
 
+  // Load terrain stamps when scene changes
+  useEffect(() => {
+    if (scene?.terrainStamps) {
+      console.log('[TERRAIN] Loading terrain stamps from scene:', scene.terrainStamps.length, 'stamps');
+      terrainStampsRef.current = JSON.parse(JSON.stringify(scene.terrainStamps));
+    } else if (scene && !terrainStampsRef.current) {
+      // Only initialize to empty if we don't have stamps yet (scene just loaded)
+      console.log('[TERRAIN] Initializing empty terrain stamps');
+      terrainStampsRef.current = [];
+    } else {
+      console.log('[TERRAIN] Keeping existing terrain stamps, scene update without terrainStamps property');
+    }
+    // Trigger re-render
+    setViewport(prev => ({ ...prev }));
+  }, [scene?.id]);
+
   // Undo/Redo state
-  const [history, setHistory] = useState<{ elements: MapElement[] }[]>([]);
+  const [history, setHistory] = useState<{ elements: MapElement[]; terrainStamps: Array<{ x: number; y: number; size: number; textureUrl: string }> }[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
+
+  // Save terrain stamps to scene
+  const saveTerrainToScene = () => {
+    if (scene && activeSceneId) {
+      // Check if this is the first terrain paint on an auto-created canvas
+      if (scene.isAutoCreated && (!scene.terrainStamps || scene.terrainStamps.length === 0) && terrainStampsRef.current.length > 0) {
+        console.log('[TERRAIN] First terrain paint on auto-created canvas - this will be converted to a real scene by App.tsx');
+        // The auto-creation logic should be handled in App.tsx, similar to addElement
+        // For now, just save the stamps and let the scene conversion happen on first element add
+      }
+      
+      updateScene(activeSceneId, {
+        terrainStamps: JSON.parse(JSON.stringify(terrainStampsRef.current))
+      });
+    }
+  };
 
   // Save state to history
   const saveToHistory = () => {
     if (!scene) return;
     const newHistory = history.slice(0, historyIndex + 1);
-    newHistory.push({ elements: JSON.parse(JSON.stringify(scene.elements)) });
+    newHistory.push({ 
+      elements: JSON.parse(JSON.stringify(scene.elements)),
+      terrainStamps: JSON.parse(JSON.stringify(terrainStampsRef.current))
+    });
     setHistory(newHistory);
     setHistoryIndex(newHistory.length - 1);
   };
@@ -695,7 +628,11 @@ const Canvas = ({
     if (historyIndex > 0 && scene && activeSceneId) {
       const prevState = history[historyIndex - 1];
       updateScene(activeSceneId, { elements: JSON.parse(JSON.stringify(prevState.elements)) });
+      terrainStampsRef.current = JSON.parse(JSON.stringify(prevState.terrainStamps));
       setHistoryIndex(historyIndex - 1);
+      
+      // Trigger terrain canvas re-render
+      setViewport(prev => ({ ...prev }));
     }
   };
 
@@ -704,7 +641,11 @@ const Canvas = ({
     if (historyIndex < history.length - 1 && scene && activeSceneId) {
       const nextState = history[historyIndex + 1];
       updateScene(activeSceneId, { elements: JSON.parse(JSON.stringify(nextState.elements)) });
+      terrainStampsRef.current = JSON.parse(JSON.stringify(nextState.terrainStamps));
       setHistoryIndex(historyIndex + 1);
+      
+      // Trigger terrain canvas re-render
+      setViewport(prev => ({ ...prev }));
     }
   };
 
@@ -743,8 +684,8 @@ const Canvas = ({
   const applyFitToView = () => {
     if (!containerRef.current || !mapDimensions.width || !mapDimensions.height) return;
 
-    // Check if this is a canvas scene (infinite drawing area)
-    const isCanvas = scene?.backgroundMapUrl.includes('fill="transparent"');
+    // Check if this is canvas2-mode scene (infinite drawing area)
+    const isCanvas = scene?.backgroundMapUrl.includes('transparent1x1px.png');
     if (isCanvas) {
       setCanvasInfiniteError(true);
       setTimeout(() => setCanvasInfiniteError(false), 3000);
@@ -779,8 +720,8 @@ const Canvas = ({
 
   // Toggle fit to view lock
   const handleFitToView = () => {
-    // Check if this is a canvas scene - don't allow fit to view on infinite canvas
-    const isCanvas = scene?.backgroundMapUrl.includes('fill="transparent"');
+    // Check if this is canvas2-mode scene - don't allow fit to view on infinite canvas
+    const isCanvas = scene?.backgroundMapUrl.includes('transparent1x1px.png');
     if (isCanvas) {
       setCanvasInfiniteError(true);
       setTimeout(() => setCanvasInfiniteError(false), 3000);
@@ -1408,7 +1349,9 @@ const Canvas = ({
         return;
       }
       if (e.key === 'd' || e.key === 'D') {
-        setActiveTool('pan');
+        if (!e.ctrlKey && !e.shiftKey) { // Only if not Ctrl+D or Shift+D (duplicate)
+          setActiveTool('pan');
+        }
         return;
       }
       if (e.key === 'z' || e.key === 'Z') {
@@ -1448,28 +1391,30 @@ const Canvas = ({
         }
         return;
       }
+      if (e.key === 't' || e.key === 'T') {
+        e.preventDefault();
+        // Cycle through terrain brushes if already on background tool
+        if (activeTool === 'background' && terrainBrushes.length > 0) {
+          const currentIndex = terrainBrushes.findIndex(b => b.download_url === selectedTerrainBrush);
+          const nextIndex = (currentIndex + 1) % terrainBrushes.length;
+          onSelectTerrainBrush(terrainBrushes[nextIndex].download_url);
+          // Show submenu when cycling (don't auto-hide)
+          setShowTerrainSubmenuForT(true);
+        } else {
+          setActiveTool('background');
+          if (onSwitchToDrawTab) onSwitchToDrawTab();
+          // Auto-select first brush if none selected
+          if (!selectedTerrainBrush && terrainBrushes.length > 0) {
+            onSelectTerrainBrush(terrainBrushes[0].download_url);
+          }
+          // Show submenu when activating tool
+          setShowTerrainSubmenuForT(true);
+        }
+        return;
+      }
       if (e.key === 'g' || e.key === 'G') {
         e.preventDefault();
         setShowGrid(prev => !prev);
-        return;
-      }
-      if (e.key === 't' || e.key === 'T') {
-        // Cycle terrain brushes when on background tool
-        if (activeTool === 'background' && terrainBrushes.length > 0) {
-          e.preventDefault();
-          const currentIndex = selectedTerrainBrush 
-            ? terrainBrushes.findIndex(b => b.download_url === selectedTerrainBrush)
-            : -1;
-          const nextIndex = (currentIndex + 1) % terrainBrushes.length;
-          onSelectTerrainBrush(terrainBrushes[nextIndex].download_url);
-          // Show terrain submenu
-          setShowTerrainSubmenuForT(true);
-        } else {
-          // Switch to background tool and show terrain submenu
-          setActiveTool('background');
-          setShowTerrainSubmenuForT(true);
-          onSwitchToDrawTab();
-        }
         return;
       }
       if (e.key === 'c' || e.key === 'C') {
@@ -1776,10 +1721,13 @@ const Canvas = ({
     }
   }, [isShiftPressed, showTokenSubmenuForShift]);
 
-  // Hide terrain submenu when switching away from background tool
+  // Hide terrain submenu when not on background tool
   useEffect(() => {
     if (activeTool !== 'background' && showTerrainSubmenuForT) {
-      setShowTerrainSubmenuForT(false);
+      const timeout = setTimeout(() => {
+        setShowTerrainSubmenuForT(false);
+      }, 100);
+      return () => clearTimeout(timeout);
     }
   }, [activeTool, showTerrainSubmenuForT]);
 
@@ -1862,9 +1810,6 @@ const Canvas = ({
   };
 
   // Draw a straight line with brush stamps
-  // Line drawing temporarily disabled during tile system migration
-  // TODO: Reimplement with tile-based system
-  /*
   const drawBrushLine = (startX: number, startY: number, endX: number, endY: number) => {
     // Calculate line length
     const dx = endX - startX;
@@ -1888,109 +1833,85 @@ const Canvas = ({
       stampBrush(x, y);
     }
   };
-  */
 
-  // Stamp brush at world coordinates - tile-based version
+  // Stamp brush at world coordinates
   const stampBrush = (worldX: number, worldY: number, saveStamp: boolean = true) => {
+    console.log('[STAMP BRUSH] Called with:', { worldX, worldY, saveStamp, backgroundBrushSize });
+    
+    const canvas = terrainCanvasRef.current;
     const brush = brushImageRef.current;
     
-    if (!brush || !brush.complete || !selectedBackgroundTexture) {
+    console.log('[STAMP BRUSH] Canvas/brush state:', { 
+      hasCanvas: !!canvas, 
+      hasBrush: !!brush, 
+      brushComplete: brush?.complete,
+      brushSrc: brush?.src
+    });
+    
+    if (!canvas || !brush || !brush.complete) {
+      console.warn('[BRUSH PAINT] Canvas or brush not ready');
       return;
     }
 
-    // Activate auto-created scene on first terrain brush stroke
-    if (!hasActivatedSceneRef.current && terrainTiles.size === 0 && saveStamp) {
-      activateAutoCreatedScene();
-      hasActivatedSceneRef.current = true;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      console.warn('[STAMP BRUSH] No canvas context');
+      return;
     }
 
-    // Calculate which tile(s) this stamp affects
-    const stampHalfSize = backgroundBrushSize / 2;
-    const minX = worldX - stampHalfSize;
-    const maxX = worldX + stampHalfSize;
-    const minY = worldY - stampHalfSize;
-    const maxY = worldY + stampHalfSize;
-    
-    // Find all tiles that overlap with this stamp
-    const startTileX = Math.floor(minX / TILE_SIZE) * TILE_SIZE;
-    const endTileX = Math.floor(maxX / TILE_SIZE) * TILE_SIZE;
-    const startTileY = Math.floor(minY / TILE_SIZE) * TILE_SIZE;
-    const endTileY = Math.floor(maxY / TILE_SIZE) * TILE_SIZE;
-    
-    const affectedTileKeys: string[] = [];
-    for (let tileY = startTileY; tileY <= endTileY; tileY += TILE_SIZE) {
-      for (let tileX = startTileX; tileX <= endTileX; tileX += TILE_SIZE) {
-        const tileKey = `${tileX},${tileY}`;
-        affectedTileKeys.push(tileKey);
-        
-        // Create tile if it doesn't exist
-        if (!terrainTiles.has(tileKey)) {
-          const newTile: TerrainTile = {
-            x: tileX,
-            y: tileY,
-            stamps: []
-          };
-          terrainTiles.set(tileKey, newTile);
-        }
-      }
-    }
-    
-    // Add stamp to affected tiles
-    if (saveStamp) {
-      const stamp: TerrainStamp = {
+    // Save stamp in world coordinates for re-rendering
+    if (saveStamp && selectedTerrainBrush) {
+      terrainStampsRef.current.push({
         x: worldX,
         y: worldY,
         size: backgroundBrushSize,
-        textureUrl: selectedBackgroundTexture
-      };
-      
-      setTerrainTiles(prev => {
-        const updated = new Map(prev);
-        affectedTileKeys.forEach(tileKey => {
-          const tile = updated.get(tileKey);
-          if (tile) {
-            updated.set(tileKey, {
-              ...tile,
-              stamps: [...tile.stamps, stamp]
-            });
-          }
-        });
-        return updated;
+        textureUrl: selectedTerrainBrush
       });
+      console.log('[STAMP BRUSH] Saved stamp. Total stamps:', terrainStampsRef.current.length);
     }
+
+    // Canvas is now inside transformed container, so use world coordinates directly
+    // The CSS transform handles viewport zoom/pan
+    // For canvas mode, offset by canvasSize/2 to center at (0,0)
+    const isCanvas = mapDimensions.width === 0 && mapDimensions.height === 0;
+    const canvasSize = 50000;
+    const offsetX = isCanvas ? canvasSize / 2 : 0;
+    const offsetY = isCanvas ? canvasSize / 2 : 0;
     
-    // Draw stamp on affected tile canvases
-    affectedTileKeys.forEach(tileKey => {
-      const canvas = tileCanvasRefs.current.get(tileKey);
-      if (!canvas) return;
-      
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-      
-      const { x: tileX, y: tileY } = getTileCoords(tileKey);
-      
-      // Convert world coordinates to tile-local coordinates
-      const localX = worldX - tileX;
-      const localY = worldY - tileY;
-      
-      ctx.drawImage(
-        brush,
-        localX - stampHalfSize,
-        localY - stampHalfSize,
-        backgroundBrushSize,
-        backgroundBrushSize
-      );
+    const drawX = worldX + offsetX;
+    const drawY = worldY + offsetY;
+    
+    console.log('[STAMP BRUSH] Drawing at:', { 
+      isCanvas, 
+      mapDimensions, 
+      offsetX, 
+      offsetY, 
+      drawX, 
+      drawY,
+      finalX: drawX - backgroundBrushSize / 2,
+      finalY: drawY - backgroundBrushSize / 2
     });
+    
+    // Draw brush centered at the position
+    ctx.drawImage(
+      brush,
+      drawX - backgroundBrushSize / 2,
+      drawY - backgroundBrushSize / 2,
+      backgroundBrushSize,
+      backgroundBrushSize
+    );
+    
+    console.log('[STAMP BRUSH] Drew image successfully');
   };
 
   // Start brush painting
   const startBrushPainting = (worldX: number, worldY: number) => {
-    if (!selectedBackgroundTexture) return;
+    if (!selectedTerrainBrush) return;
     
     // Load brush image if not already loaded or if texture changed
-    if (!brushImageRef.current || brushImageRef.current.src !== selectedBackgroundTexture) {
+    if (!brushImageRef.current || brushImageRef.current.src !== selectedTerrainBrush) {
       const img = new Image();
-      img.src = selectedBackgroundTexture;
+      img.src = selectedTerrainBrush;
       img.onload = () => {
         brushImageRef.current = img;
         
@@ -2004,7 +1925,7 @@ const Canvas = ({
         }
       };
       img.onerror = () => {
-        console.error('[BRUSH PAINT] Failed to load brush image:', selectedBackgroundTexture);
+        console.error('[BRUSH PAINT] Failed to load brush image:', selectedTerrainBrush);
       };
     } else {
       // If shift is pressed, just set anchor for line mode
@@ -2560,10 +2481,21 @@ const Canvas = ({
       }
     } else if (effectiveTool === 'background') {
       // Start brush painting
-      if (!selectedBackgroundTexture) {
+      console.log('[BRUSH PAINT] Starting - selectedTerrainBrush:', selectedTerrainBrush, 'scene:', scene?.id, 'scene.name:', scene?.name);
+      
+      if (!selectedTerrainBrush) {
         console.warn('[BRUSH PAINT] No texture selected!');
         return;
       }
+      
+      // If no scene exists and we're in canvas mode, scene will be created when we save
+      // But we need to have a scene to paint on
+      if (!scene) {
+        console.warn('[BRUSH PAINT] No scene exists - cannot paint terrain');
+        return;
+      }
+      
+      console.log('[BRUSH PAINT] Starting painting at', x, y);
       setIsPaintingBackground(true);
       startBrushPainting(x, y);
     }
@@ -2760,12 +2692,76 @@ const Canvas = ({
     }
 
     // Handle brush painting
-    if (isPaintingBackground && selectedBackgroundTexture) {
-      // Shift+drag line drawing temporarily disabled during tile system migration
-      // TODO: Reimplement line drawing with tile-based system
-      
-      // Normal painting mode
-      continueBrushPainting(x, y);
+    if (isPaintingBackground && selectedTerrainBrush) {
+      // If shift is pressed and we have anchor point, draw straight line
+      if (isShiftPressed && brushAnchorPoint) {
+        let endX = x;
+        let endY = y;
+        
+        // Constrain to horizontal or vertical
+        const deltaX = Math.abs(x - brushAnchorPoint.x);
+        const deltaY = Math.abs(y - brushAnchorPoint.y);
+        
+        if (deltaX > deltaY) {
+          endY = brushAnchorPoint.y; // Horizontal line
+        } else {
+          endX = brushAnchorPoint.x; // Vertical line
+        }
+        
+        // Only redraw if we've moved enough from last stamp
+        if (!lastBrushStamp || 
+            Math.abs(endX - lastBrushStamp.x) >= backgroundBrushSize * 0.4 || 
+            Math.abs(endY - lastBrushStamp.y) >= backgroundBrushSize * 0.4) {
+          
+          // Clear and redraw the entire line from anchor to current position
+          const canvas = terrainCanvasRef.current;
+          const ctx = canvas?.getContext('2d');
+          if (canvas && ctx) {
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Redraw all previous stamps (not part of current line)
+            const startOfLineIndex = terrainStampsRef.current.findIndex(
+              stamp => stamp.x === brushAnchorPoint.x && stamp.y === brushAnchorPoint.y
+            );
+            
+            if (startOfLineIndex >= 0) {
+              // Remove stamps from current line drawing
+              terrainStampsRef.current = terrainStampsRef.current.slice(0, startOfLineIndex);
+            }
+            
+            // Redraw all previous terrain
+            const imageCache = new Map<string, HTMLImageElement>();
+            terrainStampsRef.current.forEach(stamp => {
+              let img = imageCache.get(stamp.textureUrl);
+              if (!img) {
+                img = new Image();
+                img.src = stamp.textureUrl;
+                imageCache.set(stamp.textureUrl, img);
+              }
+              if (img.complete) {
+                const screenX = stamp.x * viewport.zoom + viewport.x;
+                const screenY = stamp.y * viewport.zoom + viewport.y;
+                const screenSize = stamp.size * viewport.zoom;
+                ctx.drawImage(
+                  img,
+                  screenX - screenSize / 2,
+                  screenY - screenSize / 2,
+                  screenSize,
+                  screenSize
+                );
+              }
+            });
+            
+            // Draw the new line
+            drawBrushLine(brushAnchorPoint.x, brushAnchorPoint.y, endX, endY);
+            setLastBrushStamp({ x: endX, y: endY });
+          }
+        }
+      } else {
+        // Normal painting mode
+        continueBrushPainting(x, y);
+      }
       return;
     }
 
@@ -3090,6 +3086,7 @@ const Canvas = ({
       setIsPaintingBackground(false);
       setLastBrushStamp(null);
       setBrushAnchorPoint(null);
+      saveTerrainToScene();
       saveToHistory();
     }
 
@@ -3509,178 +3506,80 @@ const Canvas = ({
       >
         {/* ...no token submenu rendered... */}
         {scene && (() => {
-          const isCanvas = mapDimensions.width === 0 && mapDimensions.height === 0;
+          // Canvas2-mode: Uses 1x1 transparent PNG with 50000x50000 dimensions
+          // All rendering uses unified map-mode approach
+          const isCanvas2 = scene.backgroundMapUrl.includes('transparent1x1px.png');
           
-          if (isCanvas) {
-            // Large canvas with static grid - centered so user starts in middle
-            const canvasSize = 50000; // Large but not infinite
-            
-            return (
-              <>
-                {/* Hidden img for canvas to trigger load event */}
-                <img
-                  ref={imgRef}
-                  src={scene.backgroundMapUrl}
-                  alt="canvas"
-                  style={{ display: 'none', zIndex: 1 }}
-                />
-                <div
-                  style={{
-                    position: 'absolute',
-                    left: viewport.x - canvasSize / 2 * viewport.zoom,
-                    top: viewport.y - canvasSize / 2 * viewport.zoom,
-                    transform: `scale(${viewport.zoom})`,
-                    transformOrigin: '0 0',
-                    width: canvasSize,
-                    height: canvasSize,
-                    pointerEvents: 'none',
-                    zIndex: 1
-                  }}
-                >
-                {/* Large Static Grid */}
-                {showGrid && (
-                  <svg
-                    style={{
-                      position: 'absolute',
-                      left: 0,
-                      top: 0,
-                      width: canvasSize,
-                      height: canvasSize,
-                      pointerEvents: 'none',
-                      opacity: 0.3
-                    }}
-                  >
-                    <defs>
-                      <pattern
-                        id="canvas-grid-pattern"
-                        x={0}
-                        y={0}
-                        width={gridSize}
-                        height={gridSize}
-                        patternUnits="userSpaceOnUse"
-                      >
-                        <path
-                          d={`M ${gridSize} 0 L 0 0 0 ${gridSize}`}
-                          fill="none"
-                          stroke="rgba(255, 255, 255, 0.8)"
-                          strokeWidth="1"
-                        />
-                      </pattern>
-                    </defs>
-                    <rect
-                      x={0}
-                      y={0}
-                      width={canvasSize}
-                      height={canvasSize}
-                      fill="url(#canvas-grid-pattern)"
-                    />
-                  </svg>
-                )}
-
-                {/* Elements wrapper - offset to center at (0,0) */}
-                <div
-                  style={{
-                    position: 'absolute',
-                    left: canvasSize / 2,
-                    top: canvasSize / 2,
-                    width: 0,
-                    height: 0,
-                    zIndex: 10
-                  }}
-                >
-                  {/* Elements for infinite canvas */}
-                  {[...scene.elements]
-                    .sort((a, b) => ((a as any).zIndex || 0) - ((b as any).zIndex || 0))
-                    .map(element => (
-                    <MapElementComponent
-                      key={element.id}
-                      element={element}
-                      isSelected={selectedElementId === element.id || selectedElementIds.includes(element.id)}
-                      viewport={viewport}
-                      showTokenBadges={showTokenBadges}
-                    />
-                  ))}
-
-                  {/* Temp element during creation */}
-                  {tempElement && tempElement.id === 'temp' && (
-                    <MapElementComponent
-                      element={tempElement}
-                      isSelected={false}
-                      viewport={viewport}
-                      showTokenBadges={showTokenBadges}
-                    />
-                  )}
-                </div>
-              </div>
-              </>
-            );
-          }
-          
-          // Regular map with fixed dimensions
+          // Unified rendering for both map-mode and canvas2-mode
           return (
           <div
             style={{
               position: 'absolute',
-              left: viewport.x,
-              top: viewport.y,
+              left: isCanvas2 ? viewport.x - mapDimensions.width / 2 * viewport.zoom : viewport.x,
+              top: isCanvas2 ? viewport.y - mapDimensions.height / 2 * viewport.zoom : viewport.y,
               transform: `scale(${viewport.zoom})`,
               transformOrigin: '0 0',
               width: (shouldRotateMap ? mapDimensions.height : mapDimensions.width) + mapDimensions.padding * 2,
               height: (shouldRotateMap ? mapDimensions.width : mapDimensions.height) + mapDimensions.padding * 2
             }}
           >
+            {/* Terrain Canvas Layer */}
+            <canvas
+              ref={terrainCanvasRef}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: (shouldRotateMap ? mapDimensions.height : mapDimensions.width) + mapDimensions.padding * 2,
+                height: (shouldRotateMap ? mapDimensions.width : mapDimensions.height) + mapDimensions.padding * 2,
+                pointerEvents: 'none',
+                zIndex: 2
+              }}
+            />
+            
             {/* Background Map Image */}
-            {!scene.backgroundMapUrl.includes('fill=%22transparent%22') && !scene.backgroundMapUrl.includes('fill="transparent"') && (
-              <img
-                ref={imgRef}
-                src={scene.backgroundMapUrl}
-                alt={scene.name}
-                draggable={false}
-                className={shouldRotateMap ? 'rotate-90' : ''}
-                style={{ 
-                  userSelect: 'none', 
-                  pointerEvents: 'none',
-                  position: 'absolute',
-                  left: shouldRotateMap ? mapDimensions.padding + (mapDimensions.height - mapDimensions.width) / 2 : mapDimensions.padding,
-                  top: shouldRotateMap ? mapDimensions.padding + (mapDimensions.width - mapDimensions.height) / 2 : mapDimensions.padding,
-                  width: mapDimensions.width,
-                  height: mapDimensions.height,
-                  zIndex: 0
-                }}
-              />
-            )}
+            <img
+              ref={imgRef}
+              src={scene.backgroundMapUrl}
+              alt={scene.name}
+              draggable={false}
+              className={shouldRotateMap ? 'rotate-90' : ''}
+              style={{ 
+                userSelect: 'none', 
+                pointerEvents: 'none',
+                position: 'absolute',
+                left: shouldRotateMap ? mapDimensions.padding + (mapDimensions.height - mapDimensions.width) / 2 : mapDimensions.padding,
+                top: shouldRotateMap ? mapDimensions.padding + (mapDimensions.width - mapDimensions.height) / 2 : mapDimensions.padding,
+                width: mapDimensions.width,
+                height: mapDimensions.height,
+                zIndex: 1
+              }}
+            />
 
-            {/* Terrain Tiles - uses world coordinates inside transform */}
-            {Array.from(terrainTiles.entries()).map(([tileKey, tile]) => {
-              const visibleKeys = getVisibleTileKeys();
-              if (!visibleKeys.includes(tileKey)) return null;
-              
-              return (
-                <canvas
-                  key={tileKey}
-                  ref={el => {
-                    if (el) {
-                      tileCanvasRefs.current.set(tileKey, el);
-                    } else {
-                      tileCanvasRefs.current.delete(tileKey);
-                    }
-                  }}
-                  width={TILE_SIZE}
-                  height={TILE_SIZE}
-                  style={{
-                    position: 'absolute',
-                    left: tile.x,
-                    top: tile.y,
-                    width: TILE_SIZE,
-                    height: TILE_SIZE,
-                    pointerEvents: 'none',
-                    zIndex: 1
-                  }}
+            {/* Room floors layer - centered at (0,0) for canvas2, relative for maps */}
+            <div style={{
+              position: isCanvas2 ? 'absolute' : 'relative',
+              left: isCanvas2 ? mapDimensions.width / 2 : undefined,
+              top: isCanvas2 ? mapDimensions.height / 2 : undefined,
+              width: isCanvas2 ? 0 : undefined,
+              height: isCanvas2 ? 0 : undefined,
+              zIndex: 3
+            }}>
+              {scene.elements
+                .filter(el => el.type === 'room')
+                .map(element => (
+                <MapElementComponent
+                  key={`floor-${element.id}`}
+                  element={element}
+                  isSelected={false}
+                  viewport={viewport}
+                  showTokenBadges={showTokenBadges}
+                  renderLayer="floor"
                 />
-              );
-            })}
+              ))}
+            </div>
 
-            {/* Grid Overlay */}
+            {/* Grid Overlay - infinite for canvas2, bounded for maps */}
             {showGrid && (
               <svg
                 style={{
@@ -3690,14 +3589,16 @@ const Canvas = ({
                   width: (shouldRotateMap ? mapDimensions.height : mapDimensions.width) + mapDimensions.padding * 2,
                   height: (shouldRotateMap ? mapDimensions.width : mapDimensions.height) + mapDimensions.padding * 2,
                   pointerEvents: 'none',
-                  opacity: 0.3
+                  opacity: 0.3,
+                  zIndex: 4,
+                  overflow: isCanvas2 ? 'visible' : 'hidden'
                 }}
               >
                 <defs>
                   <pattern
-                    id="grid-pattern"
-                    x={mapDimensions.padding}
-                    y={mapDimensions.padding}
+                    id={isCanvas2 ? "canvas2-grid-pattern" : "grid-pattern"}
+                    x={isCanvas2 ? 0 : mapDimensions.padding}
+                    y={isCanvas2 ? 0 : mapDimensions.padding}
                     width={gridSize}
                     height={gridSize}
                     patternUnits="userSpaceOnUse"
@@ -3711,18 +3612,43 @@ const Canvas = ({
                   </pattern>
                 </defs>
                 <rect
-                  x={mapDimensions.padding}
-                  y={mapDimensions.padding}
-                  width={mapDimensions.width}
-                  height={mapDimensions.height}
-                  fill="url(#grid-pattern)"
+                  x={isCanvas2 ? 0 : mapDimensions.padding}
+                  y={isCanvas2 ? 0 : mapDimensions.padding}
+                  width={isCanvas2 ? mapDimensions.width : mapDimensions.width}
+                  height={isCanvas2 ? mapDimensions.height : mapDimensions.height}
+                  fill={isCanvas2 ? `url(#canvas2-grid-pattern)` : `url(#grid-pattern)`}
+                  fillOpacity="0"
+                  stroke="none"
                 />
               </svg>
             )}
 
-            {/* Elements */}
-            <div style={{ position: 'relative', zIndex: 10 }}>
+            {/* Elements - centered at (0,0) for canvas2, relative for maps */}
+            <div style={{
+              position: isCanvas2 ? 'absolute' : 'relative',
+              left: isCanvas2 ? mapDimensions.width / 2 : undefined,
+              top: isCanvas2 ? mapDimensions.height / 2 : undefined,
+              width: isCanvas2 ? 0 : undefined,
+              height: isCanvas2 ? 0 : undefined,
+              zIndex: 5
+            }}>
+              {/* Room walls layer - over grid */}
+              {scene.elements
+                .filter(el => el.type === 'room')
+                .map(element => (
+                <MapElementComponent
+                  key={`wall-${element.id}`}
+                  element={element}
+                  isSelected={selectedElementId === element.id || selectedElementIds.includes(element.id)}
+                  viewport={viewport}
+                  showTokenBadges={showTokenBadges}
+                  renderLayer="wall"
+                />
+              ))}
+              
+              {/* Non-room elements (tokens, annotations, etc.) */}
               {[...scene.elements]
+                .filter(el => el.type !== 'room')
                 .sort((a, b) => ((a as any).zIndex || 0) - ((b as any).zIndex || 0))
                 .map(element => (
                 <MapElementComponent
@@ -4146,6 +4072,34 @@ const Canvas = ({
                 ) : null}
               </div>
             )}
+
+        {/* Terrain brush cursor preview */}
+        {scene && activeTool === 'background' && selectedTerrainBrush && cursorPosition && (
+              <div
+                style={{
+                  position: 'absolute',
+                  left: viewport.x + cursorPosition.x * viewport.zoom - (backgroundBrushSize / 2) * viewport.zoom,
+                  top: viewport.y + cursorPosition.y * viewport.zoom - (backgroundBrushSize / 2) * viewport.zoom,
+                  width: backgroundBrushSize * viewport.zoom,
+                  height: backgroundBrushSize * viewport.zoom,
+                  pointerEvents: 'none',
+                  opacity: 0.5,
+                  border: '2px solid #22c55e',
+                  borderRadius: '50%',
+                  overflow: 'hidden'
+                }}
+              >
+                <img 
+                  src={selectedTerrainBrush} 
+                  alt="" 
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover'
+                  }}
+                />
+              </div>
+            )}
       </div>
 
       {/* Floating Toolbar */}
@@ -4193,11 +4147,12 @@ const Canvas = ({
         onToggleGrid={() => setShowGrid(!showGrid)}
         onGridSizeChange={setGridSize}
         forceShowTokenSubmenu={showTokenSubmenuForShift}
-        forceShowTerrainSubmenu={showTerrainSubmenuForT}
+        onHideTokenPreview={() => setCursorPosition(null)}
         terrainBrushes={terrainBrushes}
         selectedTerrainBrush={selectedTerrainBrush}
         onSelectTerrainBrush={onSelectTerrainBrush}
-        onHideTokenPreview={() => setCursorPosition(null)}
+        onSwitchToDrawTab={onSwitchToDrawTab}
+        forceShowTerrainSubmenu={showTerrainSubmenuForT}
       />
 
       {/* Zoom Limit Error Message */}
@@ -4294,28 +4249,6 @@ const Canvas = ({
           </div>
         </div>
       )}
-
-      {/* Terrain Brush Preview */}
-      {cursorPosition && activeTool === 'background' && selectedTerrainBrush && (
-        <div
-          style={{
-            position: 'absolute',
-            left: viewport.x + cursorPosition.x * viewport.zoom,
-            top: viewport.y + cursorPosition.y * viewport.zoom,
-            width: backgroundBrushSize * viewport.zoom,
-            height: backgroundBrushSize * viewport.zoom,
-            borderRadius: '50%',
-            border: '2px solid #10b981',
-            pointerEvents: 'none',
-            transform: 'translate(-50%, -50%)',
-            zIndex: 1000,
-            backgroundImage: `url(${selectedTerrainBrush})`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            opacity: 0.7
-          }}
-        />
-      )}
     </div>
   );
 };
@@ -4325,9 +4258,10 @@ interface MapElementComponentProps {
   isSelected: boolean;
   viewport: { x: number; y: number; zoom: number };
   showTokenBadges: boolean;
+  renderLayer?: 'floor' | 'wall' | 'full';
 }
 
-const MapElementComponent = ({ element, isSelected, viewport, showTokenBadges }: MapElementComponentProps) => {
+const MapElementComponent = ({ element, isSelected, viewport, showTokenBadges, renderLayer = 'full' }: MapElementComponentProps) => {
   const colorMap: Record<ColorType, string> = {
     red: '#ef4444',
     blue: '#3b82f6',
@@ -4741,7 +4675,7 @@ const MapElementComponent = ({ element, isSelected, viewport, showTokenBadges }:
         >
         <defs>
           {/* Floor texture pattern */}
-          {element.floorTextureUrl !== 'transparent' && (
+          {(renderLayer === 'floor' || renderLayer === 'full') && element.floorTextureUrl !== 'transparent' && (
             <pattern
               id={floorPatternId}
               x="0"
@@ -4759,7 +4693,7 @@ const MapElementComponent = ({ element, isSelected, viewport, showTokenBadges }:
               />
             </pattern>
           )}
-          {hasWalls && element.wallTextureUrl && element.wallTextureUrl !== 'transparent' && (
+          {(renderLayer === 'wall' || renderLayer === 'full') && hasWalls && element.wallTextureUrl && element.wallTextureUrl !== 'transparent' && (
             <pattern
               id={wallPatternId}
               x="0"
@@ -4780,15 +4714,17 @@ const MapElementComponent = ({ element, isSelected, viewport, showTokenBadges }:
         </defs>
         
         {/* Floor fill */}
-        <path
-          d={relativePolygonPath}
-          fill={element.floorTextureUrl === 'transparent' ? 'none' : `url(#${floorPatternId})`}
-          fillRule="evenodd"
-          stroke="none"
-        />
+        {(renderLayer === 'floor' || renderLayer === 'full') && (
+          <path
+            d={relativePolygonPath}
+            fill={element.floorTextureUrl === 'transparent' ? 'none' : `url(#${floorPatternId})`}
+            fillRule="evenodd"
+            stroke="none"
+          />
+        )}
         
         {/* Walls - as stroke on the polygon edge */}
-        {hasWalls && (
+        {(renderLayer === 'wall' || renderLayer === 'full') && hasWalls && (
           <path
             d={relativePolygonPath}
             fill="none"
@@ -4800,7 +4736,7 @@ const MapElementComponent = ({ element, isSelected, viewport, showTokenBadges }:
         )}
         
         {/* Selection indicator */}
-        {isSelected && (
+        {(renderLayer === 'wall' || renderLayer === 'full') && isSelected && (
           <>
             {/* If walls exist, draw selection border outside the wall */}
             {hasWalls && element.wallThickness > 0 ? (

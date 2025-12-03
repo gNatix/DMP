@@ -1,4 +1,4 @@
-import { MousePointer2, Stamp, Undo, Redo, Copy, Trash2, ArrowUp, ArrowDown, Hand, ZoomIn, ZoomOut, Maximize2, Lock, Tag, Circle, Square, Triangle, Star, Diamond, Heart, Skull, MapPin, Search, Eye, DoorOpen, Landmark as LandmarkIcon, Footprints, Info, Paintbrush, Home, Grid3x3 } from 'lucide-react';
+import { MousePointer2, Stamp, Undo, Redo, Copy, Trash2, ArrowUp, ArrowDown, Hand, ZoomIn, ZoomOut, Maximize2, Lock, Tag, Circle, Square, Triangle, Star, Diamond, Heart, Skull, MapPin, Search, Eye, DoorOpen, Landmark as LandmarkIcon, Footprints, Info, Paintbrush, Home, Grid3x3, ChevronLeft, ChevronRight } from 'lucide-react';
 import { ToolType, TokenTemplate, IconType, ColorType, RoomSubTool } from '../types';
 import { useState, useRef, useEffect } from 'react';
 import TokenPickerSubmenu from './TokenPickerSubmenu';
@@ -36,6 +36,11 @@ interface FloatingToolbarProps {
   onGridSizeChange: (size: number) => void;
   forceShowTokenSubmenu?: boolean;
   onHideTokenPreview?: () => void;
+  terrainBrushes: { name: string; download_url: string }[];
+  selectedTerrainBrush: string | null;
+  onSelectTerrainBrush: (url: string) => void;
+  onSwitchToDrawTab?: () => void;
+  forceShowTerrainSubmenu?: boolean;
 }
 
 const FloatingToolbar = ({
@@ -70,24 +75,34 @@ const FloatingToolbar = ({
   onToggleGrid,
   onGridSizeChange,
   forceShowTokenSubmenu = false,
-  onHideTokenPreview
+  onHideTokenPreview,
+  terrainBrushes,
+  selectedTerrainBrush,
+  onSelectTerrainBrush,
+  onSwitchToDrawTab,
+  forceShowTerrainSubmenu = false
 }: FloatingToolbarProps) => {
   const [showTokenPicker, setShowTokenPicker] = useState(false);
   const [showTokenSubmenu, setShowTokenSubmenu] = useState(false);
+  const [showTerrainSubmenu, setShowTerrainSubmenu] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [showRoomSubToolPicker, setShowRoomSubToolPicker] = useState(false);
   const [showGridControls, setShowGridControls] = useState(false);
   const [isAltPressed, setIsAltPressed] = useState(false);
+  const [terrainPage, setTerrainPage] = useState(0);
 
   // Helper to close all submenus
   const closeAllMenus = () => {
+    console.log('[TERRAIN SUBMENU] closeAllMenus called - stack trace:', new Error().stack);
     setShowTokenPicker(false);
     setShowTokenSubmenu(false);
+    setShowTerrainSubmenu(false);
     setShowColorPicker(false);
     setShowRoomSubToolPicker(false);
     setShowGridControls(false);
   };
   const tokenButtonRef = useRef<HTMLButtonElement>(null);
+  const terrainButtonRef = useRef<HTMLButtonElement>(null);
   const colorButtonRef = useRef<HTMLButtonElement>(null);
   const roomButtonRef = useRef<HTMLButtonElement>(null);
   const gridButtonRef = useRef<HTMLButtonElement>(null);
@@ -121,6 +136,27 @@ const FloatingToolbar = ({
       if (colorCycleTimeoutRef.current) clearTimeout(colorCycleTimeoutRef.current);
     };
   }, [selectedColor]);
+
+  // Auto-navigate terrain submenu to show selected brush
+  useEffect(() => {
+    if (selectedTerrainBrush && terrainBrushes.length > 0) {
+      const brushIndex = terrainBrushes.findIndex(b => b.download_url === selectedTerrainBrush);
+      if (brushIndex !== -1) {
+        const newPage = Math.floor(brushIndex / 6);
+        if (newPage !== terrainPage) {
+          setTerrainPage(newPage);
+        }
+      }
+    }
+  }, [selectedTerrainBrush, terrainBrushes, terrainPage]);
+
+  // Close terrain submenu when switching away from background tool
+  useEffect(() => {
+    if (activeTool !== 'background' && showTerrainSubmenu) {
+      console.log('[TERRAIN SUBMENU] Tool changed to', activeTool, '- closing submenu');
+      setShowTerrainSubmenu(false);
+    }
+  }, [activeTool, showTerrainSubmenu]);
 
   // Close picker when clicking outside (only for token and color pickers)
   useEffect(() => {
@@ -161,6 +197,48 @@ const FloatingToolbar = ({
     tokenMenuTimeoutRef.current = window.setTimeout(() => {
       setShowTokenSubmenu(false);
     }, 200);
+  };
+
+  // Terrain brush menu handlers
+  const handleTerrainMenuEnter = () => {
+    console.log('[TERRAIN SUBMENU] Mouse Enter - Opening submenu');
+    if (tokenMenuTimeoutRef.current) clearTimeout(tokenMenuTimeoutRef.current);
+    if (roomMenuTimeoutRef.current) clearTimeout(roomMenuTimeoutRef.current);
+    if (gridMenuTimeoutRef.current) clearTimeout(gridMenuTimeoutRef.current);
+    if (colorMenuTimeoutRef.current) clearTimeout(colorMenuTimeoutRef.current);
+    
+    setShowRoomSubToolPicker(false);
+    setShowGridControls(false);
+    setShowColorPicker(false);
+    setShowTokenPicker(false);
+    setShowTokenSubmenu(false);
+    
+    setShowTerrainSubmenu(true);
+  };
+
+  const handleTerrainMenuLeave = () => {
+    console.log('[TERRAIN SUBMENU] Mouse Leave - Scheduling close in 200ms');
+    tokenMenuTimeoutRef.current = window.setTimeout(() => {
+      console.log('[TERRAIN SUBMENU] Timeout triggered - Checking if should close');
+      // Don't close on timeout if we're on background tool - only close on explicit actions
+      // This prevents auto-close from mouse leave timeout
+    }, 200);
+  };
+
+  const handleTerrainSelect = (url: string) => {
+    console.log('[TERRAIN SUBMENU] Brush selected:', url);
+    onSelectTerrainBrush(url);
+    // Don't close submenu - keep it open like token picker
+  };
+
+  const handleTerrainPrevPage = () => {
+    const totalPages = Math.ceil(terrainBrushes.length / 6);
+    setTerrainPage(terrainPage === 0 ? totalPages - 1 : terrainPage - 1);
+  };
+
+  const handleTerrainNextPage = () => {
+    const totalPages = Math.ceil(terrainBrushes.length / 6);
+    setTerrainPage((terrainPage + 1) % totalPages);
   };
 
   const handleColorClick = () => {
@@ -598,6 +676,136 @@ const FloatingToolbar = ({
           )}
         </div>
 
+        {/* Background/Terrain Tool */}
+        {/* Terrain Brush Tool */}
+        <div className="relative flex flex-col items-center">
+          <button
+            ref={terrainButtonRef}
+            onClick={() => {
+              setActiveTool('background');
+              if (onSwitchToDrawTab) onSwitchToDrawTab();
+              // Open submenu on click
+              setShowTerrainSubmenu(true);
+            }}
+            onMouseEnter={handleTerrainMenuEnter}
+            onMouseLeave={handleTerrainMenuLeave}
+            className={`p-2.5 rounded transition-colors ${
+              activeTool === 'background'
+                ? 'bg-dm-highlight text-white'
+                : 'bg-dm-dark hover:bg-dm-border text-gray-300 hover:text-white'
+            }`}
+            title="Paint Terrain (T)"
+          >
+            <Paintbrush size={18} />
+          </button>
+          <span className="text-[9px] text-gray-500 font-medium mt-0.5">T</span>
+
+          {/* Terrain Brush Submenu */}
+          {(showTerrainSubmenu || forceShowTerrainSubmenu) && terrainBrushes && terrainBrushes.length > 0 && (
+            <div
+              onMouseEnter={handleTerrainMenuEnter}
+              onMouseLeave={handleTerrainMenuLeave}
+              className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2"
+            >
+              <div className="bg-dm-panel border border-dm-border rounded-lg shadow-2xl p-2 z-[100]">
+                {/* Terrain Grid */}
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(3, 1fr)',
+                  gridTemplateRows: 'repeat(2, 1fr)',
+                  gap: '4px',
+                  marginBottom: '8px'
+                }}>
+                  {terrainBrushes.slice(terrainPage * 6, (terrainPage + 1) * 6).map((brush) => (
+                    <button
+                      key={brush.download_url}
+                      onClick={() => handleTerrainSelect(brush.download_url)}
+                      onMouseEnter={(e) => {
+                        if (selectedTerrainBrush !== brush.download_url) {
+                          e.currentTarget.style.borderColor = '#22c55e';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (selectedTerrainBrush !== brush.download_url) {
+                          e.currentTarget.style.borderColor = '#374151';
+                        }
+                      }}
+                      style={{
+                        width: '40px',
+                        height: '40px',
+                        borderRadius: '4px',
+                        border: selectedTerrainBrush === brush.download_url ? '2px solid #f97316' : '2px solid #374151',
+                        backgroundColor: '#1f2937',
+                        cursor: 'pointer',
+                        overflow: 'hidden',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        transition: 'all 0.2s'
+                      }}
+                      title={brush.name}
+                    >
+                      <img
+                        src={brush.download_url}
+                        alt={brush.name}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        loading="lazy"
+                      />
+                    </button>
+                  ))}
+                </div>
+
+                {/* Navigation controls */}
+                <div style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'space-between', 
+                  gap: '8px' 
+                }}>
+                  <button
+                    onClick={handleTerrainPrevPage}
+                    style={{
+                      padding: '6px',
+                      borderRadius: '4px',
+                      backgroundColor: '#1f2937',
+                      color: '#9ca3af',
+                      border: 'none',
+                      cursor: 'pointer',
+                      transition: 'background-color 0.2s'
+                    }}
+                    className="hover:bg-dm-border"
+                    title="Previous Page"
+                  >
+                    <ChevronLeft size={14} />
+                  </button>
+
+                  <div style={{ fontSize: '12px', color: '#9ca3af' }}>
+                    {terrainPage + 1}/{Math.ceil(terrainBrushes.length / 6)}
+                  </div>
+
+                  <button
+                    onClick={handleTerrainNextPage}
+                    style={{
+                      padding: '6px',
+                      borderRadius: '4px',
+                      backgroundColor: '#1f2937',
+                      color: '#9ca3af',
+                      border: 'none',
+                      cursor: 'pointer',
+                      transition: 'background-color 0.2s'
+                    }}
+                    className="hover:bg-dm-border"
+                    title="Next Page"
+                  >
+                    <ChevronRight size={14} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Room Tool */}
         <div className="relative flex flex-col items-center">
           <button
             ref={roomButtonRef}

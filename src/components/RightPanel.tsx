@@ -45,6 +45,12 @@ interface RightPanelProps {
   setRoomSubTool: (subTool: RoomSubTool) => void;
   onMergeRooms?: () => void;
   onCenterElement?: (elementId: string) => void;
+  selectedTerrainBrush: string | null;
+  onSelectTerrainBrush: (url: string) => void;
+  backgroundBrushSize: number;
+  onBackgroundBrushSizeChange: (size: number) => void;
+  activeTab?: 'scenes' | 'tokens' | 'draw';
+  onActiveTabChange?: (tab: 'scenes' | 'tokens' | 'draw') => void;
 }
 
 type TabType = 'scenes' | 'tokens' | 'draw';
@@ -89,18 +95,33 @@ const RightPanel = ({
   roomSubTool,
   setRoomSubTool,
   onMergeRooms,
-  onCenterElement
+  onCenterElement,
+  selectedTerrainBrush,
+  onSelectTerrainBrush,
+  backgroundBrushSize,
+  onBackgroundBrushSizeChange,
+  activeTab: externalActiveTab,
+  onActiveTabChange
 }: RightPanelProps) => {
-  const [activeTab, setActiveTab] = useState<TabType>('scenes');
+  const [internalActiveTab, setInternalActiveTab] = useState<TabType>('scenes');
+  const [activeDrawTab, setActiveDrawTab] = useState<'room' | 'terrain' | 'walls'>('room');
+  
+  // Use external tab if provided, otherwise use internal
+  const activeTab = externalActiveTab || internalActiveTab;
+  const setActiveTab = onActiveTabChange || setInternalActiveTab;
 
-  // Auto-switch to draw tab when room tool is active
+  // Auto-switch to draw tab and draw sub-tab when terrain-brush tool is active
   useEffect(() => {
     if (activeTool === 'room') {
       setActiveTab('draw');
+      setActiveDrawTab('room');
     } else if (activeTool === 'token') {
       setActiveTab('tokens');
+    } else if (activeTool === 'background') {
+      setActiveTab('draw');
+      setActiveDrawTab('terrain');
     }
-  }, [activeTool]);
+  }, [activeTool, setActiveTab]);
 
   return (
     <div className="w-80 bg-dm-panel border-l border-dm-border flex flex-col">
@@ -190,6 +211,12 @@ const RightPanel = ({
             roomSubTool={roomSubTool}
             setRoomSubTool={setRoomSubTool}
             onMergeRooms={onMergeRooms}
+            selectedTerrainBrush={selectedTerrainBrush}
+            onSelectTerrainBrush={onSelectTerrainBrush}
+            backgroundBrushSize={backgroundBrushSize}
+            onBrushSizeChange={onBackgroundBrushSizeChange}
+            activeDrawTab={activeDrawTab}
+            onActiveDrawTabChange={setActiveDrawTab}
           />
         )}
       </div>
