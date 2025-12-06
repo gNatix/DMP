@@ -44,6 +44,7 @@ interface RightPanelProps {
   roomSubTool: RoomSubTool;
   setRoomSubTool: (subTool: RoomSubTool) => void;
   onMergeRooms?: () => void;
+  onMergeWalls?: () => void;
   onCenterElement?: (elementId: string) => void;
   selectedTerrainBrush: string | null;
   onSelectTerrainBrush: (url: string) => void;
@@ -95,6 +96,7 @@ const RightPanel = ({
   roomSubTool,
   setRoomSubTool,
   onMergeRooms,
+  onMergeWalls,
   onCenterElement,
   selectedTerrainBrush,
   onSelectTerrainBrush,
@@ -120,6 +122,9 @@ const RightPanel = ({
     } else if (activeTool === 'background') {
       setActiveTab('draw');
       setActiveDrawTab('terrain');
+    } else if (activeTool === 'wall' || activeTool === 'wall-line') {
+      setActiveTab('draw');
+      setActiveDrawTab('walls');
     }
   }, [activeTool, setActiveTab]);
 
@@ -193,6 +198,7 @@ const RightPanel = ({
         )}
         {activeTab === 'draw' && (
           <RoomBuilderPanel
+            activeTool={activeTool}
             selectedFloorTexture={selectedFloorTexture}
             onSelectFloorTexture={onSelectFloorTexture}
             tileSize={tileSize}
@@ -206,11 +212,13 @@ const RightPanel = ({
             wallTileSize={wallTileSize}
             onWallTileSizeChange={onWallTileSizeChange}
             selectedRoom={selectedElement?.type === 'room' ? selectedElement : null}
+            selectedWall={selectedElement?.type === 'wall' ? selectedElement : null}
             updateElement={updateElement}
             setActiveTool={setActiveTool}
             roomSubTool={roomSubTool}
             setRoomSubTool={setRoomSubTool}
             onMergeRooms={onMergeRooms}
+            onMergeWalls={onMergeWalls}
             selectedTerrainBrush={selectedTerrainBrush}
             onSelectTerrainBrush={onSelectTerrainBrush}
             backgroundBrushSize={backgroundBrushSize}

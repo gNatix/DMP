@@ -113,6 +113,7 @@ function App() {
   const [backgroundBrushSize, setBackgroundBrushSize] = useState<number>(100);
   const [terrainBrushes, setTerrainBrushes] = useState<{ name: string; download_url: string }[]>([]);
   const [selectedTerrainBrush, setSelectedTerrainBrush] = useState<string | null>(null);
+  const [wallTextures, setWallTextures] = useState<{ name: string; download_url: string }[]>([]);
   const [rightPanelActiveTab, setRightPanelActiveTab] = useState<'scenes' | 'tokens' | 'draw'>('scenes');
 
   // Load terrain brushes on mount
@@ -133,10 +134,34 @@ function App() {
     loadTerrainBrushes();
   }, []);
 
+  // Load wall textures on mount
+  useEffect(() => {
+    const loadWallTextures = async () => {
+      try {
+        const response = await fetch('https://dmp.natixlabs.com/list-files.php?path=room-elements/walls');
+        const data = await response.json();
+        setWallTextures(data);
+        // Auto-select first texture
+        if (data.length > 0 && !selectedWallTexture) {
+          setSelectedWallTexture(data[0].download_url);
+        }
+      } catch (error) {
+        console.error('Failed to load wall textures:', error);
+      }
+    };
+    loadWallTextures();
+  }, []);
+
   // Merge rooms handler ref
   const mergeRoomsHandlerRef = useRef<(() => void) | null>(null);
   const setMergeRoomsHandler = (handler: () => void) => {
     mergeRoomsHandlerRef.current = handler;
+  };
+
+  // Merge walls handler ref
+  const mergeWallsHandlerRef = useRef<(() => void) | null>(null);
+  const setMergeWallsHandler = (handler: () => void) => {
+    mergeWallsHandlerRef.current = handler;
   };
 
   // Center element handler ref
@@ -645,12 +670,15 @@ function App() {
         roomSubTool={roomSubTool}
         setRoomSubTool={setRoomSubTool}
         onMergeRooms={setMergeRoomsHandler}
+        onMergeWalls={setMergeWallsHandler}
         onCenterElementReady={setCenterElementHandler}
         selectedBackgroundTexture={selectedTerrainBrush}
         backgroundBrushSize={backgroundBrushSize}
         terrainBrushes={terrainBrushes}
         selectedTerrainBrush={selectedTerrainBrush}
         onSelectTerrainBrush={setSelectedTerrainBrush}
+        wallTextures={wallTextures}
+        onSelectWallTexture={setSelectedWallTexture}
         onSwitchToDrawTab={() => setRightPanelActiveTab('draw')}
       />
 
@@ -695,6 +723,7 @@ function App() {
         roomSubTool={roomSubTool}
         setRoomSubTool={setRoomSubTool}
         onMergeRooms={mergeRoomsHandlerRef.current || undefined}
+        onMergeWalls={mergeWallsHandlerRef.current || undefined}
         onCenterElement={handleCenterElement}
         selectedTerrainBrush={selectedTerrainBrush}
         onSelectTerrainBrush={setSelectedTerrainBrush}

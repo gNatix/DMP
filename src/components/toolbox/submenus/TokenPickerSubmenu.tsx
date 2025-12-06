@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Circle, Square, Triangle, Star, Diamond, Heart, Skull, MapPin, Search, Eye, DoorOpen, Landmark, Footprints, Info } from 'lucide-react';
-import { TokenTemplate, IconType, ColorType } from '../types';
+import { TokenTemplate, IconType, ColorType } from '../../../types';
 
 interface TokenPickerSubmenuProps {
   tokens: TokenTemplate[];
@@ -35,7 +35,7 @@ const TokenPickerSubmenu = ({
         }
       }
     }
-  }, [activeTokenId, tokens, currentPage]);
+  }, [activeTokenId, tokens]);
 
   const handlePrevPage = () => {
     setCurrentPage(currentPage === 0 ? totalPages - 1 : currentPage - 1);
@@ -114,11 +114,12 @@ const TokenPickerSubmenu = ({
       {/* Token Grid */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(3, 1fr)',
-        gridTemplateRows: 'repeat(2, 1fr)',
+        gridTemplateColumns: 'repeat(3, 40px)',
+        gridTemplateRows: 'repeat(2, 40px)',
         gap: '4px',
         marginBottom: '8px'
       }}>
+        {/* Render visible tokens */}
         {visibleTokens.map((token) => (
           <button
             key={token.id}
@@ -184,11 +185,23 @@ const TokenPickerSubmenu = ({
                 ?
               </div>
             )}
-          </button>
-        ))}
-      </div>
-
-      {/* Navigation controls */}
+            </button>
+          ))}
+          
+          {/* Add empty placeholder slots to maintain 2x3 grid */}
+          {Array.from({ length: 6 - visibleTokens.length }).map((_, i) => (
+            <div
+              key={`placeholder-${i}`}
+              style={{
+                width: '40px',
+                height: '40px',
+                borderRadius: '4px',
+                border: '2px solid transparent',
+                backgroundColor: 'transparent'
+              }}
+            />
+          ))}
+        </div>      {/* Navigation controls */}
       <div style={{ 
         display: 'flex', 
         alignItems: 'center', 

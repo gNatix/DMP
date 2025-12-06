@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect } from 'react';
-import { Scene, MapElement, AnnotationElement, TokenElement, RoomElement, ToolType, IconType, ColorType, TokenTemplate, RoomSubTool, Point, TerrainTile, TerrainStamp } from '../types';
+import { Scene, MapElement, AnnotationElement, TokenElement, RoomElement, WallElement, ToolType, IconType, ColorType, TokenTemplate, RoomSubTool, Point, TerrainTile, TerrainStamp } from '../types';
 import { Circle, Square, Triangle, Star, Diamond, Heart, Skull, MapPin, Search, Eye, DoorOpen, Landmark, Footprints, Info } from 'lucide-react';
-import FloatingToolbar from './FloatingToolbar';
+import Toolbox from './toolbox/Toolbox';
 import polygonClipping from 'polygon-clipping';
 
 interface CanvasProps {
@@ -40,14 +40,35 @@ interface CanvasProps {
   roomSubTool: RoomSubTool;
   setRoomSubTool: (subTool: RoomSubTool) => void;
   onMergeRooms?: (handler: () => void) => void;
+  onMergeWalls?: (handler: () => void) => void;
   onCenterElementReady?: (centerFn: (elementId: string) => void) => void;
   selectedBackgroundTexture: string | null;
   backgroundBrushSize: number;
   terrainBrushes: Array<{ name: string; download_url: string }>;
   selectedTerrainBrush: string | null;
   onSelectTerrainBrush: (url: string) => void;
+  wallTextures?: Array<{ name: string; download_url: string }>;
+  onSelectWallTexture?: (url: string) => void;
   onSwitchToDrawTab: () => void;
 }
+
+// Visual stacking order (back → front):
+// Layer 1: Map (base background image or infinite canvas background)
+// Layer 2: Terrain brush (tile-based terrain painting)
+// Layer 3: Floor tiles (floor parts of rooms, floor textures)
+// Layer 4: Grid (grid pattern overlay)
+// Layer 5: Wall textures (walls, wall strokes/segments)
+// Layer 6: Tokens (tokens, creatures, NPCs, markers - interactive elements on top)
+
+const Z_MAP = 0;          // Layer 1: Map background
+const Z_TERRAIN = 1;      // Layer 2: Terrain brush tiles
+const Z_FLOOR = 2;        // Layer 3: Floor tiles (room floors)
+const Z_GRID = 3;         // Layer 4: Grid overlay
+const Z_WALL = 4;         // Layer 5: Wall textures
+const Z_TOKENS = 5;       // Layer 6: Tokens and interactive elements
+
+// Element base offsets for scene.elements
+// Rooms are split into floor (below grid) and walls (above grid)
 
 const Canvas = ({
   scene,
@@ -85,13 +106,15 @@ const Canvas = ({
   roomSubTool,
   setRoomSubTool,
   onMergeRooms,
+  onMergeWalls,
   onCenterElementReady,
   selectedBackgroundTexture,
   backgroundBrushSize,
   terrainBrushes,
   selectedTerrainBrush,
   onSelectTerrainBrush,
-  onSwitchToDrawTab
+  wallTextures = [],
+  onSelectWallTexture = () => {}
 }: CanvasProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
@@ -124,7 +147,7 @@ const Canvas = ({
   const [hoveringVertex, setHoveringVertex] = useState<{ id: string; index: number; cursorDirection: string } | null>(null);
   const [hoveringEdge, setHoveringEdge] = useState<{ id: string; edgeIndex: number } | null>(null);
   const [scalingElement, setScalingElement] = useState<{ id: string; cornerIndex: number; startX: number; startY: number; initialVertices: { x: number; y: number }[] } | null>(null);
-  const [movingVertex, setMovingVertex] = useState<{ id: string; vertexIndex: number } | null>(null);
+  const [movingVertex, setMovingVertex] = useState<{ id: string; vertexIndex: number; segmentBased?: boolean } | null>(null);
   const [isPaintingBackground, setIsPaintingBackground] = useState(false);
   const [isCtrlPressed, setIsCtrlPressed] = useState(false);
   const [isShiftPressed, setIsShiftPressed] = useState(false);
@@ -142,10 +165,14 @@ const Canvas = ({
     mergedVertices: { x: number; y: number }[];
   } | null>(null);
   const [customRoomVertices, setCustomRoomVertices] = useState<{ x: number; y: number }[]>([]);
+  const [wallVertices, setWallVertices] = useState<{ x: number; y: number }[]>([]);
+  const [wallLineStart, setWallLineStart] = useState<{ x: number; y: number } | null>(null);
+  const [wallLinePreview, setWallLinePreview] = useState<{ x: number; y: number } | null>(null);
   const [showGrid, setShowGrid] = useState(false);
   const [gridSize, setGridSize] = useState(50);
   const [showTokenSubmenuForShift, setShowTokenSubmenuForShift] = useState(false);
   const [showTerrainSubmenuForT, setShowTerrainSubmenuForT] = useState(false);
+  const [showGridSubmenuForG, setShowGridSubmenuForG] = useState(false);
   const shiftScrollTimeoutRef = useRef<number | null>(null);
   const [lastBrushStamp, setLastBrushStamp] = useState<{ x: number; y: number } | null>(null);
   const [brushAnchorPoint, setBrushAnchorPoint] = useState<{ x: number; y: number } | null>(null);
@@ -428,6 +455,13 @@ const Canvas = ({
       onMergeRooms(handleMergeRooms);
     }
   }, [onMergeRooms]);
+
+  // Expose merge walls handler to parent
+  useEffect(() => {
+    if (onMergeWalls) {
+      onMergeWalls(handleMergeWalls);
+    }
+  }, [onMergeWalls]);
 
   // Expose center element function to parent
   useEffect(() => {
@@ -744,7 +778,8 @@ const Canvas = ({
     if (!containerRef.current || !mapDimensions.width || !mapDimensions.height) return;
 
     // Check if this is a canvas scene (infinite drawing area)
-    const isCanvas = scene?.backgroundMapUrl.includes('fill="transparent"');
+    const isCanvas = scene?.backgroundMapUrl.includes('fill="transparent"') ||
+                    scene?.backgroundMapUrl.includes('fill=%22transparent%22');
     if (isCanvas) {
       setCanvasInfiniteError(true);
       setTimeout(() => setCanvasInfiniteError(false), 3000);
@@ -780,7 +815,8 @@ const Canvas = ({
   // Toggle fit to view lock
   const handleFitToView = () => {
     // Check if this is a canvas scene - don't allow fit to view on infinite canvas
-    const isCanvas = scene?.backgroundMapUrl.includes('fill="transparent"');
+    const isCanvas = scene?.backgroundMapUrl.includes('fill="transparent"') ||
+                    scene?.backgroundMapUrl.includes('fill=%22transparent%22');
     if (isCanvas) {
       setCanvasInfiniteError(true);
       setTimeout(() => setCanvasInfiniteError(false), 3000);
@@ -1076,6 +1112,66 @@ const Canvas = ({
     setSelectedElementId(newRoom.id);
   };
 
+  // Helper function to extract texture name from URL
+  const getTextureName = (url: string): string => {
+    if (!url || url === 'transparent') return 'Wall';
+    const parts = url.split('/');
+    const filename = parts[parts.length - 1];
+    return filename.split('.')[0].replace(/_/g, ' ');
+  };
+
+  const completeWall = () => {
+    if (!scene || !activeSceneId) {
+      // Just clear vertices if no scene
+      setWallVertices([]);
+      return;
+    }
+    
+    if (wallVertices.length < 2) {
+      // If less than 2 vertices, just clear without creating wall
+      setWallVertices([]);
+      return;
+    }
+
+    console.log('[WALL DRAW] Completing wall with', wallVertices.length, 'vertices');
+
+    saveToHistory();
+
+    const wallCount = scene.elements.filter(e => e.type === 'wall').length + 1;
+    const textureName = getTextureName(selectedWallTexture || '');
+    
+    const newWall: WallElement = {
+      id: `wall-${Date.now()}-${Math.random()}`,
+      type: 'wall',
+      vertices: [...wallVertices],
+      wallTextureUrl: selectedWallTexture || '',
+      wallThickness: wallThickness,
+      wallTileSize: wallTileSize,
+      name: `${textureName} Wall ${wallCount}`,
+      notes: '',
+      zIndex: -99,
+      visible: true,
+      widgets: [],
+      locked: false
+    };
+
+    updateScene(activeSceneId, {
+      elements: [...scene.elements, newWall]
+    });
+
+    setWallVertices([]);
+    setSelectedElementId(newWall.id);
+  };
+
+  // Auto-complete polyline when switching away from wall tool
+  useEffect(() => {
+    // If we have vertices but are no longer using wall tool, complete the wall
+    if (wallVertices.length > 0 && activeTool !== 'wall') {
+      console.log('[WALL AUTO-COMPLETE] Tool changed to', activeTool, '- completing wall');
+      completeWall();
+    }
+  }, [activeTool]);
+
   const handleWidgetConflictResolved = (selectedRoomId: string | 'all') => {
     if (!mergeWidgetConflict || !scene || !activeSceneId) return;
     
@@ -1122,6 +1218,207 @@ const Canvas = ({
     setSelectedElementId(mergedRoom.id);
     setSelectedElementIds([]);
     setMergeWidgetConflict(null);
+  };
+
+  // Add vertices at all edge intersections in a polygon
+  const addIntersectionVertices = (vertices: Point[]): Point[] => {
+    if (vertices.length < 3) return vertices;
+    
+    console.log('🔍 addIntersectionVertices called with', vertices.length, 'vertices');
+    
+    // Helper: Calculate line segment intersection
+    const getLineIntersection = (
+      p1: Point, p2: Point, p3: Point, p4: Point
+    ): Point | null => {
+      const x1 = p1.x, y1 = p1.y, x2 = p2.x, y2 = p2.y;
+      const x3 = p3.x, y3 = p3.y, x4 = p4.x, y4 = p4.y;
+      
+      const denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+      if (Math.abs(denom) < 1e-10) return null; // Parallel or coincident
+      
+      const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom;
+      const u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / denom;
+      
+      // Check if intersection is within both line segments (not at endpoints)
+      const epsilon = 1e-6;
+      if (t > epsilon && t < 1 - epsilon && u > epsilon && u < 1 - epsilon) {
+        return {
+          x: x1 + t * (x2 - x1),
+          y: y1 + t * (y2 - y1)
+        };
+      }
+      
+      return null;
+    };
+    
+    // Build list of segments with their intersections
+    const segmentData: { start: Point; end: Point; intersections: { point: Point; t: number }[] }[] = [];
+    
+    for (let i = 0; i < vertices.length; i++) {
+      const v1 = vertices[i];
+      const v2 = vertices[(i + 1) % vertices.length];
+      segmentData.push({ start: v1, end: v2, intersections: [] });
+    }
+    
+    // Find all intersections between non-adjacent segments
+    let totalIntersections = 0;
+    for (let i = 0; i < segmentData.length; i++) {
+      const seg1 = segmentData[i];
+      
+      for (let j = i + 2; j < segmentData.length; j++) {
+        // Skip adjacent segments and last-to-first comparison
+        if (j === segmentData.length - 1 && i === 0) continue;
+        
+        const seg2 = segmentData[j];
+        const intersection = getLineIntersection(seg1.start, seg1.end, seg2.start, seg2.end);
+        
+        if (intersection) {
+          totalIntersections++;
+          // Calculate parametric t value for both segments
+          const dx1 = seg1.end.x - seg1.start.x;
+          const dy1 = seg1.end.y - seg1.start.y;
+          const t1 = dx1 !== 0 
+            ? (intersection.x - seg1.start.x) / dx1
+            : (intersection.y - seg1.start.y) / dy1;
+          
+          const dx2 = seg2.end.x - seg2.start.x;
+          const dy2 = seg2.end.y - seg2.start.y;
+          const t2 = dx2 !== 0
+            ? (intersection.x - seg2.start.x) / dx2
+            : (intersection.y - seg2.start.y) / dy2;
+          
+          seg1.intersections.push({ point: intersection, t: t1 });
+          seg2.intersections.push({ point: intersection, t: t2 });
+        }
+      }
+    }
+    
+    console.log('✅ Found', totalIntersections, 'intersections');
+    
+    // Build new vertices array with intersections inserted
+    const newVertices: Point[] = [];
+    
+    for (const seg of segmentData) {
+      newVertices.push(seg.start);
+      
+      // Sort intersections by t value (distance along segment)
+      seg.intersections.sort((a, b) => a.t - b.t);
+      
+      // Add all intersection points
+      for (const intersection of seg.intersections) {
+        newVertices.push(intersection.point);
+      }
+    }
+    
+    console.log('📊 Returning', newVertices.length, 'vertices (was', vertices.length, ')');
+    return newVertices;
+  };
+
+  // Add intersection vertices BETWEEN multiple wall segments (for merged walls)
+  const addIntersectionsBetweenSegments = (segments: Point[][]): Point[][] => {
+    console.log('🔍 addIntersectionsBetweenSegments called with', segments.length, 'segments');
+    
+    // Helper: Calculate line segment intersection
+    const getLineIntersection = (
+      p1: Point, p2: Point, p3: Point, p4: Point
+    ): Point | null => {
+      const x1 = p1.x, y1 = p1.y, x2 = p2.x, y2 = p2.y;
+      const x3 = p3.x, y3 = p3.y, x4 = p4.x, y4 = p4.y;
+      
+      const denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+      if (Math.abs(denom) < 1e-10) return null; // Parallel or coincident
+      
+      const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom;
+      const u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / denom;
+      
+      // Check if intersection is within both line segments (not at endpoints)
+      const epsilon = 1e-6;
+      if (t > epsilon && t < 1 - epsilon && u > epsilon && u < 1 - epsilon) {
+        return {
+          x: x1 + t * (x2 - x1),
+          y: y1 + t * (y2 - y1)
+        };
+      }
+      
+      return null;
+    };
+
+    // For each segment, build list of edges with their intersections from OTHER segments
+    const newSegments: Point[][] = [];
+    let totalIntersections = 0;
+
+    for (let segIdx = 0; segIdx < segments.length; segIdx++) {
+      const segment = segments[segIdx];
+      
+      // Build edge data for this segment
+      const edgeData: { start: Point; end: Point; intersections: { point: Point; t: number }[] }[] = [];
+      
+      for (let i = 0; i < segment.length - 1; i++) {
+        edgeData.push({ 
+          start: segment[i], 
+          end: segment[i + 1], 
+          intersections: [] 
+        });
+      }
+      
+      // Check each edge against all edges in ALL OTHER segments
+      for (let otherSegIdx = 0; otherSegIdx < segments.length; otherSegIdx++) {
+        if (otherSegIdx === segIdx) continue; // Skip same segment
+        
+        const otherSegment = segments[otherSegIdx];
+        
+        // Check each edge in this segment against each edge in other segment
+        for (let i = 0; i < edgeData.length; i++) {
+          const edge = edgeData[i];
+          
+          for (let j = 0; j < otherSegment.length - 1; j++) {
+            const otherV1 = otherSegment[j];
+            const otherV2 = otherSegment[j + 1];
+            
+            const intersection = getLineIntersection(edge.start, edge.end, otherV1, otherV2);
+            
+            if (intersection) {
+              totalIntersections++;
+              // Calculate t value along this edge
+              const dx = edge.end.x - edge.start.x;
+              const dy = edge.end.y - edge.start.y;
+              const t = dx !== 0
+                ? (intersection.x - edge.start.x) / dx
+                : (intersection.y - edge.start.y) / dy;
+              
+              edge.intersections.push({ point: intersection, t });
+            }
+          }
+        }
+      }
+      
+      // Build new segment with intersections inserted
+      const newSegment: Point[] = [];
+      
+      for (const edge of edgeData) {
+        newSegment.push(edge.start);
+        
+        // Sort intersections by t value
+        edge.intersections.sort((a, b) => a.t - b.t);
+        
+        // Add all intersection points
+        for (const intersection of edge.intersections) {
+          newSegment.push(intersection.point);
+        }
+      }
+      
+      // Add last vertex of original segment
+      if (segment.length > 0) {
+        newSegment.push(segment[segment.length - 1]);
+      }
+      
+      newSegments.push(newSegment);
+    }
+    
+    console.log('✅ Found', totalIntersections, 'intersections between segments');
+    console.log('📊 Returning', newSegments.length, 'segments');
+    
+    return newSegments;
   };
 
   const handleMergeRooms = () => {
@@ -1256,12 +1553,16 @@ const Canvas = ({
 
         // Take the first polygon's outer ring
         const outerRing = result[0][0] as [number, number][];
-        const vertices = outerRing.slice(0, -1).map(coord => ({ x: coord[0], y: coord[1] }));
+        let vertices = outerRing.slice(0, -1).map(coord => ({ x: coord[0], y: coord[1] }));
         
-        // Extract holes (inner rings)
-        const holes = result[0].slice(1).map((ring: [number, number][]) => 
-          ring.slice(0, -1).map(coord => ({ x: coord[0], y: coord[1] }))
-        );
+        // Add vertices at all edge intersections
+        vertices = addIntersectionVertices(vertices);
+        
+        // Extract holes (inner rings) and add intersection vertices
+        const holes = result[0].slice(1).map((ring: [number, number][]) => {
+          const holeVertices = ring.slice(0, -1).map(coord => ({ x: coord[0], y: coord[1] }));
+          return addIntersectionVertices(holeVertices);
+        });
         
         return { 
           vertices,
@@ -1365,6 +1666,75 @@ const Canvas = ({
     setSelectedElementIds([]);
   };
 
+  const handleMergeWalls = () => {
+    if (!scene || !activeSceneId) return;
+    
+    // Get selected wall elements
+    const selectedIds = selectedElementIds.length > 0 ? selectedElementIds : selectedElementId ? [selectedElementId] : [];
+    const selectedWalls = scene.elements.filter(el => 
+      selectedIds.includes(el.id) && el.type === 'wall'
+    ) as WallElement[];
+
+    if (selectedWalls.length < 2) {
+      return;
+    }
+
+    console.log('[MERGE WALLS] Merging', selectedWalls.length, 'walls into segments');
+
+    // Collect all segments from all selected walls
+    const allSegments: Point[][] = [];
+    selectedWalls.forEach(wall => {
+      if (wall.segments) {
+        // Wall already has multiple segments
+        allSegments.push(...wall.segments);
+      } else if (wall.vertices && wall.vertices.length >= 2) {
+        // Wall has single vertices array - treat as one segment
+        allSegments.push(wall.vertices);
+      }
+    });
+
+    if (allSegments.length < 2) {
+      return;
+    }
+
+    // Add intersection vertices BETWEEN segments (where walls cross each other)
+    const segmentsWithIntersections = addIntersectionsBetweenSegments(allSegments);
+
+    saveToHistory();
+
+    const firstWall = selectedWalls[0];
+    const wallCount = scene!.elements.filter(e => e.type === 'wall').length + 1;
+    const textureName = getTextureName(firstWall.wallTextureUrl);
+    
+    const mergedWall: WallElement = {
+      id: `wall-${Date.now()}-${Math.random()}`,
+      type: 'wall',
+      vertices: [], // Empty - we use segments instead
+      segments: segmentsWithIntersections,
+      wallTextureUrl: firstWall.wallTextureUrl,
+      wallThickness: firstWall.wallThickness,
+      wallTileSize: firstWall.wallTileSize,
+      name: `${textureName} Wall ${wallCount}`,
+      notes: '',
+      zIndex: firstWall.zIndex || -99,
+      visible: true,
+      widgets: [],
+      locked: false
+    };
+
+    // Remove original walls and add merged wall
+    const updatedElements = scene.elements.filter(el => !selectedIds.includes(el.id));
+    updatedElements.push(mergedWall);
+
+    updateScene(activeSceneId, { elements: updatedElements });
+    
+    // Select the merged wall
+    setSelectedElementId(mergedWall.id);
+    setSelectedElementIds([]);
+    
+    console.log('[MERGE WALLS] Created merged wall with', segmentsWithIntersections.length, 'segments');
+  };
+
   // Keyboard event handlers
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -1388,112 +1758,27 @@ const Canvas = ({
         setIsSpacePressed(true);
       }
 
-      // Mode switching
-      if (e.key === 'v' || e.key === 'V') {
-        setActiveTool('pointer');
-        return;
-      }
-      if (e.key === 'b' || e.key === 'B') {
-        // Cycle selected token forward
-        if (activeTool === 'token' && tokenTemplates.length > 0) {
-          e.preventDefault();
-          const currentIndex = activeTokenTemplate 
-            ? tokenTemplates.findIndex((t: TokenTemplate) => t.id === activeTokenTemplate.id)
-            : -1;
-          const nextIndex = (currentIndex + 1) % tokenTemplates.length;
-          onSelectToken(tokenTemplates[nextIndex]);
-        } else {
-          setActiveTool('token');
-        }
-        return;
-      }
-      if (e.key === 'd' || e.key === 'D') {
-        setActiveTool('pan');
-        return;
-      }
-      if (e.key === 'z' || e.key === 'Z') {
-        if (!e.ctrlKey) { // Only if not Ctrl+Z (undo)
-          setActiveTool('zoom-in');
-          return;
-        }
-      }
-      if (e.key === 'f' || e.key === 'F') {
-        e.preventDefault();
-        handleFitToView();
-        return;
-      }
-      if (e.key === 'l' || e.key === 'L') {
-        e.preventDefault();
-        handleToggleLock();
-        return;
-      }
-      if (e.key === 'n' || e.key === 'N') {
-        e.preventDefault();
-        handleToggleBadges();
-        return;
-      }
-      if (e.key === 'r' || e.key === 'R') {
-        // Cycle through room sub-tools if already on room tool
-        if (activeTool === 'room') {
-          e.preventDefault();
-          const roomTools: RoomSubTool[] = [
-            'rectangle', 'pentagon', 'hexagon', 'octagon', 'custom',
-            'subtract-rectangle', 'subtract-pentagon', 'subtract-hexagon', 'subtract-octagon', 'subtract-custom'
-          ];
-          const currentIndex = roomTools.indexOf(roomSubTool);
-          const nextIndex = (currentIndex + 1) % roomTools.length;
-          setRoomSubTool(roomTools[nextIndex]);
-        } else {
-          setActiveTool('room');
-        }
-        return;
-      }
-      if (e.key === 'g' || e.key === 'G') {
-        e.preventDefault();
-        setShowGrid(prev => !prev);
-        return;
-      }
-      if (e.key === 't' || e.key === 'T') {
-        // Cycle terrain brushes when on background tool
-        if (activeTool === 'background' && terrainBrushes.length > 0) {
-          e.preventDefault();
-          const currentIndex = selectedTerrainBrush 
-            ? terrainBrushes.findIndex(b => b.download_url === selectedTerrainBrush)
-            : -1;
-          const nextIndex = (currentIndex + 1) % terrainBrushes.length;
-          onSelectTerrainBrush(terrainBrushes[nextIndex].download_url);
-          // Show terrain submenu
-          setShowTerrainSubmenuForT(true);
-        } else {
-          // Switch to background tool and show terrain submenu
-          setActiveTool('background');
-          setShowTerrainSubmenuForT(true);
-          onSwitchToDrawTab();
-        }
-        return;
-      }
-      if (e.key === 'c' || e.key === 'C') {
-        e.preventDefault();
-        // Cycle through colors
-        const colors: ColorType[] = ['red', 'blue', 'yellow', 'green', 'purple', 'orange', 'pink', 'brown', 'gray', 'black', 'white', 'cyan', 'magenta', 'lime', 'indigo', 'teal'];
-        const currentIndex = colors.indexOf(selectedColor);
-        const nextIndex = (currentIndex + 1) % colors.length;
-        const newColor = colors[nextIndex];
-        onColorChange(newColor);
-        
-        // Apply color to selected element(s) if any
-        if (selectedElementId || selectedElementIds.length > 0) {
-          const event = new CustomEvent('applyColorToSelection', { detail: { color: newColor } });
-          window.dispatchEvent(event);
-        }
-        return;
-      }
+      // NOTE: Tool selection (V, B, T, R, D, Z) is now handled by individual button components
+      // NOTE: Actions (F, L, N, G, C) are now handled by individual button components
 
       // Deselect all or return to pointer tool
       if (e.key === 'Escape') {
         // Cancel custom room drawing if in progress
         if (customRoomVertices.length > 0) {
           setCustomRoomVertices([]);
+          return;
+        }
+        
+        // Cancel wall drawing if in progress
+        if (wallVertices.length > 0) {
+          setWallVertices([]);
+          return;
+        }
+        
+        // Cancel wall line drawing if in progress
+        if (wallLineStart || wallLinePreview) {
+          setWallLineStart(null);
+          setWallLinePreview(null);
           return;
         }
         
@@ -1776,6 +2061,23 @@ const Canvas = ({
     }
   }, [isShiftPressed, showTokenSubmenuForShift]);
 
+  // Auto-hide grid submenu after G key
+  useEffect(() => {
+    if (showGridSubmenuForG) {
+      const timeout = setTimeout(() => {
+        setShowGridSubmenuForG(false);
+      }, 1500);
+      return () => clearTimeout(timeout);
+    }
+  }, [showGridSubmenuForG]);
+
+  // Hide grid submenu when grid is turned off
+  useEffect(() => {
+    if (!showGrid && showGridSubmenuForG) {
+      setShowGridSubmenuForG(false);
+    }
+  }, [showGrid, showGridSubmenuForG]);
+
   // Hide terrain submenu when switching away from background tool
   useEffect(() => {
     if (activeTool !== 'background' && showTerrainSubmenuForT) {
@@ -1962,6 +2264,15 @@ const Canvas = ({
     // Draw stamp on affected tile canvases
     affectedTileKeys.forEach(tileKey => {
       const canvas = tileCanvasRefs.current.get(tileKey);
+      
+      console.log('[🖌️ STAMP BRUSH] Drawing to tile', { 
+        tileKey, 
+        hasCanvas: !!canvas,
+        worldX,
+        worldY,
+        totalRefs: tileCanvasRefs.current.size
+      });
+      
       if (!canvas) return;
       
       const ctx = canvas.getContext('2d');
@@ -1985,6 +2296,7 @@ const Canvas = ({
 
   // Start brush painting
   const startBrushPainting = (worldX: number, worldY: number) => {
+    console.log('[🎨 TERRAIN BRUSH] startBrushPainting called', { worldX, worldY, selectedBackgroundTexture });
     if (!selectedBackgroundTexture) return;
     
     // Load brush image if not already loaded or if texture changed
@@ -2063,6 +2375,12 @@ const Canvas = ({
     if (e.detail === 2 && activeTool === 'room' && baseShape === 'custom' && customRoomVertices.length >= 3) {
       const selectedRoom = scene?.elements.find(el => el.id === selectedElementId && el.type === 'room') as RoomElement | undefined;
       completeCustomRoom(selectedRoom);
+      return;
+    }
+
+    // Handle double-click for wall completion
+    if (e.detail === 2 && activeTool === 'wall' && wallVertices.length >= 2) {
+      completeWall();
       return;
     }
 
@@ -2191,11 +2509,31 @@ const Canvas = ({
         
         // Check for CTRL/SHIFT + click on edge to add new vertex and start dragging it
         if (e.ctrlKey || e.shiftKey) {
-          for (let i = 0; i < element.vertices.length; i++) {
-            const v1 = element.vertices[i];
-            const v2 = element.vertices[(i + 1) % element.vertices.length];
+          // Need to transform edges to world space to check distance correctly
+          for (let i = 0; i < relativeVertices.length; i++) {
+            const v1 = relativeVertices[i];
+            const v2 = relativeVertices[(i + 1) % relativeVertices.length];
             
-            const { distance } = distanceToLineSegment({ x, y }, v1, v2);
+            // Rotate both vertices around center
+            const v1RelX = v1.x - width / 2;
+            const v1RelY = v1.y - height / 2;
+            const v1RotX = v1RelX * Math.cos(rotation) - v1RelY * Math.sin(rotation);
+            const v1RotY = v1RelX * Math.sin(rotation) + v1RelY * Math.cos(rotation);
+            const v1WorldX = minX + width / 2 + v1RotX;
+            const v1WorldY = minY + height / 2 + v1RotY;
+            
+            const v2RelX = v2.x - width / 2;
+            const v2RelY = v2.y - height / 2;
+            const v2RotX = v2RelX * Math.cos(rotation) - v2RelY * Math.sin(rotation);
+            const v2RotY = v2RelX * Math.sin(rotation) + v2RelY * Math.cos(rotation);
+            const v2WorldX = minX + width / 2 + v2RotX;
+            const v2WorldY = minY + height / 2 + v2RotY;
+            
+            const { distance } = distanceToLineSegment(
+              { x, y }, 
+              { x: v1WorldX, y: v1WorldY }, 
+              { x: v2WorldX, y: v2WorldY }
+            );
             
             if (distance < 8 / viewport.zoom) {
               // Click is on edge - insert new vertex and immediately start moving it
@@ -2245,6 +2583,76 @@ const Canvas = ({
               initialRotation: element.rotation || 0
             });
             return;
+          }
+        }
+      }
+      
+      // Check if clicking on vertex or edge for wall element (similar to room)
+      if (element && element.type === 'wall') {
+        // Handle both segments (merged walls) and vertices (single walls)
+        const hasSegments = element.segments && element.segments.length > 0;
+        const vertices = hasSegments ? element.segments!.flat() : element.vertices;
+        
+        if (vertices && vertices.length > 0) {
+          // Check direct click on vertex (CTRL/SHIFT + click to move vertex)
+          for (let i = 0; i < vertices.length; i++) {
+            const v = vertices[i];
+            if (!v) continue;
+            const distToVertex = Math.sqrt(
+              Math.pow(x - v.x, 2) + Math.pow(y - v.y, 2)
+            );
+            
+            if (distToVertex < 6 / viewport.zoom) {
+              if (e.ctrlKey || e.shiftKey) {
+                // CTRL/SHIFT + click on vertex: Move vertex
+                setMovingVertex({ id: element.id, vertexIndex: i, segmentBased: hasSegments });
+                return;
+              }
+            }
+          }
+          
+          // Check for CTRL/SHIFT + click on edge to add new vertex
+          if (e.ctrlKey || e.shiftKey) {
+            const segments = hasSegments ? element.segments! : [element.vertices];
+            let globalVertexIndex = 0;
+            
+            for (const segment of segments) {
+              for (let i = 0; i < segment.length - 1; i++) {
+                const v1 = segment[i];
+                const v2 = segment[i + 1];
+                
+                const { distance } = distanceToLineSegment({ x, y }, v1, v2);
+                
+                if (distance < 8 / viewport.zoom) {
+                  // Click is on edge - insert new vertex and immediately start moving it
+                  saveToHistory();
+                  
+                  if (hasSegments) {
+                    // Insert into the specific segment
+                    const newSegments = element.segments!.map((seg) => {
+                      if (seg === segment) {
+                        const newSeg = [...seg];
+                        newSeg.splice(i + 1, 0, { x, y });
+                        return newSeg;
+                      }
+                      return seg;
+                    });
+                    updateElement(element.id, { segments: newSegments });
+                  } else {
+                    // Insert into vertices array
+                    const newVertices = [...element.vertices];
+                    newVertices.splice(i + 1, 0, { x, y });
+                    updateElement(element.id, { vertices: newVertices });
+                  }
+                  
+                  // Start moving the newly created vertex
+                  const newVertexIndex = globalVertexIndex + i + 1;
+                  setMovingVertex({ id: element.id, vertexIndex: newVertexIndex, segmentBased: hasSegments });
+                  return;
+                }
+              }
+              globalVertexIndex += segment.length;
+            }
           }
         }
       }
@@ -2344,6 +2752,11 @@ const Canvas = ({
                 const ys = el.vertices.map(v => v.y);
                 elX = (Math.min(...xs) + Math.max(...xs)) / 2;
                 elY = (Math.min(...ys) + Math.max(...ys)) / 2;
+              } else if (el.type === 'wall' && el.vertices) {
+                const xs = el.vertices.map(v => v.x);
+                const ys = el.vertices.map(v => v.y);
+                elX = (Math.min(...xs) + Math.max(...xs)) / 2;
+                elY = (Math.min(...ys) + Math.max(...ys)) / 2;
               } else if ('x' in el && 'y' in el) {
                 elX = el.x;
                 elY = el.y;
@@ -2382,6 +2795,21 @@ const Canvas = ({
             const centerY = (Math.min(...ys) + Math.max(...ys)) / 2;
             offsetX = x - centerX;
             offsetY = y - centerY;
+          } else if (clickedElement.type === 'wall') {
+            const wallElement = clickedElement as WallElement;
+            const hasSegments = wallElement.segments && wallElement.segments.length > 0;
+            const allVertices = hasSegments ? wallElement.segments!.flat() : wallElement.vertices || [];
+            if (allVertices.length > 0) {
+              const xs = allVertices.filter(v => v).map(v => v.x);
+              const ys = allVertices.filter(v => v).map(v => v.y);
+              const centerX = (Math.min(...xs) + Math.max(...xs)) / 2;
+              const centerY = (Math.min(...ys) + Math.max(...ys)) / 2;
+              offsetX = x - centerX;
+              offsetY = y - centerY;
+            } else {
+              offsetX = 0;
+              offsetY = 0;
+            }
           } else if ('x' in clickedElement && 'y' in clickedElement) {
             offsetX = x - clickedElement.x;
             offsetY = y - clickedElement.y;
@@ -2434,7 +2862,7 @@ const Canvas = ({
         isShape: activeTokenTemplate.isShape,
         isPOI: activeTokenTemplate.isPOI,
         icon: activeTokenTemplate.icon,
-        color: activeTokenTemplate.color
+        color: activeTokenTemplate.color || activeColor // Always set color for border (use template color or selected color)
       };
       setTempElement(tempToken);
     } else if (effectiveTool === 'room') {
@@ -2558,8 +2986,51 @@ const Canvas = ({
         };
         setTempRoom(tempRoomElement);
       }
+    } else if (effectiveTool === 'wall') {
+      // Wall drawing - click to place vertices
+      console.log('[WALL DRAW] Adding vertex at', x, y);
+      
+      if (!selectedWallTexture) {
+        console.warn('[WALL DRAW] No wall texture selected!');
+        return;
+      }
+      
+      // Add vertex at clicked point
+      const newVertices = [...wallVertices, { x, y }];
+      setWallVertices(newVertices);
+      
+      console.log('[WALL DRAW] Total vertices:', newVertices.length);
+      
+      // Auto-activate scene on first wall vertex (like terrain brushes)
+      if (newVertices.length === 1 && !hasActivatedSceneRef.current) {
+        activateAutoCreatedScene();
+        hasActivatedSceneRef.current = true;
+      }
+      
+      return;
+    } else if (effectiveTool === 'wall-line') {
+      // Wall line drawing - click and drag to draw single wall line
+      console.log('[WALL LINE] Starting wall line at', x, y);
+      
+      if (!selectedWallTexture) {
+        console.warn('[WALL LINE] No wall texture selected!');
+        return;
+      }
+      
+      // Start wall line at clicked point
+      setWallLineStart({ x, y });
+      setWallLinePreview({ x, y });
+      
+      // Auto-activate scene on first wall line start (like terrain brushes)
+      if (!hasActivatedSceneRef.current) {
+        activateAutoCreatedScene();
+        hasActivatedSceneRef.current = true;
+      }
+      
+      return;
     } else if (effectiveTool === 'background') {
       // Start brush painting
+      console.log('[🎨 TERRAIN BRUSH] handleMouseDown triggered', { x, y, selectedBackgroundTexture });
       if (!selectedBackgroundTexture) {
         console.warn('[BRUSH PAINT] No texture selected!');
         return;
@@ -2579,6 +3050,34 @@ const Canvas = ({
     // Update cursor position for custom room preview
     if (activeTool === 'room' && getBaseShape(roomSubTool) === 'custom') {
       setCursorPosition({ x, y });
+    }
+
+    // Update cursor position for wall preview
+    if (activeTool === 'wall') {
+      setCursorPosition({ x, y });
+    }
+
+    // Update wall line preview while dragging
+    if (activeTool === 'wall-line' && wallLineStart) {
+      let previewX = x;
+      let previewY = y;
+      
+      // Snap to 45-degree angles if shift is held
+      if (isShiftPressed) {
+        const dx = x - wallLineStart.x;
+        const dy = y - wallLineStart.y;
+        const angle = Math.atan2(dy, dx);
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        // Round to nearest 45 degrees (π/4 radians)
+        const snapAngle = Math.round(angle / (Math.PI / 4)) * (Math.PI / 4);
+        
+        // Calculate snapped position
+        previewX = wallLineStart.x + distance * Math.cos(snapAngle);
+        previewY = wallLineStart.y + distance * Math.sin(snapAngle);
+      }
+      
+      setWallLinePreview({ x: previewX, y: previewY });
     }
 
     // Check if hovering over rotation handle or vertices
@@ -2815,6 +3314,44 @@ const Canvas = ({
               vertices: newVertices,
               holes: newHoles
             });
+          } else if (element.type === 'wall') {
+            const wallElement = element as WallElement;
+            const hasSegments = wallElement.segments && wallElement.segments.length > 0;
+            const allVertices = hasSegments ? wallElement.segments!.flat() : wallElement.vertices || [];
+            
+            if (allVertices.length > 0) {
+              // Calculate current center
+              const xs = allVertices.filter(v => v).map(v => v.x);
+              const ys = allVertices.filter(v => v).map(v => v.y);
+              const currentCenterX = (Math.min(...xs) + Math.max(...xs)) / 2;
+              const currentCenterY = (Math.min(...ys) + Math.max(...ys)) / 2;
+              
+              // Calculate new center
+              const newCenterX = x - initialOffset.x;
+              const newCenterY = y - initialOffset.y;
+              
+              // Calculate delta
+              const dx = newCenterX - currentCenterX;
+              const dy = newCenterY - currentCenterY;
+              
+              if (hasSegments) {
+                // Move all segments
+                const newSegments = wallElement.segments!.map(segment =>
+                  segment.map(v => ({
+                    x: v.x + dx,
+                    y: v.y + dy
+                  }))
+                );
+                updates.set(id, { segments: newSegments });
+              } else {
+                // Move all vertices
+                const newVertices = wallElement.vertices!.map(v => ({
+                  x: v.x + dx,
+                  y: v.y + dy
+                }));
+                updates.set(id, { vertices: newVertices });
+              }
+            }
           } else if ('x' in element && 'y' in element) {
             updates.set(id, {
               x: x - initialOffset.x,
@@ -2859,9 +3396,9 @@ const Canvas = ({
       const distance = Math.sqrt((x - createStart.x) ** 2 + (y - createStart.y) ** 2) * 2;
       const size = Math.max(10, distance);
       
-      // Only update size for elements that have a size property (not rooms)
-      if (tempElement.type !== 'room') {
-        setTempElement({ ...tempElement, size });
+      // Only update size for elements that have a size property (not rooms or walls)
+      if (tempElement.type !== 'room' && tempElement.type !== 'wall') {
+        setTempElement({ ...tempElement, size } as MapElement);
       }
       return;
     }
@@ -2931,10 +3468,41 @@ const Canvas = ({
     // Handle moving single vertex
     if (movingVertex && scene) {
       const element = scene.elements.find(el => el.id === movingVertex.id);
+      
       if (element && element.type === 'room' && element.vertices) {
         const newVertices = [...element.vertices];
         newVertices[movingVertex.vertexIndex] = { x, y };
         updateElement(element.id, { vertices: newVertices });
+      } else if (element && element.type === 'wall') {
+        if (movingVertex.segmentBased && element.segments) {
+          // Handle segment-based walls (merged walls)
+          const newSegments = [...element.segments];
+          
+          // Find which segment contains this vertex
+          let remainingIndex = movingVertex.vertexIndex;
+          let targetSegmentIdx = 0;
+          let vertexIdxInSegment = 0;
+          
+          for (let i = 0; i < newSegments.length; i++) {
+            if (remainingIndex < newSegments[i].length) {
+              targetSegmentIdx = i;
+              vertexIdxInSegment = remainingIndex;
+              break;
+            }
+            remainingIndex -= newSegments[i].length;
+          }
+          
+          // Update the vertex in that segment
+          newSegments[targetSegmentIdx] = [...newSegments[targetSegmentIdx]];
+          newSegments[targetSegmentIdx][vertexIdxInSegment] = { x, y };
+          
+          updateElement(element.id, { segments: newSegments });
+        } else if (element.vertices) {
+          // Handle single vertices array
+          const newVertices = [...element.vertices];
+          newVertices[movingVertex.vertexIndex] = { x, y };
+          updateElement(element.id, { vertices: newVertices });
+        }
       }
       return;
     }
@@ -3069,6 +3637,44 @@ const Canvas = ({
             vertices: newVertices,
             holes: newHoles
           });
+        } else if (element.type === 'wall') {
+          const wallElement = element as WallElement;
+          const hasSegments = wallElement.segments && wallElement.segments.length > 0;
+          const allVertices = hasSegments ? wallElement.segments!.flat() : wallElement.vertices || [];
+          
+          if (allVertices.length > 0) {
+            // Calculate current center of wall
+            const xs = allVertices.filter(v => v).map(v => v.x);
+            const ys = allVertices.filter(v => v).map(v => v.y);
+            const currentCenterX = (Math.min(...xs) + Math.max(...xs)) / 2;
+            const currentCenterY = (Math.min(...ys) + Math.max(...ys)) / 2;
+            
+            // Calculate new center
+            const newCenterX = x - draggedElement.offsetX;
+            const newCenterY = y - draggedElement.offsetY;
+            
+            // Calculate delta
+            const dx = newCenterX - currentCenterX;
+            const dy = newCenterY - currentCenterY;
+            
+            if (hasSegments) {
+              // Move all segments
+              const newSegments = wallElement.segments!.map(segment =>
+                segment.map(v => ({
+                  x: v.x + dx,
+                  y: v.y + dy
+                }))
+              );
+              updateElement(draggedElement.id, { segments: newSegments });
+            } else {
+              // Move all vertices
+              const newVertices = wallElement.vertices!.map(v => ({
+                x: v.x + dx,
+                y: v.y + dy
+              }));
+              updateElement(draggedElement.id, { vertices: newVertices });
+            }
+          }
         } else if ('x' in element && 'y' in element) {
           updateElement(draggedElement.id, {
             x: x - draggedElement.offsetX,
@@ -3116,6 +3722,12 @@ const Canvas = ({
 
       const selected = scene.elements.filter(element => {
         if (element.type === 'room' && element.vertices) {
+          const xs = element.vertices.map(v => v.x);
+          const ys = element.vertices.map(v => v.y);
+          const centerX = (Math.min(...xs) + Math.max(...xs)) / 2;
+          const centerY = (Math.min(...ys) + Math.max(...ys)) / 2;
+          return centerX >= minX && centerX <= maxX && centerY >= minY && centerY <= maxY;
+        } else if (element.type === 'wall' && element.vertices) {
           const xs = element.vertices.map(v => v.x);
           const ys = element.vertices.map(v => v.y);
           const centerX = (Math.min(...xs) + Math.max(...xs)) / 2;
@@ -3259,6 +3871,47 @@ const Canvas = ({
       return;
     }
 
+    // Finalize wall line creation
+    if (wallLineStart && wallLinePreview && activeTool === 'wall-line') {
+      console.log('[WALL LINE] Completing wall line');
+      
+      // Calculate distance to ensure we have a valid line
+      const dx = wallLinePreview.x - wallLineStart.x;
+      const dy = wallLinePreview.y - wallLineStart.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      
+      // Only create wall if it's long enough (at least 10 pixels)
+      if (distance >= 10) {
+        saveToHistory();
+
+        const wallCount = scene!.elements.filter(e => e.type === 'wall').length + 1;
+        const textureName = getTextureName(selectedWallTexture || '');
+        
+        const newWall: WallElement = {
+          id: `wall-${Date.now()}`,
+          type: 'wall',
+          vertices: [wallLineStart, wallLinePreview],
+          wallTextureUrl: selectedWallTexture || '',
+          wallThickness: wallThickness,
+          wallTileSize: wallTileSize,
+          name: `${textureName} Wall ${wallCount}`,
+          notes: '',
+          zIndex: -50,
+          visible: true,
+          widgets: []
+        };
+        
+        addElement(newWall);
+        setSelectedElementId(newWall.id);
+        setSelectedElementIds([]);
+        console.log('[WALL LINE] Created wall:', newWall);
+      }
+      
+      setWallLineStart(null);
+      setWallLinePreview(null);
+      return;
+    }
+
     setIsCreating(false);
     setCreateStart(null);
     setTempElement(null);
@@ -3370,6 +4023,47 @@ const Canvas = ({
         const room = element as RoomElement;
         if (room.vertices && pointInPolygon({ x, y }, room.vertices)) {
           return element;
+        }
+      } else if (element.type === 'wall') {
+        // Handle wall elements - check if clicking near the wall line(s)
+        const wall = element as WallElement;
+        const threshold = (wall.wallThickness / 2) + 5; // Add 5px margin for easier selection
+        
+        // Get segments (either from segments array or single vertices array)
+        const segments = wall.segments && wall.segments.length > 0 
+          ? wall.segments 
+          : (wall.vertices && wall.vertices.length >= 2 ? [wall.vertices] : []);
+        
+        // Check each segment
+        for (const segment of segments) {
+          if (segment.length < 2) continue;
+          
+          // Check each line segment within this segment
+          for (let j = 0; j < segment.length - 1; j++) {
+            const v1 = segment[j];
+            const v2 = segment[j + 1];
+            
+            // Calculate distance from point to line segment
+            const dx = v2.x - v1.x;
+            const dy = v2.y - v1.y;
+            const lengthSquared = dx * dx + dy * dy;
+            
+            if (lengthSquared === 0) continue; // Zero-length segment
+            
+            // Calculate projection of point onto line
+            const t = Math.max(0, Math.min(1, ((x - v1.x) * dx + (y - v1.y) * dy) / lengthSquared));
+            const projX = v1.x + t * dx;
+            const projY = v1.y + t * dy;
+            
+            // Calculate distance from point to projection
+            const distX = x - projX;
+            const distY = y - projY;
+            const distance = Math.sqrt(distX * distX + distY * distY);
+            
+            if (distance <= threshold) {
+              return element;
+            }
+          }
         }
       } else if ('x' in element && 'y' in element && 'size' in element) {
         // Handle circular elements (annotations and tokens)
@@ -3509,20 +4203,25 @@ const Canvas = ({
       >
         {/* ...no token submenu rendered... */}
         {scene && (() => {
-          const isCanvas = mapDimensions.width === 0 && mapDimensions.height === 0;
+          // Check if this is canvas mode (transparent background SVG)
+          const isCanvas = scene.backgroundMapUrl.includes('fill="transparent"') ||
+                          scene.backgroundMapUrl.includes('fill=%22transparent%22');
           
           if (isCanvas) {
-            // Large canvas with static grid - centered so user starts in middle
+            // INFINITE CANVAS MODE:
+            // No static 50000×50000 grid - instead we use the dynamic grid overlay below
+            // that adjusts its pattern offset based on viewport position and gridSize.
+            // This ensures the grid center aligns with world (0,0) at all times.
             const canvasSize = 50000; // Large but not infinite
             
             return (
               <>
-                {/* Hidden img for canvas to trigger load event */}
+                {/* Layer 1: MAP - Hidden img for canvas to trigger load event */}
                 <img
                   ref={imgRef}
                   src={scene.backgroundMapUrl}
                   alt="canvas"
-                  style={{ display: 'none', zIndex: 1 }}
+                  style={{ display: 'none', zIndex: Z_MAP }}
                 />
                 <div
                   style={{
@@ -3533,51 +4232,50 @@ const Canvas = ({
                     transformOrigin: '0 0',
                     width: canvasSize,
                     height: canvasSize,
-                    pointerEvents: 'none',
-                    zIndex: 1
+                    zIndex: Z_MAP
                   }}
                 >
-                {/* Large Static Grid */}
-                {showGrid && (
-                  <svg
-                    style={{
-                      position: 'absolute',
-                      left: 0,
-                      top: 0,
-                      width: canvasSize,
-                      height: canvasSize,
-                      pointerEvents: 'none',
-                      opacity: 0.3
-                    }}
-                  >
-                    <defs>
-                      <pattern
-                        id="canvas-grid-pattern"
-                        x={0}
-                        y={0}
-                        width={gridSize}
-                        height={gridSize}
-                        patternUnits="userSpaceOnUse"
-                      >
-                        <path
-                          d={`M ${gridSize} 0 L 0 0 0 ${gridSize}`}
-                          fill="none"
-                          stroke="rgba(255, 255, 255, 0.8)"
-                          strokeWidth="1"
-                        />
-                      </pattern>
-                    </defs>
-                    <rect
-                      x={0}
-                      y={0}
-                      width={canvasSize}
-                      height={canvasSize}
-                      fill="url(#canvas-grid-pattern)"
-                    />
-                  </svg>
-                )}
+                {/* Layer 2: TERRAIN BRUSH - Tile-based terrain painting
+                    In canvas-mode, world origin (0,0) is at canvasSize/2.
+                    TerrainTile.x/y are in world coordinates, so we offset them
+                    by canvasSize/2 to align with the Elements wrapper below.
+                */}
+                {(() => {
+                  const tiles = Array.from(terrainTiles.entries());
+                  console.log('[TERRAIN TILES] Canvas mode render', { tileCount: terrainTiles.size });
+                  
+                  return tiles.map(([tileKey, tile]) => {
+                    const visibleKeys = getVisibleTileKeys();
+                    if (!visibleKeys.includes(tileKey)) return null;
+                    
+                    return (
+                      <canvas
+                        key={tileKey}
+                        ref={el => {
+                          if (el) {
+                            tileCanvasRefs.current.set(tileKey, el);
+                          } else {
+                            tileCanvasRefs.current.delete(tileKey);
+                          }
+                        }}
+                        width={TILE_SIZE}
+                        height={TILE_SIZE}
+                        style={{
+                          position: 'absolute',
+                          // Offset by canvasSize/2 to align with world origin (0,0)
+                          left: canvasSize / 2 + tile.x,
+                          top: canvasSize / 2 + tile.y,
+                          width: TILE_SIZE,
+                          height: TILE_SIZE,
+                          pointerEvents: 'none',
+                          zIndex: Z_TERRAIN
+                        }}
+                      />
+                    );
+                  });
+                })()}
 
-                {/* Elements wrapper - offset to center at (0,0) */}
+                {/* Layer 3: FLOORS - Room floors (BELOW grid) - separate stacking context */}
                 <div
                   style={{
                     position: 'absolute',
@@ -3585,21 +4283,142 @@ const Canvas = ({
                     top: canvasSize / 2,
                     width: 0,
                     height: 0,
-                    zIndex: 10
+                    zIndex: Z_FLOOR
                   }}
                 >
-                  {/* Elements for infinite canvas */}
-                  {[...scene.elements]
+                  {/* Room floors rendered in separate layer below grid */}
+                  {scene.elements
+                    .filter(el => el.type === 'room')
                     .sort((a, b) => ((a as any).zIndex || 0) - ((b as any).zIndex || 0))
                     .map(element => (
-                    <MapElementComponent
-                      key={element.id}
-                      element={element}
-                      isSelected={selectedElementId === element.id || selectedElementIds.includes(element.id)}
-                      viewport={viewport}
-                      showTokenBadges={showTokenBadges}
-                    />
-                  ))}
+                      <MapElementComponent
+                        key={`${element.id}-floor`}
+                        element={element}
+                        isSelected={false}
+                        viewport={viewport}
+                        showTokenBadges={showTokenBadges}
+                        renderLayer="floor"
+                      />
+                    ))}
+                </div>
+
+                {/* Layer 4: GRID - Infinite scrolling grid overlay */}
+                {showGrid && (() => {
+                  // Helper: modulo that handles negative values correctly
+                  const mod = (n: number, m: number) => ((n % m) + m) % m;
+                  
+                  // Grid lives in WORLD SPACE (inside transform: scale(viewport.zoom) container)
+                  // So we use gridSize directly, NO zoom multiplication here
+                  // World origin is at canvasSize/2, we want cell center at (0,0)
+                  const worldOriginX = canvasSize / 2;
+                  const worldOriginY = canvasSize / 2;
+                  
+                  // Pattern offset to align cell center with world origin
+                  // We want the grid to be centered at world (0,0), which is canvas center
+                  const patternOffsetX = mod(worldOriginX - gridSize / 2, gridSize);
+                  const patternOffsetY = mod(worldOriginY - gridSize / 2, gridSize);
+                  
+                  return (
+                    <svg
+                      style={{
+                        position: 'absolute',
+                        left: 0,
+                        top: 0,
+                        width: '100%',
+                        height: '100%',
+                        pointerEvents: 'none',
+                        opacity: 0.3,
+                        zIndex: Z_GRID
+                      }}
+                    >
+                      <defs>
+                        <pattern
+                          id="canvas-grid-pattern"
+                          x={patternOffsetX}
+                          y={patternOffsetY}
+                          width={gridSize}
+                          height={gridSize}
+                          patternUnits="userSpaceOnUse"
+                        >
+                          <path
+                            d={`M ${gridSize} 0 L 0 0 0 ${gridSize}`}
+                            fill="none"
+                            stroke="rgba(255, 128, 0, 1)"
+                            strokeWidth="2"
+                          />
+                        </pattern>
+                      </defs>
+                      <rect
+                        x={0}
+                        y={0}
+                        width="100%"
+                        height="100%"
+                        fill="url(#canvas-grid-pattern)"
+                      />
+                    </svg>
+                  );
+                })()}
+
+                {/* Layer 5: WALLS & SELECTION - Room walls, selection, labels (ABOVE grid) */}
+                <div
+                  style={{
+                    position: 'absolute',
+                    left: canvasSize / 2,
+                    top: canvasSize / 2,
+                    width: 0,
+                    height: 0,
+                    zIndex: Z_WALL
+                  }}
+                >
+                  {/* Room walls, selection, and labels rendered above grid */}
+                  {scene.elements
+                    .filter(el => el.type === 'room')
+                    .sort((a, b) => ((a as any).zIndex || 0) - ((b as any).zIndex || 0))
+                    .map(element => (
+                      <MapElementComponent
+                        key={`${element.id}-walls`}
+                        element={element}
+                        isSelected={selectedElementId === element.id || selectedElementIds.includes(element.id)}
+                        viewport={viewport}
+                        showTokenBadges={showTokenBadges}
+                        renderLayer="walls"
+                      />
+                    ))}
+                </div>
+
+                {/* Layer 6: TOKENS & OTHER ELEMENTS - Tokens, annotations, etc. */}
+                <div
+                  style={{
+                    position: 'absolute',
+                    left: canvasSize / 2,
+                    top: canvasSize / 2,
+                    width: 0,
+                    height: 0,
+                    zIndex: Z_TOKENS
+                  }}
+                >
+                  {/* Other elements (wall elements, tokens, annotations, etc.) */}
+                  {scene.elements
+                    .filter(el => el.type !== 'room')
+                    .sort((a, b) => {
+                      const getLayerOffset = (el: MapElement) => {
+                        if (el.type === 'wall') return 0;
+                        return 0; // All at same level within this layer
+                      };
+                      const aLayer = getLayerOffset(a);
+                      const bLayer = getLayerOffset(b);
+                      if (aLayer !== bLayer) return aLayer - bLayer;
+                      return ((a as any).zIndex || 0) - ((b as any).zIndex || 0);
+                    })
+                    .map(element => (
+                      <MapElementComponent
+                        key={element.id}
+                        element={element}
+                        isSelected={selectedElementId === element.id || selectedElementIds.includes(element.id)}
+                        viewport={viewport}
+                        showTokenBadges={showTokenBadges}
+                      />
+                    ))}
 
                   {/* Temp element during creation */}
                   {tempElement && tempElement.id === 'temp' && (
@@ -3608,6 +4427,7 @@ const Canvas = ({
                       isSelected={false}
                       viewport={viewport}
                       showTokenBadges={showTokenBadges}
+                      renderLayer="full"
                     />
                   )}
                 </div>
@@ -3617,7 +4437,10 @@ const Canvas = ({
           }
           
           // Regular map with fixed dimensions
+          // Visual stacking order (back → front):
+          // 1: Map | 2: Terrain brush | 3: Floor tiles | 4: Grid | 5: Wall textures | 6: Tokens
           return (
+          <>
           <div
             style={{
               position: 'absolute',
@@ -3629,7 +4452,7 @@ const Canvas = ({
               height: (shouldRotateMap ? mapDimensions.width : mapDimensions.height) + mapDimensions.padding * 2
             }}
           >
-            {/* Background Map Image */}
+            {/* Layer 1: MAP - Background Map Image */}
             {!scene.backgroundMapUrl.includes('fill=%22transparent%22') && !scene.backgroundMapUrl.includes('fill="transparent"') && (
               <img
                 ref={imgRef}
@@ -3645,12 +4468,12 @@ const Canvas = ({
                   top: shouldRotateMap ? mapDimensions.padding + (mapDimensions.width - mapDimensions.height) / 2 : mapDimensions.padding,
                   width: mapDimensions.width,
                   height: mapDimensions.height,
-                  zIndex: 0
+                  zIndex: Z_MAP
                 }}
               />
             )}
 
-            {/* Terrain Tiles - uses world coordinates inside transform */}
+            {/* Layer 2: TERRAIN BRUSH - Tile-based terrain painting */}
             {Array.from(terrainTiles.entries()).map(([tileKey, tile]) => {
               const visibleKeys = getVisibleTileKeys();
               if (!visibleKeys.includes(tileKey)) return null;
@@ -3674,65 +4497,72 @@ const Canvas = ({
                     width: TILE_SIZE,
                     height: TILE_SIZE,
                     pointerEvents: 'none',
-                    zIndex: 1
+                    zIndex: Z_TERRAIN
                   }}
                 />
               );
             })}
 
-            {/* Grid Overlay */}
-            {showGrid && (
-              <svg
-                style={{
-                  position: 'absolute',
-                  left: 0,
-                  top: 0,
-                  width: (shouldRotateMap ? mapDimensions.height : mapDimensions.width) + mapDimensions.padding * 2,
-                  height: (shouldRotateMap ? mapDimensions.width : mapDimensions.height) + mapDimensions.padding * 2,
-                  pointerEvents: 'none',
-                  opacity: 0.3
-                }}
-              >
-                <defs>
-                  <pattern
-                    id="grid-pattern"
-                    x={mapDimensions.padding}
-                    y={mapDimensions.padding}
-                    width={gridSize}
-                    height={gridSize}
-                    patternUnits="userSpaceOnUse"
-                  >
-                    <path
-                      d={`M ${gridSize} 0 L 0 0 0 ${gridSize}`}
-                      fill="none"
-                      stroke="rgba(255, 255, 255, 0.8)"
-                      strokeWidth="1"
-                    />
-                  </pattern>
-                </defs>
-                <rect
-                  x={mapDimensions.padding}
-                  y={mapDimensions.padding}
-                  width={mapDimensions.width}
-                  height={mapDimensions.height}
-                  fill="url(#grid-pattern)"
-                />
-              </svg>
-            )}
-
-            {/* Elements */}
-            <div style={{ position: 'relative', zIndex: 10 }}>
-              {[...scene.elements]
+            {/* Layer 3: FLOORS - Room floors (BELOW grid) */}
+            <div style={{ position: 'relative', zIndex: Z_FLOOR }}>
+              {/* Room floors rendered in separate layer below grid */}
+              {scene.elements
+                .filter(el => el.type === 'room')
                 .sort((a, b) => ((a as any).zIndex || 0) - ((b as any).zIndex || 0))
                 .map(element => (
-                <MapElementComponent
-                  key={element.id}
-                  element={element}
-                  isSelected={selectedElementId === element.id || selectedElementIds.includes(element.id)}
-                  viewport={viewport}
-                  showTokenBadges={showTokenBadges}
-                />
-              ))}
+                  <MapElementComponent
+                    key={`${element.id}-floor`}
+                    element={element}
+                    isSelected={false}
+                    viewport={viewport}
+                    showTokenBadges={showTokenBadges}
+                    renderLayer="floor"
+                  />
+                ))}
+            </div>
+            
+            {/* Layer 5: WALLS & SELECTION - Room walls, selection, labels (ABOVE grid) */}
+            <div style={{ position: 'relative', zIndex: Z_WALL }}>
+              {/* Room walls, selection, and labels rendered above grid */}
+              {scene.elements
+                .filter(el => el.type === 'room')
+                .sort((a, b) => ((a as any).zIndex || 0) - ((b as any).zIndex || 0))
+                .map(element => (
+                  <MapElementComponent
+                    key={`${element.id}-walls`}
+                    element={element}
+                    isSelected={selectedElementId === element.id || selectedElementIds.includes(element.id)}
+                    viewport={viewport}
+                    showTokenBadges={showTokenBadges}
+                    renderLayer="walls"
+                  />
+                ))}
+            </div>
+            
+            {/* Layer 6: TOKENS & OTHER ELEMENTS */}
+            <div style={{ position: 'relative', zIndex: Z_TOKENS }}>
+              {/* Other elements (wall elements, tokens, annotations, etc.) */}
+              {scene.elements
+                .filter(el => el.type !== 'room')
+                .sort((a, b) => {
+                  const getLayerOffset = (el: MapElement) => {
+                    if (el.type === 'wall') return 0;
+                    return 0; // All at same level within this layer
+                  };
+                  const aLayer = getLayerOffset(a);
+                  const bLayer = getLayerOffset(b);
+                  if (aLayer !== bLayer) return aLayer - bLayer;
+                  return ((a as any).zIndex || 0) - ((b as any).zIndex || 0);
+                })
+                .map(element => (
+                  <MapElementComponent
+                    key={element.id}
+                    element={element}
+                    isSelected={selectedElementId === element.id || selectedElementIds.includes(element.id)}
+                    viewport={viewport}
+                    showTokenBadges={showTokenBadges}
+                  />
+                ))}
 
               {/* Temp element during creation */}
               {tempElement && tempElement.id === 'temp' && (
@@ -3741,10 +4571,81 @@ const Canvas = ({
                   isSelected={false}
                   viewport={viewport}
                   showTokenBadges={showTokenBadges}
+                  renderLayer="full"
                 />
               )}
             </div>
           </div>
+
+          {/* Layer 4: GRID - Infinite scrolling grid overlay (OUTSIDE transformed container) */}
+          {showGrid && (() => {
+            // Helper: modulo that handles negative values correctly
+            const mod = (n: number, m: number) => ((n % m) + m) % m;
+            
+            // Grid is OUTSIDE the transform: scale(viewport.zoom) container
+            // So it's in SCREEN SPACE, must convert world coords to screen coords
+            // Screen coord = viewport.x/y + world_coord * viewport.zoom
+            
+            // Grid size in screen pixels (world size scaled by zoom)
+            const scaledGridSize = gridSize * viewport.zoom;
+            
+            // Pattern offset: we want cell center at world (0,0)
+            // World (0,0) maps to screen (viewport.x + 0 * zoom, viewport.y + 0 * zoom) = (viewport.x, viewport.y)
+            // We want that point to be at center of a cell, so offset by -gridSize/2 in world coords
+            // In screen space: viewport.x/y + (-gridSize/2) * viewport.zoom
+            const patternOffsetX = mod(viewport.x - (gridSize / 2) * viewport.zoom, scaledGridSize);
+            const patternOffsetY = mod(viewport.y - (gridSize / 2) * viewport.zoom, scaledGridSize);
+            
+            console.log('[🟠 MAP GRID RENDERING]', {
+              mode: 'REGULAR MAP (SCREEN SPACE)',
+              viewport,
+              gridSize,
+              scaledGridSize,
+              patternOffset: { x: patternOffsetX, y: patternOffsetY },
+              note: 'Grid outside transform - world(0,0) at screen(' + viewport.x + ',' + viewport.y + ')'
+            });
+            
+            return (
+              <svg
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  top: 0,
+                  width: '100%',
+                  height: '100%',
+                  pointerEvents: 'none',
+                  opacity: 0.3,
+                  zIndex: Z_GRID
+                }}
+              >
+                <defs>
+                  <pattern
+                    id="map-grid-pattern"
+                    x={patternOffsetX}
+                    y={patternOffsetY}
+                    width={scaledGridSize}
+                    height={scaledGridSize}
+                    patternUnits="userSpaceOnUse"
+                  >
+                    <path
+                      d={`M ${scaledGridSize} 0 L 0 0 0 ${scaledGridSize}`}
+                      fill="none"
+                      stroke="rgba(255, 128, 0, 1)"
+                      strokeWidth="2"
+                    />
+                  </pattern>
+                </defs>
+                <rect
+                  x={0}
+                  y={0}
+                  width="100%"
+                  height="100%"
+                  fill="url(#map-grid-pattern)"
+                />
+              </svg>
+            );
+          })()}
+          </>
           );
         })()}
 
@@ -4013,6 +4914,187 @@ const Canvas = ({
           );
         })()}
 
+        {/* Wall drawing preview - works for both canvas and maps */}
+        {scene && wallVertices.length > 0 && (() => {
+          const isCanvas = mapDimensions.width === 0 && mapDimensions.height === 0;
+          const canvasSize = 50000;
+          
+          // Build preview vertices including cursor position
+          const previewVertices = [...wallVertices];
+          if (cursorPosition) {
+            previewVertices.push(cursorPosition);
+          }
+          
+          // Calculate bounding box
+          const xs = previewVertices.map(v => v.x);
+          const ys = previewVertices.map(v => v.y);
+          const minX = Math.min(...xs);
+          const minY = Math.min(...ys);
+          const maxX = Math.max(...xs);
+          const maxY = Math.max(...ys);
+          const width = maxX - minX + wallThickness * 2;
+          const height = maxY - minY + wallThickness * 2;
+          
+          // Convert vertices to relative coordinates
+          const relativeVertices = previewVertices.map(v => ({
+            x: v.x - minX + wallThickness,
+            y: v.y - minY + wallThickness
+          }));
+          
+          // Create polyline path
+          const polylinePath = relativeVertices.map((v, i) => 
+            `${i === 0 ? 'M' : 'L'}${v.x},${v.y}`
+          ).join(' ');
+          
+          const wallPatternId = 'wall-preview-pattern';
+          
+          return (
+              <svg
+                style={{
+                  position: 'absolute',
+                  left: isCanvas ? viewport.x + (minX - wallThickness - canvasSize / 2) * viewport.zoom : viewport.x + (minX - wallThickness) * viewport.zoom,
+                  top: isCanvas ? viewport.y + (minY - wallThickness - canvasSize / 2) * viewport.zoom : viewport.y + (minY - wallThickness) * viewport.zoom,
+                  transform: `scale(${viewport.zoom})`,
+                  transformOrigin: '0 0',
+                  width,
+                  height,
+                  pointerEvents: 'none',
+                  overflow: 'visible'
+                }}
+              >
+                <defs>
+                  {selectedWallTexture && (
+                    <pattern
+                      id={wallPatternId}
+                      patternUnits="userSpaceOnUse"
+                      width={wallTileSize}
+                      height={wallTileSize}
+                    >
+                      <image
+                        href={selectedWallTexture}
+                        width={wallTileSize}
+                        height={wallTileSize}
+                      />
+                    </pattern>
+                  )}
+                </defs>
+                
+                {/* Wall preview polyline with texture */}
+                <path
+                  d={polylinePath}
+                  fill="none"
+                  stroke={selectedWallTexture ? `url(#${wallPatternId})` : '#8b5cf6'}
+                  strokeWidth={wallThickness}
+                  strokeLinecap="square"
+                  strokeLinejoin="miter"
+                  opacity={cursorPosition ? 0.7 : 1}
+                />
+                
+                {/* Wall vertices */}
+                {wallVertices.map((vertex, i) => (
+                  <circle
+                    key={`wall-vertex-${i}`}
+                    cx={vertex.x - minX + wallThickness}
+                    cy={vertex.y - minY + wallThickness}
+                    r={5 / viewport.zoom}
+                    fill="#ffffff"
+                    stroke="#22c55e"
+                    strokeWidth={2 / viewport.zoom}
+                  />
+                ))}
+              </svg>
+          );
+        })()}
+
+        {/* Wall line preview - drag to draw single wall */}
+        {scene && wallLineStart && wallLinePreview && activeTool === 'wall-line' && (() => {
+          const isCanvas = mapDimensions.width === 0 && mapDimensions.height === 0;
+          const canvasSize = 50000;
+          
+          const previewVertices = [wallLineStart, wallLinePreview];
+          
+          // Calculate bounding box
+          const xs = previewVertices.map(v => v.x);
+          const ys = previewVertices.map(v => v.y);
+          const minX = Math.min(...xs);
+          const minY = Math.min(...ys);
+          const maxX = Math.max(...xs);
+          const maxY = Math.max(...ys);
+          const width = maxX - minX + wallThickness * 2;
+          const height = maxY - minY + wallThickness * 2;
+          
+          // Convert vertices to relative coordinates
+          const relativeVertices = previewVertices.map(v => ({
+            x: v.x - minX + wallThickness,
+            y: v.y - minY + wallThickness
+          }));
+          
+          const wallLinePatternId = 'wall-line-preview-pattern';
+          
+          return (
+              <svg
+                style={{
+                  position: 'absolute',
+                  left: isCanvas ? viewport.x + (minX - wallThickness - canvasSize / 2) * viewport.zoom : viewport.x + (minX - wallThickness) * viewport.zoom,
+                  top: isCanvas ? viewport.y + (minY - wallThickness - canvasSize / 2) * viewport.zoom : viewport.y + (minY - wallThickness) * viewport.zoom,
+                  transform: `scale(${viewport.zoom})`,
+                  transformOrigin: '0 0',
+                  width,
+                  height,
+                  pointerEvents: 'none',
+                  overflow: 'visible'
+                }}
+              >
+                <defs>
+                  {selectedWallTexture && (
+                    <pattern
+                      id={wallLinePatternId}
+                      patternUnits="userSpaceOnUse"
+                      width={wallTileSize}
+                      height={wallTileSize}
+                    >
+                      <image
+                        href={selectedWallTexture}
+                        width={wallTileSize}
+                        height={wallTileSize}
+                      />
+                    </pattern>
+                  )}
+                </defs>
+                
+                {/* Wall line preview with texture */}
+                <line
+                  x1={relativeVertices[0].x}
+                  y1={relativeVertices[0].y}
+                  x2={relativeVertices[1].x}
+                  y2={relativeVertices[1].y}
+                  stroke={selectedWallTexture ? `url(#${wallLinePatternId})` : '#8b5cf6'}
+                  strokeWidth={wallThickness}
+                  strokeLinecap="square"
+                  opacity={0.7}
+                />
+                
+                {/* Start and end point markers */}
+                <circle
+                  cx={relativeVertices[0].x}
+                  cy={relativeVertices[0].y}
+                  r={6 / viewport.zoom}
+                  fill="#8b5cf6"
+                  stroke="#ffffff"
+                  strokeWidth={2 / viewport.zoom}
+                />
+                <circle
+                  cx={relativeVertices[1].x}
+                  cy={relativeVertices[1].y}
+                  r={6 / viewport.zoom}
+                  fill="#8b5cf6"
+                  stroke="#ffffff"
+                  strokeWidth={2 / viewport.zoom}
+                />
+              </svg>
+          );
+        })()}
+
         {/* Selection box - works for both canvas and maps */}
         {scene && selectionBox && (
               <div
@@ -4108,6 +5190,70 @@ const Canvas = ({
               );
             })()}
 
+        {/* Merge Walls Button */}
+        {scene && (() => {
+              const selectedIds = selectedElementIds.length > 0 ? selectedElementIds : selectedElementId ? [selectedElementId] : [];
+              const selectedWalls = scene.elements.filter(el => 
+                selectedIds.includes(el.id) && el.type === 'wall'
+              ) as WallElement[];
+
+              if (selectedWalls.length < 2) return null;
+
+              // Calculate position: to the right of the selection bounding box
+              const allVertices: { x: number; y: number }[] = [];
+              selectedWalls.forEach(wall => {
+                if (wall.vertices) allVertices.push(...wall.vertices);
+              });
+
+              const xs = allVertices.map(v => v.x);
+              const ys = allVertices.map(v => v.y);
+              const maxX = Math.max(...xs);
+              const centerY = (Math.min(...ys) + Math.max(...ys)) / 2;
+
+              return (
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleMergeWalls();
+                  }}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  style={{
+                    position: 'absolute',
+                    left: viewport.x + (maxX + 20) * viewport.zoom,
+                    top: viewport.y + (centerY - 20) * viewport.zoom,
+                    padding: '8px 16px',
+                    backgroundColor: '#1f2937',
+                    border: '1px solid #8b5cf6',
+                    borderRadius: '4px',
+                    color: '#8b5cf6',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    cursor: 'pointer',
+                    zIndex: 1000,
+                    whiteSpace: 'nowrap',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+                    pointerEvents: 'auto'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = '#374151';
+                    e.currentTarget.style.borderColor = '#a78bfa';
+                    e.currentTarget.style.color = '#a78bfa';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = '#1f2937';
+                    e.currentTarget.style.borderColor = '#8b5cf6';
+                    e.currentTarget.style.color = '#8b5cf6';
+                  }}
+                >
+                  Merge Walls
+                </button>
+              );
+            })()}
+
         {/* Token cursor preview - works for both canvas and maps */}
         {scene && activeTool === 'token' && activeTokenTemplate && cursorPosition && (
               <div
@@ -4118,7 +5264,8 @@ const Canvas = ({
                   width: 60,
                   height: 60,
                   pointerEvents: 'none',
-                  opacity: 0.7
+                  opacity: 0.7,
+                  zIndex: 40
                 }}
               >
                 {(activeTokenTemplate.isShape || activeTokenTemplate.isPOI) && activeTokenTemplate.icon ? (
@@ -4148,8 +5295,8 @@ const Canvas = ({
             )}
       </div>
 
-      {/* Floating Toolbar */}
-      <FloatingToolbar
+      {/* Toolbox */}
+      <Toolbox
         activeTool={activeTool}
         setActiveTool={setActiveTool}
         onUndo={undo}
@@ -4194,9 +5341,13 @@ const Canvas = ({
         onGridSizeChange={setGridSize}
         forceShowTokenSubmenu={showTokenSubmenuForShift}
         forceShowTerrainSubmenu={showTerrainSubmenuForT}
+        forceShowGridSubmenu={showGridSubmenuForG}
         terrainBrushes={terrainBrushes}
         selectedTerrainBrush={selectedTerrainBrush}
         onSelectTerrainBrush={onSelectTerrainBrush}
+        wallTextures={wallTextures}
+        selectedWallTexture={selectedWallTexture}
+        onSelectWallTexture={onSelectWallTexture}
         onHideTokenPreview={() => setCursorPosition(null)}
       />
 
@@ -4308,7 +5459,7 @@ const Canvas = ({
             border: '2px solid #10b981',
             pointerEvents: 'none',
             transform: 'translate(-50%, -50%)',
-            zIndex: 1000,
+            zIndex: 40,
             backgroundImage: `url(${selectedTerrainBrush})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
@@ -4325,9 +5476,10 @@ interface MapElementComponentProps {
   isSelected: boolean;
   viewport: { x: number; y: number; zoom: number };
   showTokenBadges: boolean;
+  renderLayer?: 'floor' | 'walls' | 'full'; // Split room rendering into floor/walls layers
 }
 
-const MapElementComponent = ({ element, isSelected, viewport, showTokenBadges }: MapElementComponentProps) => {
+const MapElementComponent = ({ element, isSelected, viewport, showTokenBadges, renderLayer = 'full' }: MapElementComponentProps) => {
   const colorMap: Record<ColorType, string> = {
     red: '#ef4444',
     blue: '#3b82f6',
@@ -4624,10 +5776,8 @@ const MapElementComponent = ({ element, isSelected, viewport, showTokenBadges }:
               height: '100%',
               borderRadius: '50%',
               border: isSelected 
-                ? `${element.size * 0.02}px solid #22c55e` 
-                : borderColor 
-                  ? `${borderWidth}px solid ${borderColor}`
-                  : 'none',
+                ? `${element.size * 0.04}px solid #22c55e` 
+                : 'none',
               boxShadow: borderColor ? `0 0 0 ${borderWidth}px ${borderColor}` : 'none',
               objectFit: 'cover'
             }}
@@ -4724,6 +5874,285 @@ const MapElementComponent = ({ element, isSelected, viewport, showTokenBadges }:
       relativePolygonPath = outerPath + ' ' + holePaths.join(' ');
     }
     
+    // Layer-specific rendering
+    // When renderLayer='floor', only render floor
+    // When renderLayer='walls', only render walls and selection
+    // When renderLayer='full', render everything (for temp elements, etc.)
+    
+    if (renderLayer === 'floor') {
+      // FLOOR LAYER (below grid) - only floor texture
+      // Now renders in separate Z_FLOOR container, so use element's own zIndex
+      return (
+        <svg
+          style={{
+            position: 'absolute',
+            left: minX,
+            top: minY,
+            width,
+            height,
+            overflow: 'visible',
+            pointerEvents: 'none',
+            transform: roomElement.rotation ? `rotate(${roomElement.rotation}deg)` : undefined,
+            transformOrigin: 'center center',
+            zIndex: (element as any).zIndex || 0
+          }}
+        >
+          <defs>
+            {/* Floor texture pattern */}
+            {element.floorTextureUrl !== 'transparent' && (
+              <pattern
+                id={floorPatternId}
+                x="0"
+                y="0"
+                width={element.tileSize}
+                height={element.tileSize}
+                patternUnits="userSpaceOnUse"
+              >
+                <image
+                  href={element.floorTextureUrl}
+                  x="0"
+                  y="0"
+                  width={element.tileSize}
+                  height={element.tileSize}
+                />
+              </pattern>
+            )}
+          </defs>
+          
+          {/* Floor fill */}
+          <path
+            d={relativePolygonPath}
+            fill={element.floorTextureUrl === 'transparent' ? 'none' : `url(#${floorPatternId})`}
+            fillRule="evenodd"
+            stroke="none"
+          />
+        </svg>
+      );
+    }
+    
+    if (renderLayer === 'walls') {
+      // WALLS LAYER (above grid) - walls, selection, and label
+      return (
+        <>
+          {/* Walls texture (if hasWalls) */}
+          {hasWalls && (
+            <svg
+              style={{
+                position: 'absolute',
+                left: minX,
+                top: minY,
+                width,
+                height,
+                overflow: 'visible',
+                pointerEvents: 'none',
+                transform: roomElement.rotation ? `rotate(${roomElement.rotation}deg)` : undefined,
+                transformOrigin: 'center center',
+                zIndex: (element as any).zIndex || 0
+              }}
+            >
+              <defs>
+                {element.wallTextureUrl && element.wallTextureUrl !== 'transparent' && (
+                  <pattern
+                    id={wallPatternId}
+                    x="0"
+                    y="0"
+                    width={element.wallTileSize}
+                    height={element.wallTileSize}
+                    patternUnits="userSpaceOnUse"
+                  >
+                    <image
+                      href={element.wallTextureUrl}
+                      x="0"
+                      y="0"
+                      width={element.wallTileSize}
+                      height={element.wallTileSize}
+                    />
+                  </pattern>
+                )}
+              </defs>
+              
+              {/* Walls - as stroke on the polygon edge */}
+              <path
+                d={relativePolygonPath}
+                fill="none"
+                stroke={element.wallTextureUrl === 'transparent' ? 'none' : (element.wallTextureUrl ? `url(#${wallPatternId})` : "rgba(100, 100, 100, 0.8)")}
+                strokeWidth={element.wallThickness}
+                strokeLinejoin="miter"
+                strokeLinecap="square"
+              />
+            </svg>
+          )}
+          
+          {/* Selection indicator - always render when selected */}
+          {isSelected && (
+            <svg
+              style={{
+                position: 'absolute',
+                left: minX,
+                top: minY,
+                width,
+                height,
+                overflow: 'visible',
+                pointerEvents: 'none',
+                transform: roomElement.rotation ? `rotate(${roomElement.rotation}deg)` : undefined,
+                transformOrigin: 'center center',
+                zIndex: ((element as any).zIndex || 0) + 1
+              }}
+            >
+              {/* If walls exist, draw selection border outside the wall */}
+              {hasWalls && element.wallThickness > 0 ? (
+                <>
+                  {/* Invisible larger stroke to create offset */}
+                  <path
+                    d={relativePolygonPath}
+                    fill="none"
+                    stroke="transparent"
+                    strokeWidth={element.wallThickness}
+                    strokeLinejoin="miter"
+                    strokeLinecap="square"
+                  />
+                  {/* Actual selection line on top */}
+                  <path
+                    d={relativePolygonPath}
+                    fill="none"
+                    stroke="#22c55e"
+                    strokeWidth={2}
+                    strokeDasharray="5,5"
+                    strokeLinejoin="miter"
+                    strokeLinecap="square"
+                    style={{
+                      transform: `scale(${1 + element.wallThickness / Math.max(width, height)})`,
+                      transformOrigin: `${width / 2}px ${height / 2}px`
+                    }}
+                  />
+                </>
+              ) : (
+                <path
+                  d={relativePolygonPath}
+                  fill="none"
+                  stroke="#22c55e"
+                  strokeWidth={2}
+                  strokeDasharray="5,5"
+                />
+              )}
+              {/* Vertex handles for polygon */}
+              {relativeVertices.map((v, i) => (
+                <circle
+                  key={`handle-${i}`}
+                  cx={v.x}
+                  cy={v.y}
+                  r={4 / viewport.zoom}
+                  fill="white"
+                  stroke="#22c55e"
+                  strokeWidth={1}
+                  style={{ pointerEvents: 'auto' }}
+                />
+              ))}
+              
+              {/* Rotation handle - center top */}
+              <line
+                x1={width / 2}
+                y1={height / 2}
+                x2={width / 2}
+                y2={-20 / viewport.zoom}
+                stroke="#22c55e"
+                strokeWidth={1.5 / viewport.zoom}
+                strokeDasharray="3,3"
+              />
+              <circle
+                cx={width / 2}
+                cy={-20 / viewport.zoom}
+                r={12 / viewport.zoom}
+                fill="transparent"
+                style={{ 
+                  cursor: 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'black\' stroke-width=\'2\'><path d=\'M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2\'/></svg>") 12 12, grab',
+                  pointerEvents: 'auto'
+                }}
+              />
+              <circle
+                cx={width / 2}
+                cy={-20 / viewport.zoom}
+                r={7 / viewport.zoom}
+                fill="#22c55e"
+                stroke="white"
+                strokeWidth={2 / viewport.zoom}
+                style={{ 
+                  cursor: 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'black\' stroke-width=\'2\'><path d=\'M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2\'/></svg>") 12 12, grab',
+                  pointerEvents: 'none'
+                }}
+              />
+            </svg>
+          )}
+          
+          {/* Room Label */}
+          {element.label && (
+            <div
+              style={{
+                position: 'absolute',
+                left: minX + width / 2,
+                top: minY + height / 2,
+                transform: 'translate(-50%, -50%)',
+                color: 'white',
+                fontSize: Math.max(12, 16 / viewport.zoom),
+                fontWeight: 'bold',
+                textShadow: '0 0 4px rgba(0, 0, 0, 0.8), 0 0 8px rgba(0, 0, 0, 0.6)',
+                pointerEvents: 'none',
+                userSelect: 'none',
+                whiteSpace: 'nowrap',
+                textAlign: 'center',
+                zIndex: ((element as any).zIndex || 0) + 2,
+                lineHeight: 1
+              }}
+            >
+              {element.label}
+            </div>
+          )}
+          
+          {/* Corner rotation handles - rendered outside SVG */}
+          {isSelected && relativeVertices.map((v, i) => {
+            const rotationRadians = (roomElement.rotation || 0) * Math.PI / 180;
+            const cosR = Math.cos(rotationRadians);
+            const sinR = Math.sin(rotationRadians);
+            
+            // Rotate vertex around center
+            const relX = v.x - width / 2;
+            const relY = v.y - height / 2;
+            const rotatedX = relX * cosR - relY * sinR;
+            const rotatedY = relX * sinR + relY * cosR;
+            
+            const worldX = minX + width / 2 + rotatedX;
+            const worldY = minY + height / 2 + rotatedY;
+            
+            // Calculate handle offset (outside corner)
+            const handleOffset = 15 / viewport.zoom;
+            const angle = Math.atan2(rotatedY, rotatedX);
+            const handleX = worldX + handleOffset * Math.cos(angle);
+            const handleY = worldY + handleOffset * Math.sin(angle);
+            
+            return (
+              <div
+                key={`corner-rotate-${i}`}
+                style={{
+                  position: 'absolute',
+                  left: handleX,
+                  top: handleY,
+                  width: 20 / viewport.zoom,
+                  height: 20 / viewport.zoom,
+                  marginLeft: -10 / viewport.zoom,
+                  marginTop: -10 / viewport.zoom,
+                  borderRadius: '50%',
+                  pointerEvents: 'auto',
+                  cursor: 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'black\' stroke-width=\'2\'><path d=\'M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2\'/></svg>") 12 12, grab',
+                  zIndex: 1000
+                }}
+              />
+            );
+          })}
+        </>
+      );
+    }
+    
+    // 'full' renderLayer - render both floor and walls together (for temp elements, etc.)
     return (
       <>
         <svg
@@ -4739,153 +6168,153 @@ const MapElementComponent = ({ element, isSelected, viewport, showTokenBadges }:
             transformOrigin: 'center center'
           }}
         >
-        <defs>
-          {/* Floor texture pattern */}
-          {element.floorTextureUrl !== 'transparent' && (
-            <pattern
-              id={floorPatternId}
-              x="0"
-              y="0"
-              width={element.tileSize}
-              height={element.tileSize}
-              patternUnits="userSpaceOnUse"
-            >
-              <image
-                href={element.floorTextureUrl}
+          <defs>
+            {/* Floor texture pattern */}
+            {element.floorTextureUrl !== 'transparent' && (
+              <pattern
+                id={floorPatternId}
                 x="0"
                 y="0"
                 width={element.tileSize}
                 height={element.tileSize}
-              />
-            </pattern>
-          )}
-          {hasWalls && element.wallTextureUrl && element.wallTextureUrl !== 'transparent' && (
-            <pattern
-              id={wallPatternId}
-              x="0"
-              y="0"
-              width={element.wallTileSize}
-              height={element.wallTileSize}
-              patternUnits="userSpaceOnUse"
-            >
-              <image
-                href={element.wallTextureUrl}
+                patternUnits="userSpaceOnUse"
+              >
+                <image
+                  href={element.floorTextureUrl}
+                  x="0"
+                  y="0"
+                  width={element.tileSize}
+                  height={element.tileSize}
+                />
+              </pattern>
+            )}
+            {hasWalls && element.wallTextureUrl && element.wallTextureUrl !== 'transparent' && (
+              <pattern
+                id={wallPatternId}
                 x="0"
                 y="0"
                 width={element.wallTileSize}
                 height={element.wallTileSize}
-              />
-            </pattern>
-          )}
-        </defs>
-        
-        {/* Floor fill */}
-        <path
-          d={relativePolygonPath}
-          fill={element.floorTextureUrl === 'transparent' ? 'none' : `url(#${floorPatternId})`}
-          fillRule="evenodd"
-          stroke="none"
-        />
-        
-        {/* Walls - as stroke on the polygon edge */}
-        {hasWalls && (
+                patternUnits="userSpaceOnUse"
+              >
+                <image
+                  href={element.wallTextureUrl}
+                  x="0"
+                  y="0"
+                  width={element.wallTileSize}
+                  height={element.wallTileSize}
+                />
+              </pattern>
+            )}
+          </defs>
+          
+          {/* Floor fill */}
           <path
             d={relativePolygonPath}
-            fill="none"
-            stroke={element.wallTextureUrl === 'transparent' ? 'none' : (element.wallTextureUrl ? `url(#${wallPatternId})` : "rgba(100, 100, 100, 0.8)")}
-            strokeWidth={element.wallThickness}
-            strokeLinejoin="miter"
-            strokeLinecap="square"
+            fill={element.floorTextureUrl === 'transparent' ? 'none' : `url(#${floorPatternId})`}
+            fillRule="evenodd"
+            stroke="none"
           />
-        )}
-        
-        {/* Selection indicator */}
-        {isSelected && (
-          <>
-            {/* If walls exist, draw selection border outside the wall */}
-            {hasWalls && element.wallThickness > 0 ? (
-              <>
-                {/* Invisible larger stroke to create offset */}
-                <path
-                  d={relativePolygonPath}
-                  fill="none"
-                  stroke="transparent"
-                  strokeWidth={element.wallThickness}
-                  strokeLinejoin="miter"
-                  strokeLinecap="square"
-                />
-                {/* Actual selection line on top */}
+          
+          {/* Walls - as stroke on the polygon edge */}
+          {hasWalls && (
+            <path
+              d={relativePolygonPath}
+              fill="none"
+              stroke={element.wallTextureUrl === 'transparent' ? 'none' : (element.wallTextureUrl ? `url(#${wallPatternId})` : "rgba(100, 100, 100, 0.8)")}
+              strokeWidth={element.wallThickness}
+              strokeLinejoin="miter"
+              strokeLinecap="square"
+            />
+          )}
+          
+          {/* Selection indicator */}
+          {isSelected && (
+            <>
+              {/* If walls exist, draw selection border outside the wall */}
+              {hasWalls && element.wallThickness > 0 ? (
+                <>
+                  {/* Invisible larger stroke to create offset */}
+                  <path
+                    d={relativePolygonPath}
+                    fill="none"
+                    stroke="transparent"
+                    strokeWidth={element.wallThickness}
+                    strokeLinejoin="miter"
+                    strokeLinecap="square"
+                  />
+                  {/* Actual selection line on top */}
+                  <path
+                    d={relativePolygonPath}
+                    fill="none"
+                    stroke="#22c55e"
+                    strokeWidth={2}
+                    strokeDasharray="5,5"
+                    strokeLinejoin="miter"
+                    strokeLinecap="square"
+                    style={{
+                      transform: `scale(${1 + element.wallThickness / Math.max(width, height)})`,
+                      transformOrigin: `${width / 2}px ${height / 2}px`
+                    }}
+                  />
+                </>
+              ) : (
                 <path
                   d={relativePolygonPath}
                   fill="none"
                   stroke="#22c55e"
                   strokeWidth={2}
                   strokeDasharray="5,5"
-                  strokeLinejoin="miter"
-                  strokeLinecap="square"
-                  style={{
-                    transform: `scale(${1 + element.wallThickness / Math.max(width, height)})`,
-                    transformOrigin: `${width / 2}px ${height / 2}px`
-                  }}
                 />
-              </>
-            ) : (
-              <path
-                d={relativePolygonPath}
-                fill="none"
+              )}
+              {/* Vertex handles for polygon */}
+              {relativeVertices.map((v, i) => (
+                <circle
+                  key={`handle-${i}`}
+                  cx={v.x}
+                  cy={v.y}
+                  r={4 / viewport.zoom}
+                  fill="white"
+                  stroke="#22c55e"
+                  strokeWidth={1}
+                  style={{ pointerEvents: 'auto' }}
+                />
+              ))}
+              
+              {/* Rotation handle - center top */}
+              <line
+                x1={width / 2}
+                y1={height / 2}
+                x2={width / 2}
+                y2={-20 / viewport.zoom}
                 stroke="#22c55e"
-                strokeWidth={2}
-                strokeDasharray="5,5"
+                strokeWidth={1.5 / viewport.zoom}
+                strokeDasharray="3,3"
               />
-            )}
-            {/* Vertex handles for polygon */}
-            {relativeVertices.map((v, i) => (
               <circle
-                key={`handle-${i}`}
-                cx={v.x}
-                cy={v.y}
-                r={4 / viewport.zoom}
-                fill="white"
-                stroke="#22c55e"
-                strokeWidth={1}
-                style={{ pointerEvents: 'auto' }}
+                cx={width / 2}
+                cy={-20 / viewport.zoom}
+                r={12 / viewport.zoom}
+                fill="transparent"
+                style={{ 
+                  cursor: 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'black\' stroke-width=\'2\'><path d=\'M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2\'/></svg>") 12 12, grab',
+                  pointerEvents: 'auto'
+                }}
               />
-            ))}
-            
-            {/* Rotation handle - center top */}
-            <line
-              x1={width / 2}
-              y1={height / 2}
-              x2={width / 2}
-              y2={-20 / viewport.zoom}
-              stroke="#22c55e"
-              strokeWidth={1.5 / viewport.zoom}
-              strokeDasharray="3,3"
-            />
-            <circle
-              cx={width / 2}
-              cy={-20 / viewport.zoom}
-              r={12 / viewport.zoom}
-              fill="transparent"
-              style={{ 
-                cursor: 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'black\' stroke-width=\'2\'><path d=\'M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2\'/></svg>") 12 12, grab',
-                pointerEvents: 'auto'
-              }}
-            />
-            <circle
-              cx={width / 2}
-              cy={-20 / viewport.zoom}
-              r={7 / viewport.zoom}
-              fill="#22c55e"
-              stroke="white"
-              strokeWidth={2 / viewport.zoom}
-              style={{ 
-                cursor: 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'black\' stroke-width=\'2\'><path d=\'M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2\'/></svg>") 12 12, grab',
-                pointerEvents: 'none'
-              }}
-            />
-          </>
-        )}
+              <circle
+                cx={width / 2}
+                cy={-20 / viewport.zoom}
+                r={7 / viewport.zoom}
+                fill="#22c55e"
+                stroke="white"
+                strokeWidth={2 / viewport.zoom}
+                style={{ 
+                  cursor: 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'black\' stroke-width=\'2\'><path d=\'M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2\'/></svg>") 12 12, grab',
+                  pointerEvents: 'none'
+                }}
+              />
+            </>
+          )}
         </svg>
         
         {/* Room Label */}
@@ -4956,6 +6385,131 @@ const MapElementComponent = ({ element, isSelected, viewport, showTokenBadges }:
               );
             })}
           </>
+        )}
+      </>
+    );
+  }
+
+  if (element.type === 'wall') {
+    const wallElement = element as WallElement;
+    
+    // Determine if we have segments or single vertices
+    const hasSegments = wallElement.segments && wallElement.segments.length > 0;
+    const allVertices = hasSegments 
+      ? wallElement.segments!.flat()
+      : wallElement.vertices || [];
+    
+    if (allVertices.length < 2) {
+      return null; // Invalid wall
+    }
+    
+    // Calculate bounding box from all vertices
+    const xs = allVertices.map(v => v.x);
+    const ys = allVertices.map(v => v.y);
+    const minX = Math.min(...xs);
+    const minY = Math.min(...ys);
+    const maxX = Math.max(...xs);
+    const maxY = Math.max(...ys);
+    const width = maxX - minX + wallElement.wallThickness * 2;
+    const height = maxY - minY + wallElement.wallThickness * 2;
+    
+    const wallPatternId = `wall-pattern-${element.id}`;
+    
+    // Create paths for each segment
+    const segments = hasSegments ? wallElement.segments! : [wallElement.vertices || []];
+    const paths = segments.map((segmentVertices) => {
+      const relativeVertices = segmentVertices.map(v => ({
+        x: v.x - minX + wallElement.wallThickness,
+        y: v.y - minY + wallElement.wallThickness
+      }));
+      
+      return relativeVertices.map((v, i) => 
+        `${i === 0 ? 'M' : 'L'}${v.x},${v.y}`
+      ).join(' ');
+    });
+    
+    const combinedPath = paths.join(' ');
+    
+    return (
+      <>
+        <svg
+          key={element.id}
+          style={{
+            position: 'absolute',
+            left: minX - wallElement.wallThickness,
+            top: minY - wallElement.wallThickness,
+            width,
+            height,
+            pointerEvents: 'auto',
+            overflow: 'visible'
+          }}
+        >
+          <defs>
+            {wallElement.wallTextureUrl && (
+              <pattern
+                id={wallPatternId}
+                patternUnits="userSpaceOnUse"
+                width={wallElement.wallTileSize}
+                height={wallElement.wallTileSize}
+              >
+                <image
+                  href={wallElement.wallTextureUrl}
+                  width={wallElement.wallTileSize}
+                  height={wallElement.wallTileSize}
+                />
+              </pattern>
+            )}
+          </defs>
+          
+          {/* Wall polyline(s) */}
+          <path
+            d={combinedPath}
+            fill="none"
+            stroke={wallElement.wallTextureUrl ? `url(#${wallPatternId})` : '#8b5cf6'}
+            strokeWidth={wallElement.wallThickness}
+            strokeLinecap="square"
+            strokeLinejoin="miter"
+            style={{ pointerEvents: 'auto', cursor: 'pointer' }}
+          />
+        </svg>
+        
+        {/* Selection indicator */}
+        {isSelected && (
+          <svg
+            style={{
+              position: 'absolute',
+              left: minX - wallElement.wallThickness,
+              top: minY - wallElement.wallThickness,
+              width,
+              height,
+              pointerEvents: 'none',
+              overflow: 'visible'
+            }}
+          >
+            {/* Selection outline */}
+            <path
+              d={combinedPath}
+              fill="none"
+              stroke="#22c55e"
+              strokeWidth={(wallElement.wallThickness + 4) / viewport.zoom}
+              strokeLinecap="square"
+              strokeLinejoin="miter"
+              opacity={0.5}
+            />
+            
+            {/* Vertex handles for all segments */}
+            {allVertices.map((v, i) => (
+              <circle
+                key={`vertex-${i}`}
+                cx={v.x - minX + wallElement.wallThickness}
+                cy={v.y - minY + wallElement.wallThickness}
+                r={6 / viewport.zoom}
+                fill="#22c55e"
+                stroke="#ffffff"
+                strokeWidth={2 / viewport.zoom}
+              />
+            ))}
+          </svg>
         )}
       </>
     );

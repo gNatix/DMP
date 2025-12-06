@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { RoomElement, MapElement, RoomSubTool } from '../types';
+import { RoomElement, WallElement, MapElement, RoomSubTool, ToolType } from '../types';
 
 interface RoomBuilderPanelProps {
+  activeTool: ToolType;
   selectedFloorTexture: string | null;
   onSelectFloorTexture: (url: string) => void;
   tileSize: number;
@@ -15,11 +16,13 @@ interface RoomBuilderPanelProps {
   wallTileSize: number;
   onWallTileSizeChange: (size: number) => void;
   selectedRoom: RoomElement | null;
+  selectedWall: WallElement | null;
   updateElement: (id: string, updates: Partial<MapElement>) => void;
-  setActiveTool: (tool: 'room' | 'background') => void;
+  setActiveTool: (tool: ToolType) => void;
   roomSubTool: RoomSubTool;
   setRoomSubTool: (subTool: RoomSubTool) => void;
   onMergeRooms?: () => void;
+  onMergeWalls?: () => void;
   selectedTerrainBrush: string | null;
   onSelectTerrainBrush: (url: string) => void;
   backgroundBrushSize: number;
@@ -35,6 +38,7 @@ interface AssetFile {
 }
 
 const RoomBuilderPanel = ({
+  activeTool,
   selectedFloorTexture,
   onSelectFloorTexture,
   tileSize,
@@ -48,10 +52,13 @@ const RoomBuilderPanel = ({
   wallTileSize,
   onWallTileSizeChange,
   selectedRoom,
+  selectedWall,
   updateElement,
   setActiveTool,
   roomSubTool,
   setRoomSubTool,
+  // onMergeRooms,
+  // onMergeWalls,
   selectedTerrainBrush,
   onSelectTerrainBrush,
   backgroundBrushSize,
@@ -172,7 +179,9 @@ const RoomBuilderPanel = ({
 
   // Handle wall texture change
   const handleWallTextureClick = (url: string) => {
-    if (selectedRoom) {
+    if (selectedWall) {
+      updateElement(selectedWall.id, { wallTextureUrl: url });
+    } else if (selectedRoom) {
       updateElement(selectedRoom.id, { wallTextureUrl: url });
     } else {
       onSelectWallTexture(url);
@@ -181,19 +190,33 @@ const RoomBuilderPanel = ({
 
   // Handle wall thickness change
   const handleWallThicknessChange = (thickness: number) => {
-    if (selectedRoom) {
+    if (selectedWall) {
+      updateElement(selectedWall.id, { wallThickness: thickness });
+    } else if (selectedRoom) {
       updateElement(selectedRoom.id, { wallThickness: thickness });
     } else {
       onWallThicknessChange(thickness);
     }
   };
 
-  // Get current values (from selected room or global state)
+  // Handle wall tile size change
+  const handleWallTileSizeChange = (size: number) => {
+    if (selectedWall) {
+      updateElement(selectedWall.id, { wallTileSize: size });
+    } else if (selectedRoom) {
+      updateElement(selectedRoom.id, { wallTileSize: size });
+    } else {
+      onWallTileSizeChange(size);
+    }
+  };
+
+  // Get current values (from selected wall, selected room, or global state)
   const currentTexture = selectedRoom?.floorTextureUrl ?? selectedFloorTexture;
   const currentTileSize = selectedRoom?.tileSize ?? tileSize;
   const currentShowWalls = selectedRoom?.showWalls ?? showWalls;
-  const currentWallTexture = selectedRoom?.wallTextureUrl ?? selectedWallTexture;
-  const currentWallThickness = selectedRoom?.wallThickness ?? wallThickness;
+  const currentWallTexture = selectedWall?.wallTextureUrl ?? selectedRoom?.wallTextureUrl ?? selectedWallTexture;
+  const currentWallThickness = selectedWall?.wallThickness ?? selectedRoom?.wallThickness ?? wallThickness;
+  const currentWallTileSize = selectedWall?.wallTileSize ?? selectedRoom?.wallTileSize ?? wallTileSize;
 
   return (
     <div className="h-full flex flex-col bg-dm-panel overflow-hidden">
@@ -220,7 +243,7 @@ const RoomBuilderPanel = ({
                 : 'bg-dm-panel/30 text-gray-400 hover:text-gray-300 border-t border-l border-r border-transparent'
             }`}
           >
-            Terrain
+            Environment
           </button>
           <button
             onClick={() => setActiveTab('walls')}
@@ -569,7 +592,7 @@ const RoomBuilderPanel = ({
 
         {activeTab === 'terrain' && (
           <div>
-            <p className="text-sm text-gray-300 mb-4">Paint terrain textures on the background</p>
+            <p className="text-sm text-gray-300 mb-4">Paint environment textures on the background</p>
             
             {/* Brush Size Slider */}
             <div className="mb-4">
@@ -627,8 +650,123 @@ const RoomBuilderPanel = ({
         )}
 
         {activeTab === 'walls' && (
-          <div className="text-center py-8">
-            <p className="text-sm text-gray-400">Walls functionality coming soon...</p>
+          <div>
+            <p className="text-sm text-gray-300 mb-4">Draw walls with different tools</p>
+            
+            {/* Wall Tool Buttons */}
+            <div className="mb-4 grid grid-cols-2 gap-2">
+              {/* Wall Line Tool Button */}
+              <button
+                onClick={() => {
+                  console.log('[WALL PANEL] Wall line tool activated');
+                  setActiveTool('wall-line');
+                }}
+                className={`p-3 rounded border-2 transition-all ${
+                  activeTool === 'wall-line'
+                    ? 'border-dm-highlight bg-dm-highlight/20 text-white'
+                    : 'border-dm-border bg-dm-dark hover:border-dm-highlight/50 text-gray-300'
+                }`}
+              >
+                <div className="flex flex-col items-center gap-1">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                  </svg>
+                  <span className="font-medium text-sm">Wall Line</span>
+                </div>
+              </button>
+              
+              {/* Freeform Wall Tool Button */}
+              <button
+                onClick={() => {
+                  console.log('[WALL PANEL] Freeform wall tool activated');
+                  setActiveTool('wall');
+                }}
+                className={`p-3 rounded border-2 transition-all ${
+                  activeTool === 'wall'
+                    ? 'border-dm-highlight bg-dm-highlight/20 text-white'
+                    : 'border-dm-border bg-dm-dark hover:border-dm-highlight/50 text-gray-300'
+                }`}
+              >
+                <div className="flex flex-col items-center gap-1">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7l10 10M7 17L17 7" />
+                  </svg>
+                  <span className="font-medium text-sm">Polyline</span>
+                </div>
+              </button>
+            </div>
+            
+            <p className="text-xs text-gray-400 mb-4">
+              <strong>Wall Line:</strong> Click and drag to draw a single wall.<br/>
+              <strong>Polyline:</strong> Click to place vertices. Double-click or ESC to finish.
+            </p>
+
+            {/* Wall Texture Selection */}
+            <div className="mb-4">
+              <label className="block text-xs text-gray-400 mb-2">Wall Texture</label>
+              {loadingWalls ? (
+                <div className="text-center py-4 text-sm text-gray-500">Loading textures...</div>
+              ) : (
+                <div className="grid grid-cols-6 gap-2 mb-4">
+                  {wallTextures.map((texture) => (
+                    <button
+                      key={texture.download_url}
+                      onClick={() => handleWallTextureClick(texture.download_url)}
+                      className={`aspect-square rounded border-2 overflow-hidden transition-all ${
+                        currentWallTexture === texture.download_url
+                          ? 'border-dm-highlight ring-2 ring-dm-highlight/50'
+                          : 'border-dm-border hover:border-dm-highlight/50'
+                      }`}
+                      title={texture.name}
+                    >
+                      <img
+                        src={texture.download_url}
+                        alt={texture.name}
+                        className="w-full h-full object-cover"
+                      />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Wall Thickness Slider */}
+            <div className="mb-4">
+              <label className="block text-xs text-gray-400 mb-2">Wall Thickness</label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="range"
+                  min="10"
+                  max="100"
+                  value={currentWallThickness}
+                  onChange={(e) => handleWallThicknessChange(Number(e.target.value))}
+                  className="flex-1 h-2 bg-dm-dark rounded-lg appearance-none cursor-pointer slider"
+                  style={{
+                    background: `linear-gradient(to right, #8b5cf6 0%, #8b5cf6 ${((currentWallThickness - 10) / 90) * 100}%, #1f2937 ${((currentWallThickness - 10) / 90) * 100}%, #1f2937 100%)`
+                  }}
+                />
+                <span className="text-sm text-gray-400 w-12 text-right">{currentWallThickness}px</span>
+              </div>
+            </div>
+
+            {/* Wall Tile Size Slider */}
+            <div className="mb-4">
+              <label className="block text-xs text-gray-400 mb-2">Texture Tile Size</label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="range"
+                  min="50"
+                  max="300"
+                  value={currentWallTileSize}
+                  onChange={(e) => handleWallTileSizeChange(Number(e.target.value))}
+                  className="flex-1 h-2 bg-dm-dark rounded-lg appearance-none cursor-pointer slider"
+                  style={{
+                    background: `linear-gradient(to right, #8b5cf6 0%, #8b5cf6 ${((currentWallTileSize - 50) / 250) * 100}%, #1f2937 ${((currentWallTileSize - 50) / 250) * 100}%, #1f2937 100%)`
+                  }}
+                />
+                <span className="text-sm text-gray-400 w-12 text-right">{currentWallTileSize}px</span>
+              </div>
+            </div>
           </div>
         )}
 
@@ -637,12 +775,48 @@ const RoomBuilderPanel = ({
 
       {/* Instructions */}
       <div className="p-4 border-t border-dm-border bg-dm-dark/50">
-        <p className="text-xs text-gray-400">
-          <strong className="text-gray-300">Click and drag</strong> on the map to draw a floor area
-        </p>
-        <p className="text-xs text-gray-400 mt-1">
-          Press <kbd className="px-1 py-0.5 bg-dm-panel border border-dm-border rounded text-xs">ESC</kbd> to cancel
-        </p>
+        {activeTab === 'room' && (
+          <>
+            <p className="text-xs text-gray-400">
+              <strong className="text-gray-300">Select shape</strong> in the top of this tab
+            </p>
+            <p className="text-xs text-gray-400">
+              <strong className="text-gray-300">Select Add</strong> or <strong className="text-gray-300">Subtract</strong> mode to build or cut rooms
+            </p>
+            <p className="text-xs text-gray-400">
+              <strong className="text-gray-300">Sliders</strong> handles tile size, wall thickness, and wall texture size
+            </p>
+            <p className="text-xs text-gray-400 mt-1">
+              <strong className="text-gray-300">Merge button</strong> apears when two or more selected rooms are overlapping
+            </p>
+          </>
+        )}
+        {activeTab === 'terrain' && (
+          <>
+            <p className="text-xs text-gray-400">
+              <strong className="text-gray-300">Click and drag</strong> to paint environment textures on the background
+            </p>
+            <p className="text-xs text-gray-400 mt-1">
+              <strong className="text-gray-300">Move Slider</strong> to adjust brush size
+            </p>
+          </>
+        )}
+        {activeTab === 'walls' && (
+          <>
+            <p className="text-xs text-gray-400">
+              <strong className="text-gray-300">Select </strong> Polyline of Wall line 
+            </p>
+            <p className="text-xs text-gray-400">
+              <strong className="text-gray-300">Select </strong> wall texture to draw with
+            </p>
+            <p className="text-xs text-gray-400">
+              <strong className="text-gray-300">Click and drag</strong> to draw walls 
+            </p>
+            <p className="text-xs text-gray-400 mt-1">
+             <strong className="text-gray-300">Move Sliders</strong> to adjust wall thickness and texture size
+            </p>
+          </>
+        )}
       </div>
     </div>
   );

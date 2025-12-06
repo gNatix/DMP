@@ -1055,6 +1055,16 @@ const ScenesTab = ({
         cancelText="Cancel"
         type="danger"
       />
+
+      {/* Instructions */}
+      <div className="p-4 border-t border-dm-border bg-dm-dark/50">
+        <p className="text-xs text-gray-400">
+          <strong className="text-gray-300">Scenes</strong> save your map state including all elements
+        </p>
+        <p className="text-xs text-gray-400 mt-1">
+          Use collections to organize related scenes together
+        </p>
+      </div>
     </div>
   );
 };

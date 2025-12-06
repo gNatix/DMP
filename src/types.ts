@@ -1,8 +1,8 @@
 // Data model types for the DM Planner application
 
-export type ElementType = "annotation" | "token" | "room";
+export type ElementType = "annotation" | "token" | "room" | "wall";
 
-export type ToolType = "pointer" | "marker" | "token" | "pan" | "zoom-in" | "zoom-out" | "room" | "background";
+export type ToolType = "pointer" | "marker" | "token" | "pan" | "zoom-in" | "zoom-out" | "room" | "background" | "wall" | "wall-line";
 
 export type RoomSubTool = "rectangle" | "pentagon" | "hexagon" | "octagon" | "erase" | "custom" | 
   "subtract-rectangle" | "subtract-pentagon" | "subtract-hexagon" | "subtract-octagon" | "subtract-custom";
@@ -99,7 +99,30 @@ export interface RoomElement {
   locked?: boolean; // Prevent movement when true
 }
 
-export type MapElement = AnnotationElement | TokenElement | RoomElement;
+export interface WallElement {
+  id: string;
+  type: "wall";
+  
+  // Array of points forming the wall path (open polyline, not closed)
+  // OR array of arrays for multiple disconnected segments
+  vertices: Point[];
+  segments?: Point[][]; // Optional: multiple disconnected wall segments
+  
+  // Appearance
+  wallTextureUrl: string; // URL to wall texture image
+  wallThickness: number; // Thickness of walls in pixels (default 8)
+  wallTileSize: number; // Size of the wall texture tiles in pixels (default 50)
+  
+  // Metadata
+  name?: string; // Optional name for the wall
+  notes: string;
+  zIndex?: number; // For layering control
+  visible?: boolean; // For hiding elements (default true)
+  widgets?: Widget[]; // For properties panel customization
+  locked?: boolean; // Prevent movement when true
+}
+
+export type MapElement = AnnotationElement | TokenElement | RoomElement | WallElement;
 
 export interface CollectionAppearance {
   gradient: string; // CSS gradient string

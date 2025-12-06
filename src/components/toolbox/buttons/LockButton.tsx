@@ -1,0 +1,111 @@
+import { Lock } from 'lucide-react';
+import { useEffect } from 'react';
+import { ToolButtonConfig, ToolButtonProps } from './types';
+
+// ========== BUTTON CONFIGURATION ==========
+export const lockButtonConfig: ToolButtonConfig = {
+  id: 'lock',
+  enabled: true,
+  category: 'utilities',
+  weight: 1, // After badge toggle in utilities category
+  
+  icon: <Lock size={18} />,
+  label: 'Lock Selection',
+  shortcutKey: 'L',
+  
+  buttonType: 'toggle',         // OPTIONS: 'tool' | 'toggle' | 'action' | 'submenu'
+  highlightStyle: 'full',       // OPTIONS: 'full' (colored bg) | 'border' (colored border) | null (no highlight)
+  
+  hasSubmenu: false,
+};
+// ==========================================
+
+interface LockButtonPropsExtended extends ToolButtonProps {
+  onToggleLock: () => void;
+  selectedElementLocked: boolean;
+  hasSelection: boolean;
+}
+
+const LockButton = ({
+  onToggleLock,
+  selectedElementLocked,
+  hasSelection
+}: LockButtonPropsExtended) => {
+  // Handle keyboard shortcut from config
+  useEffect(() => {
+    if (!lockButtonConfig.shortcutKey) return;
+    
+    const handleKeyPress = (e: KeyboardEvent) => {
+      const key = lockButtonConfig.shortcutKey!.toLowerCase();
+      if (e.key.toLowerCase() === key) {
+        if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+          const target = e.target as HTMLElement;
+          if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+          
+          if (hasSelection) {
+            e.preventDefault();
+            onToggleLock();
+          }
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [onToggleLock, hasSelection]);
+
+  return (
+    <div
+      className="relative flex flex-col items-center"
+      onMouseEnter={(e) => {
+        const badge = e.currentTarget.querySelector('.lock-badge') as HTMLElement;
+        if (badge) badge.style.display = 'block';
+      }}
+      onMouseLeave={(e) => {
+        const badge = e.currentTarget.querySelector('.lock-badge') as HTMLElement;
+        if (badge) badge.style.display = 'none';
+      }}
+    >
+      <button
+        onClick={onToggleLock}
+        disabled={!hasSelection}
+        className={`p-2.5 rounded transition-colors ${
+          !hasSelection
+            ? 'opacity-50 cursor-not-allowed bg-dm-dark text-gray-500'
+            : selectedElementLocked
+            ? 'bg-red-600 hover:bg-red-700 text-white'
+            : 'bg-dm-dark hover:bg-dm-border text-gray-300 hover:text-white'
+        } border-2 border-transparent box-content`}
+      >
+        {lockButtonConfig.icon}
+      </button>
+      <span className="text-[9px] text-gray-500 font-medium mt-0.5">{lockButtonConfig.shortcutKey}</span>
+      <div
+        className="lock-badge"
+        style={{
+          display: 'none',
+          position: 'absolute',
+          bottom: '100%',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          marginBottom: '20px',
+          backgroundColor: '#1f2937',
+          border: '1px solid #374151',
+          borderRadius: '6px',
+          padding: '4px 12px',
+          fontSize: '12px',
+          color: '#9ca3af',
+          fontWeight: '500',
+          whiteSpace: 'nowrap',
+          pointerEvents: 'none',
+          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)',
+          zIndex: 1000
+        }}
+      >
+        {lockButtonConfig.label} ({lockButtonConfig.shortcutKey})
+      </div>
+    </div>
+  );
+};
+
+export default LockButton;

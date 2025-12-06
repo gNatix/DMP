@@ -51,7 +51,7 @@ const BackgroundPanel = ({
       {/* Header */}
       <div className="p-4 border-b border-dm-border">
         <h2 className="text-lg font-semibold text-gray-200">Background Painter</h2>
-        <p className="text-xs text-gray-400 mt-1">Paint loopable terrain textures</p>
+        <p className="text-xs text-gray-400 mt-1">Paint loopable environment textures</p>
       </div>
 
       {/* Content */}
@@ -125,7 +125,7 @@ const BackgroundPanel = ({
         <div className="p-3 bg-dm-dark rounded-lg border border-dm-border">
           <h3 className="text-sm font-medium text-gray-300 mb-2">How to use:</h3>
           <ul className="text-xs text-gray-400 space-y-1">
-            <li>• Click and drag to paint terrain</li>
+            <li>• Click and drag to paint environment</li>
             <li>• Tiles are loopable/tileable</li>
             <li>• Appears above map, below rooms</li>
             <li>• Adjust brush size with slider</li>

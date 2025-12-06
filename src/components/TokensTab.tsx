@@ -382,6 +382,16 @@ const TokensTab = ({
           </div>
         )}
       </div>
+
+      {/* Instructions */}
+      <div className="p-4 border-t border-dm-border bg-dm-dark/50">
+        <p className="text-xs text-gray-400">
+          <strong className="text-gray-300">Left click</strong> to place token on the map
+        </p>
+        <p className="text-xs text-gray-400 mt-1">
+         <strong className="text-gray-300">Click and drag</strong> when placing token to scale it
+        </p>
+      </div>
     </div>
   );
 };
