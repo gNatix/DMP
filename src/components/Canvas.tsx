@@ -4013,8 +4013,15 @@ const Canvas = ({
   };
 
   const findElementAtPosition = (x: number, y: number, elements: MapElement[]): MapElement | null => {
-    for (let i = elements.length - 1; i >= 0; i--) {
-      const element = elements[i];
+    // Sort elements by z-index (highest first) to check top elements first
+    const sortedElements = [...elements].sort((a, b) => {
+      const aZ = (a as any).zIndex || 0;
+      const bZ = (b as any).zIndex || 0;
+      return bZ - aZ; // Descending order (highest z-index first)
+    });
+
+    for (let i = 0; i < sortedElements.length; i++) {
+      const element = sortedElements[i];
       
       // Handle room elements (polygon-based) - for selection only
       if (element.type === 'room') {
