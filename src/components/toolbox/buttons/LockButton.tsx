@@ -1,6 +1,6 @@
 import { Lock } from 'lucide-react';
-import { useEffect } from 'react';
 import { ToolButtonConfig, ToolButtonProps } from './types';
+import { useKeyboardShortcut } from '../../../hooks/useKeyboardShortcut';
 
 // ========== BUTTON CONFIGURATION ==========
 export const lockButtonConfig: ToolButtonConfig = {
@@ -31,28 +31,12 @@ const LockButton = ({
   selectedElementLocked,
   hasSelection
 }: LockButtonPropsExtended) => {
-  // Handle keyboard shortcut from config
-  useEffect(() => {
-    if (!lockButtonConfig.shortcutKey) return;
-    
-    const handleKeyPress = (e: KeyboardEvent) => {
-      const key = lockButtonConfig.shortcutKey!.toLowerCase();
-      if (e.key.toLowerCase() === key) {
-        if (!e.ctrlKey && !e.metaKey && !e.altKey) {
-          const target = e.target as HTMLElement;
-          if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
-          
-          if (hasSelection) {
-            e.preventDefault();
-            onToggleLock();
-          }
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [onToggleLock, hasSelection]);
+  // Handle keyboard shortcut
+  useKeyboardShortcut('l', () => {
+    if (hasSelection) {
+      onToggleLock();
+    }
+  });
 
   return (
     <div

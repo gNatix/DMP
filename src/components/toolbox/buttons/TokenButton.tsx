@@ -1,6 +1,7 @@
 import { Stamp } from 'lucide-react';
-import { useRef, useEffect } from 'react';
+import { useRef } from 'react';
 import { ToolButtonConfig, ToolButtonProps } from './types';
+import { useKeyboardShortcut } from '../../../hooks/useKeyboardShortcut';
 import { TokenTemplate } from '../../../types';
 import TokenPickerSubmenu from '../submenus/TokenPickerSubmenu';
 
@@ -102,35 +103,18 @@ const TokenButton = ({
     }
   };
 
-  // Handle keyboard shortcut from config
-  useEffect(() => {
-    if (!tokenButtonConfig.shortcutKey) return;
-    
-    const handleKeyPress = (e: KeyboardEvent) => {
-      const key = tokenButtonConfig.shortcutKey!.toLowerCase();
-      if (e.key.toLowerCase() === key) {
-        if (!e.ctrlKey && !e.metaKey && !e.altKey) {
-          const target = e.target as HTMLElement;
-          if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
-          
-          e.preventDefault();
-          
-          // If already on token tool and submenu is open via shortcut, cycle to next token
-          if (activeTool === 'token' && isSubmenuOpen && submenuOpenedBy === 'shortcut' && tokenTemplates.length > 0) {
-            cycleToken();
-          } else {
-            // Switch to token tool and open submenu
-            setActiveTool(tokenButtonConfig.tool!);
-            selectLastUsedToken();
-            onOpenSubmenu('token', 'shortcut');
-          }
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [activeTool, isSubmenuOpen, submenuOpenedBy, tokenTemplates, cycleToken, selectLastUsedToken, setActiveTool, onOpenSubmenu]);
+  // Handle keyboard shortcut
+  useKeyboardShortcut('q', () => {
+    // If already on token tool and submenu is open via shortcut, cycle to next token
+    if (activeTool === 'token' && isSubmenuOpen && submenuOpenedBy === 'shortcut' && tokenTemplates.length > 0) {
+      cycleToken();
+    } else {
+      // Switch to token tool and open submenu
+      setActiveTool(tokenButtonConfig.tool!);
+      selectLastUsedToken();
+      onOpenSubmenu('token', 'shortcut');
+    }
+  });
   
   return (
     <div className="relative flex flex-col items-center">

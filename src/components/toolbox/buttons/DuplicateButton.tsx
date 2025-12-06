@@ -1,6 +1,6 @@
 import { Copy } from 'lucide-react';
-import { useEffect } from 'react';
 import { ToolButtonConfig, ToolButtonProps } from './types';
+import { useKeyboardShortcut } from '../../../hooks/useKeyboardShortcut';
 
 // ========== BUTTON CONFIGURATION ==========
 export const duplicateButtonConfig: ToolButtonConfig = {
@@ -26,28 +26,12 @@ interface DuplicateButtonPropsExtended extends ToolButtonProps {
 }
 
 const DuplicateButton = ({ onDuplicate, hasSelection }: DuplicateButtonPropsExtended) => {
-  // Handle keyboard shortcut from config
-  useEffect(() => {
-    if (!duplicateButtonConfig.shortcutKey) return;
-    
-    const handleKeyPress = (e: KeyboardEvent) => {
-      const key = duplicateButtonConfig.shortcutKey!.toLowerCase();
-      if (e.key.toLowerCase() === key) {
-        if (!e.ctrlKey && !e.metaKey && !e.altKey) {
-          const target = e.target as HTMLElement;
-          if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
-          
-          if (hasSelection) {
-            e.preventDefault();
-            onDuplicate();
-          }
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [onDuplicate, hasSelection]);
+  // Handle keyboard shortcut
+  useKeyboardShortcut('d', () => {
+    if (hasSelection) {
+      onDuplicate();
+    }
+  });
 
   return (
     <div

@@ -1,6 +1,6 @@
 import { ZoomIn, ZoomOut } from 'lucide-react';
-import { useEffect } from 'react';
 import { ToolButtonConfig, ToolButtonProps } from './types';
+import { useKeyboardShortcut } from '../../../hooks/useKeyboardShortcut';
 
 // ========== BUTTON CONFIGURATION ==========
 export const zoomButtonConfig: ToolButtonConfig = {
@@ -28,26 +28,10 @@ interface ZoomButtonPropsExtended extends ToolButtonProps {
 const ZoomButton = ({ activeTool, setActiveTool, isAltPressed }: ZoomButtonPropsExtended) => {
   const isActive = activeTool === 'zoom-in' || activeTool === 'zoom-out';
 
-  // Handle keyboard shortcut from config
-  useEffect(() => {
-    if (!zoomButtonConfig.shortcutKey) return;
-    
-    const handleKeyPress = (e: KeyboardEvent) => {
-      const key = zoomButtonConfig.shortcutKey!.toLowerCase();
-      if (e.key.toLowerCase() === key) {
-        if (!e.ctrlKey && !e.metaKey && !e.altKey) {
-          const target = e.target as HTMLElement;
-          if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
-          
-          e.preventDefault();
-          setActiveTool('zoom-in');
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [setActiveTool]);
+  const handleClick = () => setActiveTool(zoomButtonConfig.tool!);
+  
+  // Handle keyboard shortcut
+  useKeyboardShortcut('z', handleClick);
 
   return (
     <div className="relative flex flex-col items-center">

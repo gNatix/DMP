@@ -1,6 +1,6 @@
 import { Redo } from 'lucide-react';
-import { useEffect } from 'react';
 import { ToolButtonConfig, ToolButtonProps } from './types';
+import { useKeyboardShortcut } from '../../../hooks/useKeyboardShortcut';
 
 // ========== BUTTON CONFIGURATION ==========
 export const redoButtonConfig: ToolButtonConfig = {
@@ -26,30 +26,12 @@ interface RedoButtonPropsExtended extends ToolButtonProps {
 }
 
 const RedoButton = ({ onRedo, canRedo }: RedoButtonPropsExtended) => {
-  // Handle keyboard shortcut from config (Ctrl+Y)
-  useEffect(() => {
-    if (!redoButtonConfig.shortcutKey) return;
-    
-    const handleKeyPress = (e: KeyboardEvent) => {
-      // Parse shortcut like "Ctrl+Y"
-      const shortcut = redoButtonConfig.shortcutKey!;
-      if (shortcut.includes('Ctrl+')) {
-        const key = shortcut.replace('Ctrl+', '');
-        if (e.key.toLowerCase() === key.toLowerCase() && (e.ctrlKey || e.metaKey)) {
-          const target = e.target as HTMLElement;
-          if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
-          
-          if (canRedo) {
-            e.preventDefault();
-            onRedo();
-          }
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [onRedo, canRedo]);
+  // Handle keyboard shortcut (Ctrl+Y)
+  useKeyboardShortcut('y', () => {
+    if (canRedo) {
+      onRedo();
+    }
+  }, { ctrl: true });
 
   return (
     <div 

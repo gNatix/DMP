@@ -1,6 +1,6 @@
 import { Trash2 } from 'lucide-react';
-import { useEffect } from 'react';
 import { ToolButtonConfig, ToolButtonProps } from './types';
+import { useKeyboardShortcut } from '../../../hooks/useKeyboardShortcut';
 
 // ========== BUTTON CONFIGURATION ==========
 export const deleteButtonConfig: ToolButtonConfig = {
@@ -26,39 +26,12 @@ interface DeleteButtonPropsExtended extends ToolButtonProps {
 }
 
 const DeleteButton = ({ onDelete, hasSelection }: DeleteButtonPropsExtended) => {
-  // Handle keyboard shortcut from config
-  useEffect(() => {
-    if (!deleteButtonConfig.shortcutKey) return;
-    
-    const handleKeyPress = (e: KeyboardEvent) => {
-      const key = deleteButtonConfig.shortcutKey!;
-      // Special handling for Delete key
-      if (key === 'Del' && e.key === 'Delete') {
-        if (!e.ctrlKey && !e.metaKey && !e.altKey) {
-          const target = e.target as HTMLElement;
-          if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
-          
-          if (hasSelection) {
-            e.preventDefault();
-            onDelete();
-          }
-        }
-      } else if (e.key.toLowerCase() === key.toLowerCase()) {
-        if (!e.ctrlKey && !e.metaKey && !e.altKey) {
-          const target = e.target as HTMLElement;
-          if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
-          
-          if (hasSelection) {
-            e.preventDefault();
-            onDelete();
-          }
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [onDelete, hasSelection]);
+  // Handle Delete key shortcut
+  useKeyboardShortcut('delete', () => {
+    if (hasSelection) {
+      onDelete();
+    }
+  });
 
   return (
     <div

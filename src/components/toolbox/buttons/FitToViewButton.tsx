@@ -1,6 +1,6 @@
 import { Maximize2, Lock } from 'lucide-react';
-import { useEffect } from 'react';
 import { ToolButtonConfig, ToolButtonProps } from './types';
+import { useKeyboardShortcut } from '../../../hooks/useKeyboardShortcut';
 
 // ========== BUTTON CONFIGURATION ==========
 export const fitToViewButtonConfig: ToolButtonConfig = {
@@ -26,26 +26,8 @@ interface FitToViewButtonPropsExtended extends ToolButtonProps {
 }
 
 const FitToViewButton = ({ onFitToView, fitToViewLocked }: FitToViewButtonPropsExtended) => {
-  // Handle keyboard shortcut from config
-  useEffect(() => {
-    if (!fitToViewButtonConfig.shortcutKey) return;
-    
-    const handleKeyPress = (e: KeyboardEvent) => {
-      const key = fitToViewButtonConfig.shortcutKey!.toLowerCase();
-      if (e.key.toLowerCase() === key) {
-        if (!e.ctrlKey && !e.metaKey && !e.altKey) {
-          const target = e.target as HTMLElement;
-          if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
-          
-          e.preventDefault();
-          onFitToView();
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [onFitToView]);
+  // Handle keyboard shortcut
+  useKeyboardShortcut('f', onFitToView);
 
   return (
     <div className="relative flex flex-col items-center">

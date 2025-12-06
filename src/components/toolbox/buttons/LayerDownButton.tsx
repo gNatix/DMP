@@ -1,6 +1,6 @@
-import { ChevronDown } from 'lucide-react';
-import { useEffect } from 'react';
+import { ChevronsDown } from 'lucide-react';
 import { ToolButtonConfig, ToolButtonProps } from './types';
+import { useKeyboardShortcut } from '../../../hooks/useKeyboardShortcut';
 
 // ========== BUTTON CONFIGURATION ==========
 export const layerDownButtonConfig: ToolButtonConfig = {
@@ -9,7 +9,7 @@ export const layerDownButtonConfig: ToolButtonConfig = {
   category: 'layers',
   weight: 4, // After layer-up in layers category
   
-  icon: <ChevronDown size={18} />,
+  icon: <ChevronsDown size={18} />,
   label: 'Move Layer Down',
   shortcutKey: '[',
   
@@ -26,28 +26,12 @@ interface LayerDownButtonPropsExtended extends ToolButtonProps {
 }
 
 const LayerDownButton = ({ onLayerDown, hasSelection }: LayerDownButtonPropsExtended) => {
-  // Handle keyboard shortcut from config
-  useEffect(() => {
-    if (!layerDownButtonConfig.shortcutKey) return;
-    
-    const handleKeyPress = (e: KeyboardEvent) => {
-      const key = layerDownButtonConfig.shortcutKey!;
-      if (e.key === key) {
-        if (!e.ctrlKey && !e.metaKey && !e.altKey) {
-          const target = e.target as HTMLElement;
-          if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
-          
-          if (hasSelection) {
-            e.preventDefault();
-            onLayerDown();
-          }
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [onLayerDown, hasSelection]);
+  // Handle keyboard shortcut
+  useKeyboardShortcut('[', () => {
+    if (hasSelection) {
+      onLayerDown();
+    }
+  });
 
   return (
     <div

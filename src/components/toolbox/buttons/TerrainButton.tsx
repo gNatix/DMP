@@ -1,7 +1,8 @@
 import { Paintbrush } from 'lucide-react';
-import { useRef, useEffect } from 'react';
+import { useRef } from 'react';
 import { ToolButtonConfig, ToolButtonProps } from './types';
 import TerrainPickerSubmenu from '../submenus/TerrainPickerSubmenu';
+import { useKeyboardShortcut } from '../../../hooks/useKeyboardShortcut';
 
 // ========== BUTTON CONFIGURATION ==========
 export const terrainButtonConfig: ToolButtonConfig = {
@@ -104,36 +105,19 @@ const TerrainButton = ({
     }
   };
 
-  // Handle keyboard shortcut from config
-  useEffect(() => {
-    if (!terrainButtonConfig.shortcutKey) return;
-    
-    const handleKeyPress = (e: KeyboardEvent) => {
-      const key = terrainButtonConfig.shortcutKey!.toLowerCase();
-      if (e.key.toLowerCase() === key) {
-        if (!e.ctrlKey && !e.metaKey && !e.altKey) {
-          const target = e.target as HTMLElement;
-          if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
-          
-          e.preventDefault();
-          
-          // If already on background tool and submenu is open via shortcut, cycle to next brush
-          if (activeTool === 'background' && isSubmenuOpen && submenuOpenedBy === 'shortcut' && terrainBrushes.length > 0) {
-            cycleTerrain();
-          } else {
-            // Switch to background tool and open submenu
-            setActiveTool(terrainButtonConfig.tool!);
-            if (onSwitchToDrawTab) onSwitchToDrawTab();
-            selectLastUsedTerrain();
-            onOpenSubmenu('terrain', 'shortcut');
-          }
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [activeTool, isSubmenuOpen, submenuOpenedBy, terrainBrushes, cycleTerrain, selectLastUsedTerrain, setActiveTool, onSwitchToDrawTab, onOpenSubmenu]);
+  // Handle keyboard shortcut
+  useKeyboardShortcut('e', () => {
+    // If already on background tool and submenu is open via shortcut, cycle to next brush
+    if (activeTool === 'background' && isSubmenuOpen && submenuOpenedBy === 'shortcut' && terrainBrushes.length > 0) {
+      cycleTerrain();
+    } else {
+      // Switch to background tool and open submenu
+      setActiveTool(terrainButtonConfig.tool!);
+      if (onSwitchToDrawTab) onSwitchToDrawTab();
+      selectLastUsedTerrain();
+      onOpenSubmenu('terrain', 'shortcut');
+    }
+  });
 
   return (
     <div className="relative flex flex-col items-center">

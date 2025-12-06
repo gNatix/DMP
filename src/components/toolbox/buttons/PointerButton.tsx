@@ -1,6 +1,6 @@
 import { MousePointer } from 'lucide-react';
-import { useEffect } from 'react';
 import { ToolButtonConfig, ToolButtonProps } from './types';
+import { useKeyboardShortcut } from '../../../hooks/useKeyboardShortcut';
 
 // ========== BUTTON CONFIGURATION ==========
 export const pointerButtonConfig: ToolButtonConfig = {
@@ -36,26 +36,8 @@ const PointerButton = ({ activeTool, setActiveTool, onCloseSubmenu }: PointerBut
     }
   };
 
-  // Handle keyboard shortcut from config
-  useEffect(() => {
-    if (!pointerButtonConfig.shortcutKey) return;
-    
-    const handleKeyPress = (e: KeyboardEvent) => {
-      const key = pointerButtonConfig.shortcutKey!.toLowerCase();
-      if (e.key.toLowerCase() === key) {
-        if (!e.ctrlKey && !e.metaKey && !e.altKey) {
-          const target = e.target as HTMLElement;
-          if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
-          
-          e.preventDefault();
-          handleClick();
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [activeTool, setActiveTool, onCloseSubmenu]);
+  // Handle keyboard shortcut using custom hook
+  useKeyboardShortcut('v', handleClick);
   
   return (
     <div className="relative flex flex-col items-center">

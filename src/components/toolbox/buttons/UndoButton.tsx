@@ -1,6 +1,6 @@
 import { Undo } from 'lucide-react';
-import { useEffect } from 'react';
 import { ToolButtonConfig, ToolButtonProps } from './types';
+import { useKeyboardShortcut } from '../../../hooks/useKeyboardShortcut';
 
 // ========== BUTTON CONFIGURATION ==========
 export const undoButtonConfig: ToolButtonConfig = {
@@ -26,30 +26,12 @@ interface UndoButtonPropsExtended extends ToolButtonProps {
 }
 
 const UndoButton = ({ onUndo, canUndo }: UndoButtonPropsExtended) => {
-  // Handle keyboard shortcut from config (Ctrl+Z)
-  useEffect(() => {
-    if (!undoButtonConfig.shortcutKey) return;
-    
-    const handleKeyPress = (e: KeyboardEvent) => {
-      // Parse shortcut like "Ctrl+Z"
-      const shortcut = undoButtonConfig.shortcutKey!;
-      if (shortcut.includes('Ctrl+')) {
-        const key = shortcut.replace('Ctrl+', '');
-        if (e.key.toLowerCase() === key.toLowerCase() && (e.ctrlKey || e.metaKey)) {
-          const target = e.target as HTMLElement;
-          if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
-          
-          if (canUndo) {
-            e.preventDefault();
-            onUndo();
-          }
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [onUndo, canUndo]);
+  // Handle keyboard shortcut (Ctrl+Z)
+  useKeyboardShortcut('z', () => {
+    if (canUndo) {
+      onUndo();
+    }
+  }, { ctrl: true });
 
   return (
     <div 

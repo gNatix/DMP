@@ -1,6 +1,6 @@
 import { Tag } from 'lucide-react';
-import { useEffect } from 'react';
 import { ToolButtonConfig, ToolButtonProps } from './types';
+import { useKeyboardShortcut } from '../../../hooks/useKeyboardShortcut';
 
 // ========== BUTTON CONFIGURATION ==========
 export const badgeToggleButtonConfig: ToolButtonConfig = {
@@ -33,26 +33,12 @@ const BadgeToggleButton = ({
   selectedTokenHasBadge,
   hasSelection
 }: BadgeToggleButtonPropsExtended) => {
-  // Handle keyboard shortcut from config
-  useEffect(() => {
-    if (!badgeToggleButtonConfig.shortcutKey) return;
-    
-    const handleKeyPress = (e: KeyboardEvent) => {
-      const key = badgeToggleButtonConfig.shortcutKey!.toLowerCase();
-      if (e.key.toLowerCase() === key) {
-        if (!e.ctrlKey && !e.metaKey && !e.altKey) {
-          const target = e.target as HTMLElement;
-          if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
-          
-          e.preventDefault();
-          onToggleBadges();
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [onToggleBadges]);
+  // Handle keyboard shortcut
+  useKeyboardShortcut('n', () => {
+    if (hasSelection) {
+      onToggleBadges();
+    }
+  });
 
   return (
     <div

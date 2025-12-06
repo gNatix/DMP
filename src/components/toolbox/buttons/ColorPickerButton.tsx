@@ -1,8 +1,8 @@
 import { Paintbrush } from 'lucide-react';
-import { useEffect } from 'react';
 import { ToolButtonConfig, ToolButtonProps } from './types';
 import { ColorType } from '../../../types';
 import ColorPickerSubmenu from '../submenus/ColorPickerSubmenu';
+import { useKeyboardShortcut } from '../../../hooks/useKeyboardShortcut';
 
 // ========== BUTTON CONFIGURATION ==========
 export const colorPickerButtonConfig: ToolButtonConfig = {
@@ -107,34 +107,17 @@ const ColorPickerButton = ({
     }
   };
 
-  // Handle keyboard shortcut from config
-  useEffect(() => {
-    if (!colorPickerButtonConfig.shortcutKey) return;
-    
-    const handleKeyPress = (e: KeyboardEvent) => {
-      const key = colorPickerButtonConfig.shortcutKey!.toLowerCase();
-      if (e.key.toLowerCase() === key) {
-        if (!e.ctrlKey && !e.metaKey && !e.altKey) {
-          const target = e.target as HTMLElement;
-          if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
-          
-          e.preventDefault();
-          
-          // If submenu is already open via shortcut, cycle to next color
-          if (isSubmenuOpen && submenuOpenedBy === 'shortcut') {
-            cycleColor();
-          } else {
-            // Select last-used color before opening submenu
-            selectLastUsedColor();
-            onOpenSubmenu('color', 'shortcut');
-          }
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [isSubmenuOpen, submenuOpenedBy, onOpenSubmenu, cycleColor, selectLastUsedColor]);
+  // Handle keyboard shortcut
+  useKeyboardShortcut('c', () => {
+    // If submenu is already open via shortcut, cycle to next color
+    if (isSubmenuOpen && submenuOpenedBy === 'shortcut') {
+      cycleColor();
+    } else {
+      // Select last-used color before opening submenu
+      selectLastUsedColor();
+      onOpenSubmenu('color', 'shortcut');
+    }
+  });
 
   return (
     <div className="relative flex flex-col items-center">

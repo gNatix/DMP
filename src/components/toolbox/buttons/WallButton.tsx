@@ -1,6 +1,7 @@
 import { Minus } from 'lucide-react';
-import { useRef, useEffect } from 'react';
+import { useRef } from 'react';
 import { ToolButtonConfig, ToolButtonProps } from './types';
+import { useKeyboardShortcut } from '../../../hooks/useKeyboardShortcut';
 import WallPickerSubmenu from '../submenus/WallPickerSubmenu';
 
 // ========== BUTTON CONFIGURATION ==========
@@ -101,35 +102,18 @@ const WallButton = ({
     }
   };
 
-  // Handle keyboard shortcut from config
-  useEffect(() => {
-    if (!wallButtonConfig.shortcutKey) return;
-    
-    const handleKeyPress = (e: KeyboardEvent) => {
-      const key = wallButtonConfig.shortcutKey!.toLowerCase();
-      if (e.key.toLowerCase() === key) {
-        if (!e.ctrlKey && !e.metaKey && !e.altKey) {
-          const target = e.target as HTMLElement;
-          if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
-          
-          e.preventDefault();
-          
-          // If already on wall tool and submenu is open via shortcut, cycle to next texture
-          if (activeTool === 'wall' && isSubmenuOpen && submenuOpenedBy === 'shortcut' && wallTextures.length > 0) {
-            cycleWall();
-          } else {
-            // Switch to wall tool and open submenu
-            setActiveTool(wallButtonConfig.tool!);
-            selectLastUsedWall();
-            onOpenSubmenu('wall', 'shortcut');
-          }
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [activeTool, isSubmenuOpen, submenuOpenedBy, wallTextures, cycleWall, selectLastUsedWall, setActiveTool, onOpenSubmenu]);
+  // Handle keyboard shortcut
+  useKeyboardShortcut('w', () => {
+    // If already on wall tool and submenu is open via shortcut, cycle to next texture
+    if (activeTool === 'wall' && isSubmenuOpen && submenuOpenedBy === 'shortcut' && wallTextures.length > 0) {
+      cycleWall();
+    } else {
+      // Switch to wall tool and open submenu
+      setActiveTool(wallButtonConfig.tool!);
+      selectLastUsedWall();
+      onOpenSubmenu('wall', 'shortcut');
+    }
+  });
 
   return (
     <div className="relative flex flex-col items-center">

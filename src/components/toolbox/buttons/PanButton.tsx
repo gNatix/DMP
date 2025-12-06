@@ -1,6 +1,6 @@
 import { Hand } from 'lucide-react';
-import { useEffect } from 'react';
 import { ToolButtonConfig, ToolButtonProps } from './types';
+import { useKeyboardShortcut } from '../../../hooks/useKeyboardShortcut';
 
 // ========== BUTTON CONFIGURATION ==========
 export const panButtonConfig: ToolButtonConfig = {
@@ -24,31 +24,15 @@ export const panButtonConfig: ToolButtonConfig = {
 const PanButton = ({ activeTool, setActiveTool }: ToolButtonProps) => {
   const isActive = activeTool === panButtonConfig.tool;
 
-  // Handle keyboard shortcut from config
-  useEffect(() => {
-    if (!panButtonConfig.shortcutKey) return;
-    
-    const handleKeyPress = (e: KeyboardEvent) => {
-      const key = panButtonConfig.shortcutKey!.toLowerCase();
-      if (e.key.toLowerCase() === key) {
-        if (!e.ctrlKey && !e.metaKey && !e.altKey) {
-          const target = e.target as HTMLElement;
-          if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
-          
-          e.preventDefault();
-          setActiveTool(panButtonConfig.tool!);
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [setActiveTool]);
+  const handleClick = () => setActiveTool(panButtonConfig.tool!);
+  
+  // Handle keyboard shortcut
+  useKeyboardShortcut('h', handleClick);
 
   return (
     <div className="relative flex flex-col items-center">
       <button
-        onClick={() => setActiveTool(panButtonConfig.tool!)}
+        onClick={handleClick}
         onMouseEnter={(e) => {
           const badge = e.currentTarget.parentElement?.querySelector('.badge-tooltip') as HTMLElement;
           if (badge) badge.style.display = 'block';

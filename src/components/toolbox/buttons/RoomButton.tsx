@@ -1,8 +1,9 @@
 import { Square } from 'lucide-react';
-import { useRef, useEffect } from 'react';
+import { useRef } from 'react';
 import { ToolButtonConfig, ToolButtonProps } from './types';
 import { RoomSubTool } from '../../../types';
 import RoomSubToolPicker from '../submenus/RoomSubToolPicker';
+import { useKeyboardShortcut } from '../../../hooks/useKeyboardShortcut';
 
 // ========== BUTTON CONFIGURATION ==========
 export const roomButtonConfig: ToolButtonConfig = {
@@ -101,35 +102,18 @@ const RoomButton = ({
     }
   };
 
-  // Handle keyboard shortcut from config
-  useEffect(() => {
-    if (!roomButtonConfig.shortcutKey) return;
-    
-    const handleKeyPress = (e: KeyboardEvent) => {
-      const key = roomButtonConfig.shortcutKey!.toLowerCase();
-      if (e.key.toLowerCase() === key) {
-        if (!e.ctrlKey && !e.metaKey && !e.altKey) {
-          const target = e.target as HTMLElement;
-          if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
-          
-          e.preventDefault();
-          
-          // If already on room tool and submenu is open via shortcut, cycle to next sub-tool
-          if (activeTool === 'room' && isSubmenuOpen && submenuOpenedBy === 'shortcut') {
-            cycleRoomSubTool();
-          } else {
-            // Switch to room tool and open submenu
-            setActiveTool(roomButtonConfig.tool!);
-            selectLastUsedRoomSubTool();
-            onOpenSubmenu('room', 'shortcut');
-          }
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [activeTool, isSubmenuOpen, submenuOpenedBy, cycleRoomSubTool, selectLastUsedRoomSubTool, setActiveTool, onOpenSubmenu]);
+  // Handle keyboard shortcut
+  useKeyboardShortcut('r', () => {
+    // If already on room tool and submenu is open via shortcut, cycle to next sub-tool
+    if (activeTool === 'room' && isSubmenuOpen && submenuOpenedBy === 'shortcut') {
+      cycleRoomSubTool();
+    } else {
+      // Switch to room tool and open submenu
+      setActiveTool(roomButtonConfig.tool!);
+      selectLastUsedRoomSubTool();
+      onOpenSubmenu('room', 'shortcut');
+    }
+  });
 
   return (
     <div className="relative flex flex-col items-center">

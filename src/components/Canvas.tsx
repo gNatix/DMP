@@ -3,6 +3,7 @@ import { Scene, MapElement, AnnotationElement, TokenElement, RoomElement, WallEl
 import { Circle, Square, Triangle, Star, Diamond, Heart, Skull, MapPin, Search, Eye, DoorOpen, Landmark, Footprints, Info } from 'lucide-react';
 import Toolbox from './toolbox/Toolbox';
 import polygonClipping from 'polygon-clipping';
+import { useTextInput } from '../contexts/TextInputContext';
 
 interface CanvasProps {
   scene: Scene | null;
@@ -118,6 +119,9 @@ const Canvas = ({
 }: CanvasProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
+  
+  // Global text input state to disable shortcuts when typing
+  const { isUserTyping } = useTextInput();
   
   // Tile-based terrain system
   const TILE_SIZE = 2000; // Each tile is 2000×2000 px
@@ -582,15 +586,9 @@ const Canvas = ({
   }, [terrainTiles, viewport.x, viewport.y, viewport.zoom]);
 
   // Helper to check if text input is focused
+  // Helper to check if user is typing (uses global context)
   const isTextInputFocused = (): boolean => {
-    const activeEl = document.activeElement;
-    if (!activeEl) return false;
-    const tagName = activeEl.tagName.toLowerCase();
-    return (
-      tagName === 'input' ||
-      tagName === 'textarea' ||
-      activeEl.hasAttribute('contenteditable')
-    );
+    return isUserTyping;
   };
 
   // Helper to get all elements in order

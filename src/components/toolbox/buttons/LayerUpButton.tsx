@@ -1,6 +1,6 @@
-import { ChevronUp } from 'lucide-react';
-import { useEffect } from 'react';
+import { ChevronsUp } from 'lucide-react';
 import { ToolButtonConfig, ToolButtonProps } from './types';
+import { useKeyboardShortcut } from '../../../hooks/useKeyboardShortcut';
 
 // ========== BUTTON CONFIGURATION ==========
 export const layerUpButtonConfig: ToolButtonConfig = {
@@ -9,7 +9,7 @@ export const layerUpButtonConfig: ToolButtonConfig = {
   category: 'layers',
   weight: 3, // After delete in layers category
   
-  icon: <ChevronUp size={18} />,
+  icon: <ChevronsUp size={18} />,
   label: 'Move Layer Up',
   shortcutKey: ']',
   
@@ -26,28 +26,12 @@ interface LayerUpButtonPropsExtended extends ToolButtonProps {
 }
 
 const LayerUpButton = ({ onLayerUp, hasSelection }: LayerUpButtonPropsExtended) => {
-  // Handle keyboard shortcut from config
-  useEffect(() => {
-    if (!layerUpButtonConfig.shortcutKey) return;
-    
-    const handleKeyPress = (e: KeyboardEvent) => {
-      const key = layerUpButtonConfig.shortcutKey!;
-      if (e.key === key) {
-        if (!e.ctrlKey && !e.metaKey && !e.altKey) {
-          const target = e.target as HTMLElement;
-          if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
-          
-          if (hasSelection) {
-            e.preventDefault();
-            onLayerUp();
-          }
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [onLayerUp, hasSelection]);
+  // Handle keyboard shortcut
+  useKeyboardShortcut(']', () => {
+    if (hasSelection) {
+      onLayerUp();
+    }
+  });
 
   return (
     <div

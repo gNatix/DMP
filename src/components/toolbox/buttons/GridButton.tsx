@@ -1,6 +1,7 @@
 import { Grid3x3 } from 'lucide-react';
-import { useRef, useEffect } from 'react';
+import { useRef } from 'react';
 import { ToolButtonConfig, ToolButtonProps } from './types';
+import { useKeyboardShortcut } from '../../../hooks/useKeyboardShortcut';
 import GridControlsSubmenu from '../submenus/GridControlsSubmenu';
 
 // ========== BUTTON CONFIGURATION ==========
@@ -68,34 +69,8 @@ const GridButton = ({
     }
   };
 
-  // Handle keyboard shortcut from config
-  useEffect(() => {
-    if (!gridButtonConfig.shortcutKey) return;
-    
-    const handleKeyPress = (e: KeyboardEvent) => {
-      const key = gridButtonConfig.shortcutKey!.toLowerCase();
-      if (e.key.toLowerCase() === key) {
-        if (!e.ctrlKey && !e.metaKey && !e.altKey) {
-          const target = e.target as HTMLElement;
-          // Don't trigger if typing in input/textarea
-          if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
-          
-          e.preventDefault();
-          onToggleGrid();
-          
-          // Toggle submenu via shortcut
-          if (isSubmenuOpen && submenuOpenedBy === 'shortcut') {
-            onOpenSubmenu(null, 'shortcut'); // Toggle off
-          } else {
-            onOpenSubmenu('grid', 'shortcut'); // Open (or switch from click/hover to shortcut)
-          }
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [isSubmenuOpen, submenuOpenedBy, onToggleGrid, onOpenSubmenu]);
+  // Handle keyboard shortcut
+  useKeyboardShortcut('g', handleClick);
 
   return (
     <div className="relative flex flex-col items-center">
