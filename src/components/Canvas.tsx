@@ -150,7 +150,7 @@ const Canvas = ({
   const [isHoveringRotateHandle, setIsHoveringRotateHandle] = useState(false);
   const [hoveringVertex, setHoveringVertex] = useState<{ id: string; index: number; cursorDirection: string } | null>(null);
   const [hoveringEdge, setHoveringEdge] = useState<{ id: string; edgeIndex: number } | null>(null);
-  const [scalingElement, setScalingElement] = useState<{ id: string; cornerIndex: number; startX: number; startY: number; initialVertices: { x: number; y: number }[] } | null>(null);
+  const [scalingElement, setScalingElement] = useState<{ id: string; cornerIndex: number; startX: number; startY: number; initialVertices: { x: number; y: number }[]; initialHoles?: { x: number; y: number }[][] } | null>(null);
   const [movingVertex, setMovingVertex] = useState<{ id: string; vertexIndex: number; segmentBased?: boolean } | null>(null);
   const [isPaintingBackground, setIsPaintingBackground] = useState(false);
   const [isCtrlPressed, setIsCtrlPressed] = useState(false);
@@ -2498,7 +2498,8 @@ const Canvas = ({
                 cornerIndex: i,
                 startX: x,
                 startY: y,
-                initialVertices: [...element.vertices]
+                initialVertices: [...element.vertices],
+                initialHoles: element.holes ? element.holes.map(hole => [...hole]) : undefined
               });
               return;
             }
@@ -3423,7 +3424,7 @@ const Canvas = ({
     if (scalingElement && scene) {
       const element = scene.elements.find(el => el.id === scalingElement.id);
       if (element && element.type === 'room') {
-        const { cornerIndex, initialVertices } = scalingElement;
+        const { cornerIndex, initialVertices, initialHoles } = scalingElement;
         
         // Get the opposite corner index
         const oppositeIndex = (cornerIndex + Math.floor(initialVertices.length / 2)) % initialVertices.length;
@@ -3447,8 +3448,8 @@ const Canvas = ({
           y: oppositeCorner.y + (v.y - oppositeCorner.y) * scale
         }));
         
-        // Scale holes if any
-        const newHoles = element.holes?.map(hole =>
+        // Scale holes from initialHoles if they exist
+        const newHoles = initialHoles?.map(hole =>
           hole.map(v => ({
             x: oppositeCorner.x + (v.x - oppositeCorner.x) * scale,
             y: oppositeCorner.y + (v.y - oppositeCorner.y) * scale
