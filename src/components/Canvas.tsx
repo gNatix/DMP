@@ -151,7 +151,7 @@ const Canvas = ({
   const [hoveringVertex, setHoveringVertex] = useState<{ id: string; index: number; cursorDirection: string } | null>(null);
   const [hoveringEdge, setHoveringEdge] = useState<{ id: string; edgeIndex: number } | null>(null);
   const [scalingElement, setScalingElement] = useState<{ id: string; cornerIndex: number; startX: number; startY: number; initialVertices: { x: number; y: number }[]; initialHoles?: { x: number; y: number }[][] } | null>(null);
-  const [movingVertex, setMovingVertex] = useState<{ id: string; vertexIndex: number; segmentBased?: boolean } | null>(null);
+  const [movingVertex, setMovingVertex] = useState<{ id: string; vertexIndex: number; segmentBased?: boolean; holeIndex?: number } | null>(null);
   const [isPaintingBackground, setIsPaintingBackground] = useState(false);
   const [isCtrlPressed, setIsCtrlPressed] = useState(false);
   const [isShiftPressed, setIsShiftPressed] = useState(false);
@@ -710,14 +710,23 @@ const Canvas = ({
   const [clipboard, setClipboard] = useState<MapElement[]>([]);
 
   // Undo/Redo state
-  const [history, setHistory] = useState<{ elements: MapElement[] }[]>([]);
+  const [history, setHistory] = useState<{ elements: MapElement[]; terrainTiles?: { [key: string]: TerrainTile } }[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
 
   // Save state to history
-  const saveToHistory = () => {
+  const saveToHistory = (customTerrainTiles?: { [key: string]: TerrainTile }) => {
     if (!scene) return;
     const newHistory = history.slice(0, historyIndex + 1);
-    newHistory.push({ elements: JSON.parse(JSON.stringify(scene.elements)) });
+    
+    // Use custom terrainTiles if provided (for brush painting), otherwise use scene.terrainTiles
+    const tilesToSave = customTerrainTiles !== undefined 
+      ? customTerrainTiles 
+      : (scene.terrainTiles ? JSON.parse(JSON.stringify(scene.terrainTiles)) : undefined);
+    
+    newHistory.push({ 
+      elements: JSON.parse(JSON.stringify(scene.elements)),
+      terrainTiles: tilesToSave
+    });
     setHistory(newHistory);
     setHistoryIndex(newHistory.length - 1);
   };
@@ -726,7 +735,24 @@ const Canvas = ({
   const undo = () => {
     if (historyIndex > 0 && scene && activeSceneId) {
       const prevState = history[historyIndex - 1];
-      updateScene(activeSceneId, { elements: JSON.parse(JSON.stringify(prevState.elements)) });
+      
+      // Update scene
+      updateScene(activeSceneId, { 
+        elements: JSON.parse(JSON.stringify(prevState.elements)),
+        terrainTiles: prevState.terrainTiles ? JSON.parse(JSON.stringify(prevState.terrainTiles)) : undefined
+      });
+      
+      // Update local terrainTiles state immediately
+      if (prevState.terrainTiles) {
+        const tilesMap = new Map<string, TerrainTile>();
+        Object.entries(prevState.terrainTiles).forEach(([key, tile]) => {
+          tilesMap.set(key, tile);
+        });
+        setTerrainTiles(tilesMap);
+      } else {
+        setTerrainTiles(new Map());
+      }
+      
       setHistoryIndex(historyIndex - 1);
     }
   };
@@ -735,7 +761,24 @@ const Canvas = ({
   const redo = () => {
     if (historyIndex < history.length - 1 && scene && activeSceneId) {
       const nextState = history[historyIndex + 1];
-      updateScene(activeSceneId, { elements: JSON.parse(JSON.stringify(nextState.elements)) });
+      
+      // Update scene
+      updateScene(activeSceneId, { 
+        elements: JSON.parse(JSON.stringify(nextState.elements)),
+        terrainTiles: nextState.terrainTiles ? JSON.parse(JSON.stringify(nextState.terrainTiles)) : undefined
+      });
+      
+      // Update local terrainTiles state immediately
+      if (nextState.terrainTiles) {
+        const tilesMap = new Map<string, TerrainTile>();
+        Object.entries(nextState.terrainTiles).forEach(([key, tile]) => {
+          tilesMap.set(key, tile);
+        });
+        setTerrainTiles(tilesMap);
+      } else {
+        setTerrainTiles(new Map());
+      }
+      
       setHistoryIndex(historyIndex + 1);
     }
   };
@@ -2262,15 +2305,6 @@ const Canvas = ({
     // Draw stamp on affected tile canvases
     affectedTileKeys.forEach(tileKey => {
       const canvas = tileCanvasRefs.current.get(tileKey);
-      
-      console.log('[🖌️ STAMP BRUSH] Drawing to tile', { 
-        tileKey, 
-        hasCanvas: !!canvas,
-        worldX,
-        worldY,
-        totalRefs: tileCanvasRefs.current.size
-      });
-      
       if (!canvas) return;
       
       const ctx = canvas.getContext('2d');
@@ -2294,7 +2328,6 @@ const Canvas = ({
 
   // Start brush painting
   const startBrushPainting = (worldX: number, worldY: number) => {
-    console.log('[🎨 TERRAIN BRUSH] startBrushPainting called', { worldX, worldY, selectedBackgroundTexture });
     if (!selectedBackgroundTexture) return;
     
     // Load brush image if not already loaded or if texture changed
@@ -2544,6 +2577,88 @@ const Canvas = ({
               // Start moving the newly created vertex immediately
               setMovingVertex({ id: element.id, vertexIndex: newVertexIndex });
               return;
+            }
+          }
+        }
+        
+        // Check hole vertices and edges
+        if (element.holes) {
+          for (let holeIndex = 0; holeIndex < element.holes.length; holeIndex++) {
+            const hole = element.holes[holeIndex];
+            const relativeHole = hole.map(v => ({
+              x: v.x - minX,
+              y: v.y - minY
+            }));
+            
+            // Check direct click on hole vertex (CTRL/SHIFT + click to move)
+            for (let vertexIndex = 0; vertexIndex < relativeHole.length; vertexIndex++) {
+              const v = relativeHole[vertexIndex];
+              // Rotate vertex around center
+              const vRelX = v.x - width / 2;
+              const vRelY = v.y - height / 2;
+              const rotatedX = vRelX * Math.cos(rotation) - vRelY * Math.sin(rotation);
+              const rotatedY = vRelX * Math.sin(rotation) + vRelY * Math.cos(rotation);
+              
+              const worldX = minX + width / 2 + rotatedX;
+              const worldY = minY + height / 2 + rotatedY;
+              
+              const distToVertex = Math.sqrt(
+                Math.pow(x - worldX, 2) + Math.pow(y - worldY, 2)
+              );
+              
+              if (distToVertex < 6 / viewport.zoom) {
+                if (e.ctrlKey || e.shiftKey) {
+                  // CTRL/SHIFT + click on hole vertex: Move vertex
+                  setMovingVertex({ id: element.id, vertexIndex, holeIndex });
+                  return;
+                }
+              }
+            }
+            
+            // Check for CTRL/SHIFT + click on hole edge to add new vertex
+            if (e.ctrlKey || e.shiftKey) {
+              for (let i = 0; i < relativeHole.length; i++) {
+                const v1 = relativeHole[i];
+                const v2 = relativeHole[(i + 1) % relativeHole.length];
+                
+                // Rotate both vertices around center
+                const v1RelX = v1.x - width / 2;
+                const v1RelY = v1.y - height / 2;
+                const v1RotX = v1RelX * Math.cos(rotation) - v1RelY * Math.sin(rotation);
+                const v1RotY = v1RelX * Math.sin(rotation) + v1RelY * Math.cos(rotation);
+                const v1WorldX = minX + width / 2 + v1RotX;
+                const v1WorldY = minY + height / 2 + v1RotY;
+                
+                const v2RelX = v2.x - width / 2;
+                const v2RelY = v2.y - height / 2;
+                const v2RotX = v2RelX * Math.cos(rotation) - v2RelY * Math.sin(rotation);
+                const v2RotY = v2RelX * Math.sin(rotation) + v2RelY * Math.cos(rotation);
+                const v2WorldX = minX + width / 2 + v2RotX;
+                const v2WorldY = minY + height / 2 + v2RotY;
+                
+                const { distance } = distanceToLineSegment(
+                  { x, y },
+                  { x: v1WorldX, y: v1WorldY },
+                  { x: v2WorldX, y: v2WorldY }
+                );
+                
+                if (distance < 8 / viewport.zoom) {
+                  // Click is on hole edge - insert new vertex and immediately start moving it
+                  saveToHistory();
+                  const newHoles = element.holes!.map((h, idx) => {
+                    if (idx === holeIndex) {
+                      const newHole = [...h];
+                      newHole.splice(i + 1, 0, { x, y });
+                      return newHole;
+                    }
+                    return h;
+                  });
+                  updateElement(element.id, { holes: newHoles });
+                  // Start moving the newly created vertex immediately
+                  setMovingVertex({ id: element.id, vertexIndex: i + 1, holeIndex });
+                  return;
+                }
+              }
             }
           }
         }
@@ -3029,11 +3144,11 @@ const Canvas = ({
       return;
     } else if (effectiveTool === 'background') {
       // Start brush painting
-      console.log('[🎨 TERRAIN BRUSH] handleMouseDown triggered', { x, y, selectedBackgroundTexture });
       if (!selectedBackgroundTexture) {
         console.warn('[BRUSH PAINT] No texture selected!');
         return;
       }
+      
       setIsPaintingBackground(true);
       startBrushPainting(x, y);
     }
@@ -3468,10 +3583,24 @@ const Canvas = ({
     if (movingVertex && scene) {
       const element = scene.elements.find(el => el.id === movingVertex.id);
       
-      if (element && element.type === 'room' && element.vertices) {
-        const newVertices = [...element.vertices];
-        newVertices[movingVertex.vertexIndex] = { x, y };
-        updateElement(element.id, { vertices: newVertices });
+      if (element && element.type === 'room') {
+        // Check if moving a hole vertex
+        if (movingVertex.holeIndex !== undefined && element.holes) {
+          const newHoles = element.holes.map((hole, idx) => {
+            if (idx === movingVertex.holeIndex) {
+              const newHole = [...hole];
+              newHole[movingVertex.vertexIndex] = { x, y };
+              return newHole;
+            }
+            return hole;
+          });
+          updateElement(element.id, { holes: newHoles });
+        } else if (element.vertices) {
+          // Moving main polygon vertex
+          const newVertices = [...element.vertices];
+          newVertices[movingVertex.vertexIndex] = { x, y };
+          updateElement(element.id, { vertices: newVertices });
+        }
       } else if (element && element.type === 'wall') {
         if (movingVertex.segmentBased && element.segments) {
           // Handle segment-based walls (merged walls)
@@ -3695,7 +3824,14 @@ const Canvas = ({
       setIsPaintingBackground(false);
       setLastBrushStamp(null);
       setBrushAnchorPoint(null);
-      saveToHistory();
+      
+      // Save history immediately with current terrainTiles state
+      // Convert current terrainTiles Map to object for history
+      const tilesObject: { [key: string]: TerrainTile } = {};
+      terrainTiles.forEach((tile, key) => {
+        tilesObject[key] = tile;
+      });
+      saveToHistory(tilesObject);
     }
 
     // Stop erasing
@@ -4248,7 +4384,6 @@ const Canvas = ({
                 */}
                 {(() => {
                   const tiles = Array.from(terrainTiles.entries());
-                  console.log('[TERRAIN TILES] Canvas mode render', { tileCount: terrainTiles.size });
                   
                   return tiles.map(([tileKey, tile]) => {
                     const visibleKeys = getVisibleTileKeys();
@@ -6055,6 +6190,26 @@ const MapElementComponent = ({ element, isSelected, viewport, showTokenBadges, r
                 />
               ))}
               
+              {/* Vertex handles for holes */}
+              {roomElement.holes && roomElement.holes.map((hole, holeIndex) => {
+                const relativeHole = hole.map(v => ({
+                  x: v.x - minX,
+                  y: v.y - minY
+                }));
+                return relativeHole.map((v, vertexIndex) => (
+                  <circle
+                    key={`hole-${holeIndex}-handle-${vertexIndex}`}
+                    cx={v.x}
+                    cy={v.y}
+                    r={4 / viewport.zoom}
+                    fill="white"
+                    stroke="#ef4444"
+                    strokeWidth={1}
+                    style={{ pointerEvents: 'auto' }}
+                  />
+                ));
+              })}
+              
               {/* Rotation handle - center top */}
               <line
                 x1={width / 2}
@@ -6286,6 +6441,26 @@ const MapElementComponent = ({ element, isSelected, viewport, showTokenBadges, r
                   style={{ pointerEvents: 'auto' }}
                 />
               ))}
+              
+              {/* Vertex handles for holes */}
+              {roomElement.holes && roomElement.holes.map((hole, holeIndex) => {
+                const relativeHole = hole.map(v => ({
+                  x: v.x - minX,
+                  y: v.y - minY
+                }));
+                return relativeHole.map((v, vertexIndex) => (
+                  <circle
+                    key={`hole-${holeIndex}-handle-${vertexIndex}`}
+                    cx={v.x}
+                    cy={v.y}
+                    r={4 / viewport.zoom}
+                    fill="white"
+                    stroke="#ef4444"
+                    strokeWidth={1}
+                    style={{ pointerEvents: 'auto' }}
+                  />
+                ));
+              })}
               
               {/* Rotation handle - center top */}
               <line
