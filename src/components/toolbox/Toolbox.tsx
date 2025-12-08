@@ -54,6 +54,7 @@ import LockButton, { lockButtonConfig } from './buttons/LockButton';
 import GridButton, { gridButtonConfig } from './buttons/GridButton';
 import ColorPickerButton, { colorPickerButtonConfig } from './buttons/ColorPickerButton';
 import FitToViewButton, { fitToViewButtonConfig } from './buttons/FitToViewButton';
+import XLabButton, { xLabButtonConfig } from './buttons/XLabButton';
 
 // Import submenu components (for buttons that need them)
 // Submenus are rendered by individual button components
@@ -105,6 +106,7 @@ interface ToolboxProps {
   onSwitchToDrawTab?: () => void;
   forceShowTerrainSubmenu?: boolean;
   forceShowGridSubmenu?: boolean;
+  onSwitchToXLab?: () => void;
 }
 
 // Registry of all available buttons with their configs
@@ -127,6 +129,7 @@ const BUTTON_REGISTRY = [
   { component: GridButton, config: gridButtonConfig },
   { component: ColorPickerButton, config: colorPickerButtonConfig },
   { component: FitToViewButton, config: fitToViewButtonConfig },
+  { component: XLabButton, config: xLabButtonConfig },
 ];
 
 const Toolbox = (props: ToolboxProps) => {
@@ -167,6 +170,7 @@ const Toolbox = (props: ToolboxProps) => {
     selectedWallTexture = null,
     onSelectWallTexture = () => {},
     onSwitchToDrawTab,
+    onSwitchToXLab,
   } = props;
 
   // ========== CENTRAL SUBMENU STATE (SINGLE SOURCE OF TRUTH) ==========
@@ -471,9 +475,19 @@ const Toolbox = (props: ToolboxProps) => {
       'rectangle', 'pentagon', 'hexagon', 'octagon', 'custom',
       'subtract-rectangle', 'subtract-pentagon', 'subtract-hexagon', 'subtract-octagon', 'subtract-custom'
     ];
-    const currentIndex = tools.indexOf(lastUsedRoomSubTool);
+    // Use current roomSubTool instead of lastUsedRoomSubTool to avoid double-increment
+    const currentIndex = tools.indexOf(roomSubTool);
     const newIndex = (currentIndex + 1) % tools.length;
     const newTool = tools[newIndex];
+    
+    console.log('[ROOM CYCLE]', {
+      current: roomSubTool,
+      currentIndex,
+      newIndex,
+      newTool,
+      totalTools: tools.length
+    });
+    
     setLastUsedRoomSubTool(newTool);
     setRoomSubTool(newTool);
     resetShortcutInactivityTimer();
@@ -550,48 +564,15 @@ const Toolbox = (props: ToolboxProps) => {
         if (!e.ctrlKey && !e.metaKey && !e.altKey) {
           e.preventDefault();
           
-          // Route to appropriate handler based on submenu type
-          if (openSubmenuId === submenuId && submenuOpenedBy === 'shortcut') {
-            // Already open via shortcut - cycle to next item
-            switch (submenuId) {
-              case 'token':
-                cycleToken();
-                break;
-              case 'terrain':
-                cycleTerrain();
-                break;
-              case 'wall':
-                cycleWall();
-                break;
-              case 'room':
-                cycleRoomSubTool();
-                break;
-              case 'color':
-                cycleColor();
-                break;
-            }
-          } else {
-            // Select last-used item BEFORE opening submenu
-            switch (submenuId) {
-              case 'token':
-                selectLastUsedToken();
-                break;
-              case 'terrain':
-                selectLastUsedTerrain();
-                break;
-              case 'wall':
-                selectLastUsedWall();
-                break;
-              case 'room':
-                selectLastUsedRoomSubTool();
-                break;
-              case 'color':
-                selectLastUsedColor();
-                break;
-            }
-            // Then open submenu
-            openSubmenu(submenuId, 'shortcut');
-          }
+          // NOTE: All keyboard shortcuts are now handled by individual button components
+          // (TokenButton, TerrainButton, WallButton, RoomButton, ColorPickerButton)
+          // Each button has its own useKeyboardShortcut hook that handles:
+          // - Opening the submenu on first press
+          // - Cycling through options on subsequent presses
+          // This prevents duplicate keyboard event handling
+          
+          // Toolbox no longer needs to handle any cycling or selection
+          // Just track that the key was pressed for the keybind mapping
         }
         return;
       }
@@ -895,6 +876,12 @@ const Toolbox = (props: ToolboxProps) => {
                     // Cycling functions
                     cycleColor,
                     selectLastUsedColor,
+                  };
+                  break;
+
+                case 'xlab':
+                  specificProps = {
+                    onSwitchToXLab,
                   };
                   break;
 

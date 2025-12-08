@@ -1,5 +1,5 @@
-import { TextWidget as TextWidgetType } from '../types';
-import RichTextEditor from './RichTextEditor';
+import { TextWidget as TextWidgetType } from '../../../types';
+import RichTextEditor from '../../RichTextEditor';
 import { Trash2 } from 'lucide-react';
 
 interface TextWidgetComponentProps {

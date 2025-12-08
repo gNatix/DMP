@@ -1,4 +1,4 @@
-import { Square } from 'lucide-react';
+import { Home } from 'lucide-react';
 import { useRef } from 'react';
 import { ToolButtonConfig, ToolButtonProps } from './types';
 import { RoomSubTool } from '../../../types';
@@ -12,7 +12,7 @@ export const roomButtonConfig: ToolButtonConfig = {
   category: 'drawing',
   weight: 4, // After terrain in drawing category
   
-  icon: <Square size={18} />,
+  icon: <Home size={18} />,
   label: 'Room Builder',
   shortcutKey: 'R',
   
@@ -104,10 +104,19 @@ const RoomButton = ({
 
   // Handle keyboard shortcut
   useKeyboardShortcut('r', () => {
+    console.log('[ROOM BUTTON] R pressed', { 
+      activeTool, 
+      isSubmenuOpen, 
+      submenuOpenedBy,
+      roomSubTool 
+    });
+    
     // If already on room tool and submenu is open via shortcut, cycle to next sub-tool
     if (activeTool === 'room' && isSubmenuOpen && submenuOpenedBy === 'shortcut') {
+      console.log('[ROOM BUTTON] Cycling room sub-tool');
       cycleRoomSubTool();
     } else {
+      console.log('[ROOM BUTTON] Selecting last used room sub-tool');
       // Switch to room tool and open submenu
       setActiveTool(roomButtonConfig.tool!);
       selectLastUsedRoomSubTool();

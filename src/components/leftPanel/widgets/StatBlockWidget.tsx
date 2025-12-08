@@ -1,4 +1,4 @@
-import { StatBlockWidget as StatBlockWidgetType } from '../types';
+import { StatBlockWidget as StatBlockWidgetType } from '../../../types';
 import { Trash2 } from 'lucide-react';
 
 interface StatBlockWidgetProps {

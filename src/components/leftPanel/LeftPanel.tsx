@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { MapElement, Widget, TextWidget, StatBlockWidget, EventRollTableWidget, MonsterCardWidget, WidgetType } from '../types';
+import { MapElement, Widget, TextWidget, StatBlockWidget, EventRollTableWidget, MonsterCardWidget, WidgetType } from '../../types';
 import { ChevronRight, ChevronLeft, MapPin, Plus, GripVertical, Trash2 } from 'lucide-react';
-import TextWidgetComponent from './TextWidgetComponent';
-import StatBlockWidgetComponent from './StatBlockWidget';
-import EncounterTableWidgetComponent from './EncounterTableWidget';
-import MonsterCardWidgetComponent from './MonsterCardWidget';
-import AddWidgetPopup from './AddWidgetPopup';
+import TextWidgetComponent from './widgets/TextWidgetComponent';
+import StatBlockWidgetComponent from './widgets/StatBlockWidget';
+import EncounterTableWidgetComponent from './widgets/EncounterTableWidget';
+import MonsterCardWidgetComponent from './widgets/MonsterCardWidget';
+import AddWidgetPopup from './widgets/AddWidgetPopup';
+import LeftPanelBottomTooltip from './LeftPanelBottomTooltip';
 
 interface LeftPanelProps {
   selectedElement: MapElement | null;
@@ -455,6 +456,9 @@ const LeftPanel = ({
               </div>
             )}
           </div>
+
+          {/* Bottom Tooltip */}
+          <LeftPanelBottomTooltip />
         </div>
       )}
 

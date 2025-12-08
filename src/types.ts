@@ -2,10 +2,12 @@
 
 export type ElementType = "annotation" | "token" | "room" | "wall";
 
-export type ToolType = "pointer" | "marker" | "token" | "pan" | "zoom-in" | "zoom-out" | "room" | "background" | "wall" | "wall-line";
+export type ToolType = "pointer" | "marker" | "token" | "pan" | "zoom-in" | "zoom-out" | "room" | "background" | "wall" | "wall-line" | "xlab";
 
 export type RoomSubTool = "rectangle" | "pentagon" | "hexagon" | "octagon" | "erase" | "custom" | 
   "subtract-rectangle" | "subtract-pentagon" | "subtract-hexagon" | "subtract-octagon" | "subtract-custom";
+
+export type TerrainShapeMode = 'rectangle' | 'circle' | 'polygon' | null;
 
 export type IconType = "circle" | "square" | "triangle" | "star" | "diamond" | "heart" | "skull" | "quest" | "clue" | "hidden" | "door" | "landmark" | "footprint" | "info";
 

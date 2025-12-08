@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Scene, Collection, CollectionAppearance, MapElement } from '../types';
+import { Scene, Collection, CollectionAppearance, MapElement } from '../../types';
 import { Plus, ChevronDown, ChevronRight, Trash2, Palette, Edit2, MapPin, Copy } from 'lucide-react';
 import MapSelectorModal from './MapSelectorModal';
-import ConfirmDialog from './ConfirmDialog';
-import { DEFAULT_COLLECTION_NAME, DEFAULT_CANVAS_NAME, DEFAULT_NAMED_CANVAS_PREFIX } from '../constants';
+import ConfirmDialog from '../ConfirmDialog';
+import { DEFAULT_COLLECTION_NAME, DEFAULT_CANVAS_NAME, DEFAULT_NAMED_CANVAS_PREFIX } from '../../constants';
 
 interface ScenesTabProps {
   scenes: Scene[];

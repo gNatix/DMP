@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { TokenTemplate, ToolType, IconType, ColorType } from '../types';
+import { TokenTemplate, ToolType, IconType, ColorType } from '../../types';
 import { Grid3x3, List, Circle, Square, Triangle, Star, Diamond, Heart, Skull, MapPin, Search, Eye, DoorOpen, Landmark as LandmarkIcon, Footprints, Info } from 'lucide-react';
 
 interface TokensTabProps {

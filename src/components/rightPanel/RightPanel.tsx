@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Scene, MapElement, TokenTemplate, ToolType, Collection, CollectionAppearance, RoomSubTool } from '../types';
+import { Scene, MapElement, TokenTemplate, ToolType, Collection, CollectionAppearance, RoomSubTool, TerrainShapeMode } from '../../types';
 import ScenesTab from './ScenesTab';
 import TokensTab from './TokensTab';
 import RoomBuilderPanel from './RoomBuilderPanel';
+import XLabPanel from './XLabPanel';
 
 interface RightPanelProps {
   scenes: Scene[];
@@ -50,11 +51,13 @@ interface RightPanelProps {
   onSelectTerrainBrush: (url: string) => void;
   backgroundBrushSize: number;
   onBackgroundBrushSizeChange: (size: number) => void;
-  activeTab?: 'scenes' | 'tokens' | 'draw';
-  onActiveTabChange?: (tab: 'scenes' | 'tokens' | 'draw') => void;
+  activeTab?: 'scenes' | 'tokens' | 'draw' | 'xlab';
+  onActiveTabChange?: (tab: 'scenes' | 'tokens' | 'draw' | 'xlab') => void;
+  xlabShapeMode: TerrainShapeMode;
+  onXlabShapeModeChange: (mode: TerrainShapeMode) => void;
 }
 
-type TabType = 'scenes' | 'tokens' | 'draw';
+type TabType = 'scenes' | 'tokens' | 'draw' | 'xlab';
 
 const RightPanel = ({
   scenes,
@@ -103,7 +106,9 @@ const RightPanel = ({
   backgroundBrushSize,
   onBackgroundBrushSizeChange,
   activeTab: externalActiveTab,
-  onActiveTabChange
+  onActiveTabChange,
+  xlabShapeMode,
+  onXlabShapeModeChange
 }: RightPanelProps) => {
   const [internalActiveTab, setInternalActiveTab] = useState<TabType>('scenes');
   const [activeDrawTab, setActiveDrawTab] = useState<'room' | 'terrain' | 'walls'>('room');
@@ -125,6 +130,8 @@ const RightPanel = ({
     } else if (activeTool === 'wall' || activeTool === 'wall-line') {
       setActiveTab('draw');
       setActiveDrawTab('walls');
+    } else if (activeTool === 'xlab') {
+      setActiveTab('xlab');
     }
   }, [activeTool, setActiveTab]);
 
@@ -225,6 +232,14 @@ const RightPanel = ({
             onBrushSizeChange={onBackgroundBrushSizeChange}
             activeDrawTab={activeDrawTab}
             onActiveDrawTabChange={setActiveDrawTab}
+            terrainShapeMode={xlabShapeMode}
+            onTerrainShapeModeChange={onXlabShapeModeChange}
+          />
+        )}
+        {activeTab === 'xlab' && (
+          <XLabPanel 
+            xlabShapeMode={xlabShapeMode}
+            onXlabShapeModeChange={onXlabShapeModeChange}
           />
         )}
       </div>

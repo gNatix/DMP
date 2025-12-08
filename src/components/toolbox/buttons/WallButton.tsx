@@ -1,4 +1,4 @@
-import { Minus } from 'lucide-react';
+import { Rows } from 'lucide-react';
 import { useRef } from 'react';
 import { ToolButtonConfig, ToolButtonProps } from './types';
 import { useKeyboardShortcut } from '../../../hooks/useKeyboardShortcut';
@@ -11,7 +11,7 @@ export const wallButtonConfig: ToolButtonConfig = {
   category: 'drawing',
   weight: 2, // After room in drawing category
   
-  icon: <Minus size={18} />,
+  icon: <Rows size={18} />,
   label: 'Draw Walls',
   shortcutKey: 'W',
   

@@ -1,5 +1,5 @@
 import { Dices, Trash2 } from 'lucide-react';
-import { EventRollTableWidget as EventRollTableWidgetType } from '../types';
+import { EventRollTableWidget as EventRollTableWidgetType } from '../../../types';
 
 interface EncounterTableWidgetProps {
   widget: EventRollTableWidgetType;

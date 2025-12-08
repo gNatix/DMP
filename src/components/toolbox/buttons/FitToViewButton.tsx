@@ -6,7 +6,7 @@ import { useKeyboardShortcut } from '../../../hooks/useKeyboardShortcut';
 export const fitToViewButtonConfig: ToolButtonConfig = {
   id: 'fit-to-view',
   enabled: true,
-  category: 'view',
+  category: 'toggle',
   weight: 4, // After color picker in view category
   
   icon: <Maximize2 size={18} />,

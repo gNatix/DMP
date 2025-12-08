@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from 'react';
-import { Scene, MapElement, AnnotationElement, TokenElement, RoomElement, WallElement, ToolType, IconType, ColorType, TokenTemplate, RoomSubTool, Point, TerrainTile, TerrainStamp } from '../types';
+import { Scene, MapElement, AnnotationElement, TokenElement, RoomElement, WallElement, ToolType, IconType, ColorType, TokenTemplate, RoomSubTool, Point, TerrainTile, TerrainStamp, TerrainShapeMode } from '../types';
 import { Circle, Square, Triangle, Star, Diamond, Heart, Skull, MapPin, Search, Eye, DoorOpen, Landmark, Footprints, Info } from 'lucide-react';
 import Toolbox from './toolbox/Toolbox';
 import polygonClipping from 'polygon-clipping';
@@ -51,6 +51,8 @@ interface CanvasProps {
   wallTextures?: Array<{ name: string; download_url: string }>;
   onSelectWallTexture?: (url: string) => void;
   onSwitchToDrawTab: () => void;
+  xlabShapeMode: TerrainShapeMode;
+  setXlabShapeMode: (mode: TerrainShapeMode) => void;
 }
 
 // Visual stacking order (back → front):
@@ -115,7 +117,9 @@ const Canvas = ({
   selectedTerrainBrush,
   onSelectTerrainBrush,
   wallTextures = [],
-  onSelectWallTexture = () => {}
+  onSelectWallTexture = () => {},
+  xlabShapeMode,
+  setXlabShapeMode: _setXlabShapeMode
 }: CanvasProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
@@ -128,6 +132,7 @@ const Canvas = ({
   const [terrainTiles, setTerrainTiles] = useState<Map<string, TerrainTile>>(new Map());
   const tileCanvasRefs = useRef<Map<string, HTMLCanvasElement>>(new Map());
   const hasActivatedSceneRef = useRef(false); // Track if we've activated auto-created scene
+  const isFillingShapeRef = useRef(false); // Track if we're currently filling a shape (prevents clearing tiles during activation)
   
   const [viewport, setViewport] = useState({ x: 0, y: 0, zoom: 1 });
   const [mapDimensions, setMapDimensions] = useState({ width: 0, height: 0, padding: 0 });
@@ -181,6 +186,10 @@ const Canvas = ({
   const [lastBrushStamp, setLastBrushStamp] = useState<{ x: number; y: number } | null>(null);
   const [brushAnchorPoint, setBrushAnchorPoint] = useState<{ x: number; y: number } | null>(null);
   const brushImageRef = useRef<HTMLImageElement | null>(null);
+
+  // X-Lab: Terrain shape fill state (separate from normal terrain brush)
+  const [xlabTerrainShapeStart, setXlabTerrainShapeStart] = useState<{ x: number; y: number } | null>(null);
+  const [xlabTerrainShapeEnd, setXlabTerrainShapeEnd] = useState<{ x: number; y: number } | null>(null);
 
   // Tile management helper functions
   const getTileKey = (worldX: number, worldY: number): string => {
@@ -429,7 +438,9 @@ const Canvas = ({
         tile.stamps.push(stamp);
       });
       setTerrainTiles(tilesMap);
-    } else {
+    } 
+    // Only clear if we're not currently filling a shape (prevents race condition)
+    else if (!isFillingShapeRef.current) {
       setTerrainTiles(new Map());
     }
   }, [scene?.id]);
@@ -516,13 +527,18 @@ const Canvas = ({
   useEffect(() => {
     const visibleTileKeys = getVisibleTileKeys();
     
+    console.log('[TILE RENDER] useEffect triggered, visible tiles:', visibleTileKeys.length, 'total tiles:', terrainTiles.size);
+    
     // Render each visible tile
     visibleTileKeys.forEach(tileKey => {
       const tile = terrainTiles.get(tileKey);
       if (!tile) return;
       
       const canvas = tileCanvasRefs.current.get(tileKey);
-      if (!canvas) return;
+      if (!canvas) {
+        console.log('[TILE RENDER] Canvas not found for tile:', tileKey);
+        return;
+      }
       
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
@@ -1176,8 +1192,6 @@ const Canvas = ({
 
     console.log('[WALL DRAW] Completing wall with', wallVertices.length, 'vertices');
 
-    saveToHistory();
-
     const wallCount = scene.elements.filter(e => e.type === 'wall').length + 1;
     const textureName = getTextureName(selectedWallTexture || '');
     
@@ -1196,8 +1210,23 @@ const Canvas = ({
       locked: false
     };
 
+    // Save history AFTER adding wall
+    const newElements = [...scene.elements, newWall];
+    const newHistoryEntry = {
+      elements: newElements,
+      terrainTiles: (() => {
+        const tilesObj: { [key: string]: TerrainTile } = {};
+        terrainTiles.forEach((tile, key) => {
+          tilesObj[key] = tile;
+        });
+        return tilesObj;
+      })()
+    };
+    setHistory(prev => [...prev.slice(0, historyIndex + 1), newHistoryEntry]);
+    setHistoryIndex(prev => prev + 1);
+
     updateScene(activeSceneId, {
-      elements: [...scene.elements, newWall]
+      elements: newElements
     });
 
     setWallVertices([]);
@@ -1741,8 +1770,6 @@ const Canvas = ({
     // Add intersection vertices BETWEEN segments (where walls cross each other)
     const segmentsWithIntersections = addIntersectionsBetweenSegments(allSegments);
 
-    saveToHistory();
-
     const firstWall = selectedWalls[0];
     const wallCount = scene!.elements.filter(e => e.type === 'wall').length + 1;
     const textureName = getTextureName(firstWall.wallTextureUrl);
@@ -1766,6 +1793,20 @@ const Canvas = ({
     // Remove original walls and add merged wall
     const updatedElements = scene.elements.filter(el => !selectedIds.includes(el.id));
     updatedElements.push(mergedWall);
+
+    // Save history AFTER merging walls
+    const newHistoryEntry = {
+      elements: updatedElements,
+      terrainTiles: (() => {
+        const tilesObj: { [key: string]: TerrainTile } = {};
+        terrainTiles.forEach((tile, key) => {
+          tilesObj[key] = tile;
+        });
+        return tilesObj;
+      })()
+    };
+    setHistory(prev => [...prev.slice(0, historyIndex + 1), newHistoryEntry]);
+    setHistoryIndex(prev => prev + 1);
 
     updateScene(activeSceneId, { elements: updatedElements });
     
@@ -3143,7 +3184,19 @@ const Canvas = ({
       
       return;
     } else if (effectiveTool === 'background') {
-      // Start brush painting
+      // X-Lab Shape Fill Mode
+      if (xlabShapeMode !== null) {
+        if (!selectedBackgroundTexture) {
+          console.warn('[XLAB SHAPE] No texture selected!');
+          return;
+        }
+        
+        setXlabTerrainShapeStart({ x, y });
+        setXlabTerrainShapeEnd({ x, y });
+        return;
+      }
+      
+      // Normal brush painting (default behavior - UNCHANGED)
       if (!selectedBackgroundTexture) {
         console.warn('[BRUSH PAINT] No texture selected!');
         return;
@@ -3369,6 +3422,12 @@ const Canvas = ({
           y: newY
         };
       });
+      return;
+    }
+
+    // X-Lab: Handle shape dragging (all shapes)
+    if (xlabTerrainShapeStart && xlabShapeMode !== null) {
+      setXlabTerrainShapeEnd({ x, y });
       return;
     }
 
@@ -3814,6 +3873,119 @@ const Canvas = ({
   };
 
   const handleMouseUp = async () => {
+    // X-Lab: Finalize terrain shape fill (rectangle, circle, polygon)
+    if (xlabTerrainShapeStart && xlabTerrainShapeEnd && xlabShapeMode && selectedBackgroundTexture) {
+      const minX = Math.min(xlabTerrainShapeStart.x, xlabTerrainShapeEnd.x);
+      const maxX = Math.max(xlabTerrainShapeStart.x, xlabTerrainShapeEnd.x);
+      const minY = Math.min(xlabTerrainShapeStart.y, xlabTerrainShapeEnd.y);
+      const maxY = Math.max(xlabTerrainShapeStart.y, xlabTerrainShapeEnd.y);
+      const width = maxX - minX;
+      const height = maxY - minY;
+      
+      // Only fill if shape has minimum size
+      if (width >= 20 && height >= 20) {
+        console.log(`[XLAB SHAPE] Filling ${xlabShapeMode} with terrain brush`);
+        
+        // Mark that we're filling a shape (prevents race condition with scene activation)
+        isFillingShapeRef.current = true;
+        
+        // Ensure brush image is loaded before stamping
+        const ensureBrushLoaded = (): Promise<void> => {
+          return new Promise((resolve) => {
+            // Check if we have the correct image already loaded
+            if (brushImageRef.current?.src === selectedBackgroundTexture && brushImageRef.current?.complete) {
+              console.log('[XLAB SHAPE] Brush already loaded');
+              resolve();
+              return;
+            }
+            
+            console.log('[XLAB SHAPE] Loading brush image...');
+            const img = new Image();
+            img.src = selectedBackgroundTexture;
+            img.onload = () => {
+              console.log('[XLAB SHAPE] Brush image loaded successfully');
+              brushImageRef.current = img;
+              resolve();
+            };
+            img.onerror = () => {
+              console.error('[XLAB SHAPE] Failed to load brush image:', selectedBackgroundTexture);
+              resolve(); // Resolve anyway to prevent hanging
+            };
+          });
+        };
+        
+        await ensureBrushLoaded();
+        
+        const spacing = backgroundBrushSize * 0.5; // 50% overlap for smooth fill
+        
+        if (xlabShapeMode === 'rectangle') {
+          // Fill rectangle with overlapping brush stamps
+          for (let y = minY; y <= maxY; y += spacing) {
+            for (let x = minX; x <= maxX; x += spacing) {
+              stampBrush(x, y, true);
+            }
+          }
+        } else if (xlabShapeMode === 'circle') {
+          // Fill circle with radial pattern (concentric circles) for smooth organic look
+          const centerX = (minX + maxX) / 2;
+          const centerY = (minY + maxY) / 2;
+          const radiusX = width / 2;
+          const radiusY = height / 2;
+          const maxRadius = Math.max(radiusX, radiusY);
+          
+          // Start from center
+          stampBrush(centerX, centerY, true);
+          
+          // Fill in concentric elliptical rings
+          for (let r = spacing; r <= maxRadius; r += spacing) {
+            // Calculate how many stamps we need around this ring based on circumference
+            const circumference = 2 * Math.PI * r;
+            const numStamps = Math.max(8, Math.ceil(circumference / spacing));
+            
+            for (let i = 0; i < numStamps; i++) {
+              const angle = (i / numStamps) * 2 * Math.PI;
+              const x = centerX + Math.cos(angle) * (r / maxRadius) * radiusX;
+              const y = centerY + Math.sin(angle) * (r / maxRadius) * radiusY;
+              
+              // Only stamp if within the ellipse bounds
+              const dx = (x - centerX) / radiusX;
+              const dy = (y - centerY) / radiusY;
+              if (dx * dx + dy * dy <= 1) {
+                stampBrush(x, y, true);
+              }
+            }
+          }
+        } else if (xlabShapeMode === 'polygon') {
+          // TODO: Implement polygon shape - for now treat as rectangle
+          for (let y = minY; y <= maxY; y += spacing) {
+            for (let x = minX; x <= maxX; x += spacing) {
+              stampBrush(x, y, true);
+            }
+          }
+        }
+        
+        // Use setTimeout to ensure state updates have completed before saving history
+        setTimeout(() => {
+          const tilesObject: { [key: string]: TerrainTile } = {};
+          setTerrainTiles(currentTiles => {
+            currentTiles.forEach((tile, key) => {
+              tilesObject[key] = tile;
+            });
+            saveToHistory(tilesObject);
+            
+            // Mark shape fill as complete
+            isFillingShapeRef.current = false;
+            
+            return currentTiles; // Return unchanged to avoid re-render
+          });
+        }, 0);
+      }
+      
+      setXlabTerrainShapeStart(null);
+      setXlabTerrainShapeEnd(null);
+      return; // Exit early to prevent double history save
+    }
+
     // Save to history if we were dragging or resizing
     if (draggedElement || resizingElement || draggedMultiple || rotatingElement || scalingElement || movingVertex) {
       saveToHistory();
@@ -3825,13 +3997,17 @@ const Canvas = ({
       setLastBrushStamp(null);
       setBrushAnchorPoint(null);
       
-      // Save history immediately with current terrainTiles state
-      // Convert current terrainTiles Map to object for history
-      const tilesObject: { [key: string]: TerrainTile } = {};
-      terrainTiles.forEach((tile, key) => {
-        tilesObject[key] = tile;
-      });
-      saveToHistory(tilesObject);
+      // Use setTimeout to ensure state updates have completed before saving history
+      setTimeout(() => {
+        const tilesObject: { [key: string]: TerrainTile } = {};
+        setTerrainTiles(currentTiles => {
+          currentTiles.forEach((tile, key) => {
+            tilesObject[key] = tile;
+          });
+          saveToHistory(tilesObject);
+          return currentTiles; // Return unchanged to avoid re-render
+        });
+      }, 0);
     }
 
     // Stop erasing
@@ -3882,8 +4058,29 @@ const Canvas = ({
 
     // Finalize element creation
     if (isCreating && tempElement && tempElement.id === 'temp') {
-      saveToHistory();
       const finalElement = { ...tempElement, id: `${tempElement.type}-${Date.now()}` };
+      
+      // Save history immediately BEFORE adding - but with the new element included
+      if (scene) {
+        const elementWithZIndex = {
+          ...finalElement,
+          zIndex: finalElement.type === 'room' ? -100 : (finalElement.zIndex ?? 0)
+        };
+        const newElements = [...scene.elements, elementWithZIndex];
+        const newHistoryEntry = {
+          elements: newElements,
+          terrainTiles: (() => {
+            const tilesObj: { [key: string]: TerrainTile } = {};
+            terrainTiles.forEach((tile, key) => {
+              tilesObj[key] = tile;
+            });
+            return tilesObj;
+          })()
+        };
+        setHistory(prev => [...prev.slice(0, historyIndex + 1), newHistoryEntry]);
+        setHistoryIndex(prev => prev + 1);
+      }
+      
       addElement(finalElement);
       setSelectedElementId(finalElement.id);
       setSelectedElementIds([]);
@@ -3992,8 +4189,25 @@ const Canvas = ({
           }
         } else {
           // Normal room creation
-          saveToHistory();
           const finalRoom = { ...tempRoom, id: `room-${Date.now()}`, tileSize, showWalls, wallTextureUrl: selectedWallTexture || '', wallThickness };
+          
+          // Save history AFTER adding element
+          if (scene) {
+            const newElements = [...scene.elements, finalRoom];
+            const newHistoryEntry = {
+              elements: newElements,
+              terrainTiles: (() => {
+                const tilesObj: { [key: string]: TerrainTile } = {};
+                terrainTiles.forEach((tile, key) => {
+                  tilesObj[key] = tile;
+                });
+                return tilesObj;
+              })()
+            };
+            setHistory(prev => [...prev.slice(0, historyIndex + 1), newHistoryEntry]);
+            setHistoryIndex(prev => prev + 1);
+          }
+          
           addElement(finalRoom);
           setSelectedElementId(finalRoom.id);
           setSelectedElementIds([]);
@@ -4017,8 +4231,6 @@ const Canvas = ({
       
       // Only create wall if it's long enough (at least 10 pixels)
       if (distance >= 10) {
-        saveToHistory();
-
         const wallCount = scene!.elements.filter(e => e.type === 'wall').length + 1;
         const textureName = getTextureName(selectedWallTexture || '');
         
@@ -4035,6 +4247,23 @@ const Canvas = ({
           visible: true,
           widgets: []
         };
+        
+        // Save history AFTER adding wall
+        if (scene) {
+          const newElements = [...scene.elements, newWall];
+          const newHistoryEntry = {
+            elements: newElements,
+            terrainTiles: (() => {
+              const tilesObj: { [key: string]: TerrainTile } = {};
+              terrainTiles.forEach((tile, key) => {
+                tilesObj[key] = tile;
+              });
+              return tilesObj;
+            })()
+          };
+          setHistory(prev => [...prev.slice(0, historyIndex + 1), newHistoryEntry]);
+          setHistoryIndex(prev => prev + 1);
+        }
         
         addElement(newWall);
         setSelectedElementId(newWall.id);
@@ -4278,8 +4507,14 @@ const Canvas = ({
     if (activeTool === 'token' && scene) return 'cursor-none'; // Hide default cursor for token mode only when scene exists
     if (activeTool === 'background') return 'cursor-crosshair'; // Crosshair for painting background
     if (activeTool === 'room') {
-      // Show cell cursor (precision cursor) when in erase mode, otherwise crosshair for drawing
-      return roomSubTool === 'erase' ? 'cursor-cell' : isSubtractMode(roomSubTool) ? 'cursor-no-drop' : 'cursor-crosshair';
+      // Show cell cursor (precision cursor) when in erase mode
+      if (roomSubTool === 'erase') return 'cursor-cell';
+      // Show custom cursor with minus for subtract mode (like Photoshop)
+      if (isSubtractMode(roomSubTool)) {
+        return `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><path d='M12 2v20M2 12h20' stroke='white' stroke-width='2'/><path d='M12 2v20M2 12h20' stroke='black' stroke-width='1'/><circle cx='17' cy='7' r='6' fill='white' stroke='black' stroke-width='1.5'/><path d='M14 7h6' stroke='black' stroke-width='2' stroke-linecap='round'/></svg>") 12 12, crosshair`;
+      }
+      // Default crosshair for add mode
+      return 'cursor-crosshair';
     }
     if (activeTool === 'zoom-in') {
       // Show zoom-out cursor when Alt is pressed
@@ -4934,6 +5169,148 @@ const Canvas = ({
                       strokeDasharray="5,5"
                     />
                   )}
+                </svg>
+              );
+            })()}
+
+        {/* X-Lab: Terrain shape preview (rectangle, circle, polygon) */}
+        {scene && xlabTerrainShapeStart && xlabTerrainShapeEnd && xlabShapeMode && selectedBackgroundTexture && (() => {
+              const minX = Math.min(xlabTerrainShapeStart.x, xlabTerrainShapeEnd.x);
+              const maxX = Math.max(xlabTerrainShapeStart.x, xlabTerrainShapeEnd.x);
+              const minY = Math.min(xlabTerrainShapeStart.y, xlabTerrainShapeEnd.y);
+              const maxY = Math.max(xlabTerrainShapeStart.y, xlabTerrainShapeEnd.y);
+              const width = maxX - minX;
+              const height = maxY - minY;
+              
+              // Don't render if too small
+              if (width < 1 || height < 1) {
+                return null;
+              }
+              
+              // Generate brush stamp positions with 50% overlap (same as actual fill)
+              const spacing = backgroundBrushSize * 0.5;
+              const stampPositions: { x: number; y: number }[] = [];
+              
+              if (xlabShapeMode === 'rectangle') {
+                for (let y = minY; y <= maxY; y += spacing) {
+                  for (let x = minX; x <= maxX; x += spacing) {
+                    stampPositions.push({ x, y });
+                  }
+                }
+              } else if (xlabShapeMode === 'circle') {
+                // Use radial pattern (concentric circles) for smooth organic look
+                const centerX = (minX + maxX) / 2;
+                const centerY = (minY + maxY) / 2;
+                const radiusX = width / 2;
+                const radiusY = height / 2;
+                const maxRadius = Math.max(radiusX, radiusY);
+                
+                // Center stamp
+                stampPositions.push({ x: centerX, y: centerY });
+                
+                // Concentric elliptical rings
+                for (let r = spacing; r <= maxRadius; r += spacing) {
+                  const circumference = 2 * Math.PI * r;
+                  const numStamps = Math.max(8, Math.ceil(circumference / spacing));
+                  
+                  for (let i = 0; i < numStamps; i++) {
+                    const angle = (i / numStamps) * 2 * Math.PI;
+                    const x = centerX + Math.cos(angle) * (r / maxRadius) * radiusX;
+                    const y = centerY + Math.sin(angle) * (r / maxRadius) * radiusY;
+                    
+                    const dx = (x - centerX) / radiusX;
+                    const dy = (y - centerY) / radiusY;
+                    if (dx * dx + dy * dy <= 1) {
+                      stampPositions.push({ x, y });
+                    }
+                  }
+                }
+              } else if (xlabShapeMode === 'polygon') {
+                // TODO: Implement polygon - for now use rectangle
+                for (let y = minY; y <= maxY; y += spacing) {
+                  for (let x = minX; x <= maxX; x += spacing) {
+                    stampPositions.push({ x, y });
+                  }
+                }
+              }
+              
+              return (
+                <svg
+                  style={{
+                    position: 'absolute',
+                    left: viewport.x,
+                    top: viewport.y,
+                    width: scene.width * viewport.zoom,
+                    height: scene.height * viewport.zoom,
+                    pointerEvents: 'none',
+                    overflow: 'visible',
+                  }}
+                >
+                  {/* Border shape */}
+                  {xlabShapeMode === 'rectangle' && (
+                    <rect
+                      x={minX * viewport.zoom}
+                      y={minY * viewport.zoom}
+                      width={width * viewport.zoom}
+                      height={height * viewport.zoom}
+                      fill="none"
+                      stroke="#a78bfa"
+                      strokeWidth={2}
+                      strokeDasharray="5,5"
+                    />
+                  )}
+                  {xlabShapeMode === 'circle' && (
+                    <ellipse
+                      cx={(minX + maxX) / 2 * viewport.zoom}
+                      cy={(minY + maxY) / 2 * viewport.zoom}
+                      rx={width / 2 * viewport.zoom}
+                      ry={height / 2 * viewport.zoom}
+                      fill="none"
+                      stroke="#a78bfa"
+                      strokeWidth={2}
+                      strokeDasharray="5,5"
+                    />
+                  )}
+                  {xlabShapeMode === 'polygon' && (
+                    <rect
+                      x={minX * viewport.zoom}
+                      y={minY * viewport.zoom}
+                      width={width * viewport.zoom}
+                      height={height * viewport.zoom}
+                      fill="none"
+                      stroke="#a78bfa"
+                      strokeWidth={2}
+                      strokeDasharray="5,5"
+                    />
+                  )}
+                  
+                  {/* Overlapping brush stamps - exactly like stampBrush() rendering */}
+                  <g opacity={0.5}>
+                    {stampPositions.map((pos, idx) => {
+                      const centerX = pos.x * viewport.zoom;
+                      const centerY = pos.y * viewport.zoom;
+                      const radius = (backgroundBrushSize / 2) * viewport.zoom;
+                      const clipId = `xlab-clip-${idx}`;
+                      
+                      return (
+                        <g key={idx}>
+                          <defs>
+                            <clipPath id={clipId}>
+                              <circle cx={centerX} cy={centerY} r={radius} />
+                            </clipPath>
+                          </defs>
+                          <image
+                            href={selectedBackgroundTexture}
+                            x={centerX - radius}
+                            y={centerY - radius}
+                            width={backgroundBrushSize * viewport.zoom}
+                            height={backgroundBrushSize * viewport.zoom}
+                            clipPath={`url(#${clipId})`}
+                          />
+                        </g>
+                      );
+                    })}
+                  </g>
                 </svg>
               );
             })()}

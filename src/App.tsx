@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { Scene, MapElement, ToolType, TokenTemplate, ColorType, IconType, Collection, CollectionAppearance, RoomSubTool } from './types';
+import { Scene, MapElement, ToolType, TokenTemplate, ColorType, IconType, Collection, CollectionAppearance, RoomSubTool, TerrainShapeMode } from './types';
 import Canvas from './components/Canvas';
 import { DEFAULT_COLLECTION_NAME, DEFAULT_CANVAS_NAME } from './constants';
-import RightPanel from './components/RightPanel';
-import LeftPanel from './components/LeftPanel';
+import RightPanel from './components/rightPanel/RightPanel';
+import LeftPanel from './components/leftPanel/LeftPanel';
 
 function App() {
   // Scene state
@@ -114,7 +114,10 @@ function App() {
   const [terrainBrushes, setTerrainBrushes] = useState<{ name: string; download_url: string }[]>([]);
   const [selectedTerrainBrush, setSelectedTerrainBrush] = useState<string | null>(null);
   const [wallTextures, setWallTextures] = useState<{ name: string; download_url: string }[]>([]);
-  const [rightPanelActiveTab, setRightPanelActiveTab] = useState<'scenes' | 'tokens' | 'draw'>('scenes');
+  const [rightPanelActiveTab, setRightPanelActiveTab] = useState<'scenes' | 'tokens' | 'draw' | 'xlab'>('scenes');
+
+  // X-Lab experimental features
+  const [xlabShapeMode, setXlabShapeMode] = useState<TerrainShapeMode>(null);
 
   // Load terrain brushes on mount
   useEffect(() => {
@@ -680,6 +683,8 @@ function App() {
         wallTextures={wallTextures}
         onSelectWallTexture={setSelectedWallTexture}
         onSwitchToDrawTab={() => setRightPanelActiveTab('draw')}
+        xlabShapeMode={xlabShapeMode}
+        setXlabShapeMode={setXlabShapeMode}
       />
 
       {/* Right Panel */}
@@ -731,6 +736,8 @@ function App() {
         onBackgroundBrushSizeChange={setBackgroundBrushSize}
         activeTab={rightPanelActiveTab}
         onActiveTabChange={setRightPanelActiveTab}
+        xlabShapeMode={xlabShapeMode}
+        onXlabShapeModeChange={setXlabShapeMode}
       />
     </div>
   );

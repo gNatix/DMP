@@ -6,7 +6,7 @@ import { useKeyboardShortcut } from '../../../hooks/useKeyboardShortcut';
 export const lockButtonConfig: ToolButtonConfig = {
   id: 'lock',
   enabled: true,
-  category: 'utilities',
+  category: 'toggle',
   weight: 1, // After badge toggle in utilities category
   
   icon: <Lock size={18} />,

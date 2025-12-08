@@ -19,6 +19,7 @@ import LockButton, { lockButtonConfig } from './LockButton';
 import GridButton, { gridButtonConfig } from './GridButton';
 import ColorPickerButton, { colorPickerButtonConfig } from './ColorPickerButton';
 import FitToViewButton, { fitToViewButtonConfig } from './FitToViewButton';
+import XLabButton, { xLabButtonConfig } from './XLabButton';
 
 export const toolButtons = [
   // Selection tools
@@ -52,6 +53,9 @@ export const toolButtons = [
   // View tools
   { component: GridButton, config: gridButtonConfig },
   { component: FitToViewButton, config: fitToViewButtonConfig },
+  
+  // Experimental
+  { component: XLabButton, config: xLabButtonConfig },
 ];
 
 // Helper to get buttons by category, sorted by weight
@@ -93,4 +97,5 @@ export {
   GridButton,
   ColorPickerButton,
   FitToViewButton,
+  XLabButton,
 };

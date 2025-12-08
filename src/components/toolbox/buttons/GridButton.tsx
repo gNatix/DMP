@@ -8,7 +8,7 @@ import GridControlsSubmenu from '../submenus/GridControlsSubmenu';
 export const gridButtonConfig: ToolButtonConfig = {
   id: 'grid',
   enabled: true,
-  category: 'view',
+  category: 'toggle',
   weight: 3, // First in view category
   
   icon: <Grid3x3 size={18} />,

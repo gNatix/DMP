@@ -1,4 +1,4 @@
-import { Paintbrush } from 'lucide-react';
+import { Mountain } from 'lucide-react';
 import { useRef } from 'react';
 import { ToolButtonConfig, ToolButtonProps } from './types';
 import TerrainPickerSubmenu from '../submenus/TerrainPickerSubmenu';
@@ -11,7 +11,7 @@ export const terrainButtonConfig: ToolButtonConfig = {
   category: 'drawing',
   weight: 3, // After token in drawing category
   
-  icon: <Paintbrush size={18} />,
+  icon: <Mountain size={18} />,
   label: 'Paint Environment',
   shortcutKey: 'E',
   

@@ -6,7 +6,7 @@ import { useKeyboardShortcut } from '../../../hooks/useKeyboardShortcut';
 export const badgeToggleButtonConfig: ToolButtonConfig = {
   id: 'badge-toggle',
   enabled: true,
-  category: 'utilities',
+  category: 'toggle',
   weight: 2, // First in utilities category
   
   icon: <Tag size={18} />,

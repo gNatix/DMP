@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { RoomElement, WallElement, MapElement, RoomSubTool, ToolType } from '../types';
+import { RoomElement, WallElement, MapElement, RoomSubTool, ToolType, TerrainShapeMode } from '../../types';
 
 interface RoomBuilderPanelProps {
   activeTool: ToolType;
@@ -29,6 +29,9 @@ interface RoomBuilderPanelProps {
   onBrushSizeChange: (size: number) => void;
   activeDrawTab?: 'room' | 'terrain' | 'walls';
   onActiveDrawTabChange?: (tab: 'room' | 'terrain' | 'walls') => void;
+  // Terrain shape mode
+  terrainShapeMode?: TerrainShapeMode;
+  onTerrainShapeModeChange?: (mode: TerrainShapeMode) => void;
 }
 
 interface AssetFile {
@@ -64,7 +67,9 @@ const RoomBuilderPanel = ({
   backgroundBrushSize,
   onBrushSizeChange,
   activeDrawTab: externalActiveTab,
-  onActiveDrawTabChange
+  onActiveDrawTabChange,
+  terrainShapeMode = null,
+  onTerrainShapeModeChange
 }: RoomBuilderPanelProps) => {
   const [floorTextures, setFloorTextures] = useState<AssetFile[]>([]);
   const [loadingFloors, setLoadingFloors] = useState(true);
@@ -593,6 +598,98 @@ const RoomBuilderPanel = ({
         {activeTab === 'terrain' && (
           <div>
             <p className="text-sm text-gray-300 mb-4">Paint environment textures on the background</p>
+            
+            {/* Shape Mode Selector */}
+            {onTerrainShapeModeChange && (
+              <div className="mb-4">
+                <label className="block text-xs text-gray-400 mb-2">Draw Mode</label>
+                <div className="grid grid-cols-4 gap-2">
+                  <button
+                    onClick={() => {
+                      onTerrainShapeModeChange(null);
+                      setActiveTool('background');
+                      // Auto-select first texture if none selected
+                      if (!selectedTerrainBrush && backgroundTextures.length > 0) {
+                        onSelectTerrainBrush(backgroundTextures[0].download_url);
+                      }
+                    }}
+                    className={`p-3 rounded border-2 transition-all flex items-center justify-center ${
+                      terrainShapeMode === null
+                        ? 'border-dm-highlight bg-dm-highlight/20 text-white'
+                        : 'border-dm-border bg-dm-dark hover:border-dm-highlight/50 text-gray-300'
+                    }`}
+                    title="Freehand brush"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>
+                  </button>
+                  
+                  <button
+                    onClick={() => {
+                      onTerrainShapeModeChange('rectangle');
+                      setActiveTool('background');
+                      // Auto-select first texture if none selected
+                      if (!selectedTerrainBrush && backgroundTextures.length > 0) {
+                        onSelectTerrainBrush(backgroundTextures[0].download_url);
+                      }
+                    }}
+                    className={`p-3 rounded border-2 transition-all flex items-center justify-center ${
+                      terrainShapeMode === 'rectangle'
+                        ? 'border-dm-highlight bg-dm-highlight/20 text-white'
+                        : 'border-dm-border bg-dm-dark hover:border-dm-highlight/50 text-gray-300'
+                    }`}
+                    title="Rectangle fill"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <rect x="4" y="6" width="16" height="12" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </button>
+                  
+                  <button
+                    onClick={() => {
+                      onTerrainShapeModeChange('circle');
+                      setActiveTool('background');
+                      // Auto-select first texture if none selected
+                      if (!selectedTerrainBrush && backgroundTextures.length > 0) {
+                        onSelectTerrainBrush(backgroundTextures[0].download_url);
+                      }
+                    }}
+                    className={`p-3 rounded border-2 transition-all flex items-center justify-center ${
+                      terrainShapeMode === 'circle'
+                        ? 'border-dm-highlight bg-dm-highlight/20 text-white'
+                        : 'border-dm-border bg-dm-dark hover:border-dm-highlight/50 text-gray-300'
+                    }`}
+                    title="Circle fill"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <circle cx="12" cy="12" r="8" strokeWidth="2"/>
+                    </svg>
+                  </button>
+                  
+                  <button
+                    onClick={() => {
+                      onTerrainShapeModeChange('polygon');
+                      setActiveTool('background');
+                      // Auto-select first texture if none selected
+                      if (!selectedTerrainBrush && backgroundTextures.length > 0) {
+                        onSelectTerrainBrush(backgroundTextures[0].download_url);
+                      }
+                    }}
+                    className={`p-3 rounded border-2 transition-all flex items-center justify-center ${
+                      terrainShapeMode === 'polygon'
+                        ? 'border-dm-highlight bg-dm-highlight/20 text-white'
+                        : 'border-dm-border bg-dm-dark hover:border-dm-highlight/50 text-gray-300'
+                    }`}
+                    title="Polygon fill"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 2 L22 9 L18 21 L6 21 L2 9 Z" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            )}
             
             {/* Brush Size Slider */}
             <div className="mb-4">

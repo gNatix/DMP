@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Trash2, Image as ImageIcon } from 'lucide-react';
-import { MonsterCardWidget as MonsterCardWidgetType } from '../types';
-import RichTextEditor from './RichTextEditor';
+import { MonsterCardWidget as MonsterCardWidgetType } from '../../../types';
+import RichTextEditor from '../../RichTextEditor';
 
 interface MonsterCardWidgetProps {
   widget: MonsterCardWidgetType;

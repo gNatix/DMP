@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Type, Dices, Table, Skull } from 'lucide-react';
-import { WidgetType } from '../types';
+import { WidgetType } from '../../../types';
 
 interface AddWidgetPopupProps {
   onAdd: (widgetType: WidgetType) => void;
