@@ -6,6 +6,8 @@ import { useKeyboardShortcut } from '../../../hooks/useKeyboardShortcut';
 export const badgeToggleButtonConfig: ToolButtonConfig = {
   id: 'badge-toggle',
   enabled: true,
+  enabledInGameMode: true, // Show in game mode
+  enabledInPlanningMode: true, // Show in planning mode
   category: 'toggle',
   weight: 2, // First in utilities category
   

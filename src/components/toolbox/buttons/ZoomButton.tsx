@@ -6,6 +6,7 @@ import { useKeyboardShortcut } from '../../../hooks/useKeyboardShortcut';
 export const zoomButtonConfig: ToolButtonConfig = {
   id: 'zoom',
   enabled: true,
+  enabledInGameMode: true,
   category: 'navigation',
   weight: 2, // After pan in navigation category
   

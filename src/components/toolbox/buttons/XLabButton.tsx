@@ -14,7 +14,7 @@ export const xLabButtonConfig: ToolButtonConfig = {
   category: 'utilities',
   weight: 100,
   shortcutKey: 'X',
-  enabled: true,
+  enabled: false,
   buttonType: 'tool',
   highlightStyle: 'full',
   hasSubmenu: false

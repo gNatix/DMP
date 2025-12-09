@@ -8,6 +8,7 @@ import { useKeyboardShortcut } from '../../../hooks/useKeyboardShortcut';
 export const colorPickerButtonConfig: ToolButtonConfig = {
   id: 'color-picker',
   enabled: true,
+  enabledInGameMode: true,
   category: 'utilities',
   weight: 3, // After lock in utilities category
   

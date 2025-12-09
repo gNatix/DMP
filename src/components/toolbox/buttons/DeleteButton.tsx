@@ -17,6 +17,8 @@ export const deleteButtonConfig: ToolButtonConfig = {
   highlightStyle: null,         // OPTIONS: 'full' (colored bg) | 'border' (colored border) | null (no highlight)
   
   hasSubmenu: false,
+  enabledInGameMode: false,     // Delete not allowed in game mode
+  enabledInPlanningMode: true,
 };
 // ==========================================
 

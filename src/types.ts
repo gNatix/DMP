@@ -1,5 +1,7 @@
 // Data model types for the DM Planner application
 
+export type ViewMode = "planning" | "game";
+
 export type ElementType = "annotation" | "token" | "room" | "wall";
 
 export type ToolType = "pointer" | "marker" | "token" | "pan" | "zoom-in" | "zoom-out" | "room" | "background" | "wall" | "wall-line" | "xlab";
@@ -40,6 +42,7 @@ export interface AnnotationElement {
   visible?: boolean; // For hiding elements (default true)
   widgets?: Widget[]; // For properties panel customization
   locked?: boolean; // Prevent movement when true
+  playlistObject?: boolean; // Display in game mode playlist
 }
 
 export interface TokenElement {
@@ -60,6 +63,7 @@ export interface TokenElement {
   widgets?: Widget[]; // For properties panel customization
   showBadge?: boolean; // For displaying name badge above token
   locked?: boolean; // Prevent movement when true
+  playlistObject?: boolean; // Display in game mode playlist
 }
 
 // Legacy WallGap (deprecated - keeping for reference during migration)
@@ -99,6 +103,7 @@ export interface RoomElement {
   visible?: boolean; // For hiding elements (default true)
   widgets?: Widget[]; // For properties panel customization
   locked?: boolean; // Prevent movement when true
+  playlistObject?: boolean; // Display in game mode playlist
 }
 
 export interface WallElement {
@@ -117,11 +122,13 @@ export interface WallElement {
   
   // Metadata
   name?: string; // Optional name for the wall
+  hasCustomName?: boolean; // True if user has manually edited the name
   notes: string;
   zIndex?: number; // For layering control
   visible?: boolean; // For hiding elements (default true)
   widgets?: Widget[]; // For properties panel customization
   locked?: boolean; // Prevent movement when true
+  playlistObject?: boolean; // Display in game mode playlist
 }
 
 export type MapElement = AnnotationElement | TokenElement | RoomElement | WallElement;

@@ -1,11 +1,24 @@
 import { useState, useEffect, useRef } from 'react';
-import { Scene, MapElement, ToolType, TokenTemplate, ColorType, IconType, Collection, CollectionAppearance, RoomSubTool, TerrainShapeMode } from './types';
+import { Scene, MapElement, ToolType, TokenTemplate, ColorType, IconType, Collection, CollectionAppearance, RoomSubTool, TerrainShapeMode, ViewMode } from './types';
 import Canvas from './components/Canvas';
 import { DEFAULT_COLLECTION_NAME, DEFAULT_CANVAS_NAME } from './constants';
 import RightPanel from './components/rightPanel/RightPanel';
 import LeftPanel from './components/leftPanel/LeftPanel';
+import PlaylistPanel from './components/gameMode/PlaylistPanel';
+import InfoBox from './components/gameMode/InfoBox';
+import InfoBoxConnector from './components/gameMode/InfoBoxConnector';
 
 function App() {
+  // View mode state
+  const [viewMode, setViewMode] = useState<ViewMode>('planning');
+  
+  // Game mode state
+  const [openInfoBoxes, setOpenInfoBoxes] = useState<Set<string>>(new Set());
+  const [pinnedInfoBoxes, setPinnedInfoBoxes] = useState<Set<string>>(new Set());
+  const [gameModeError, setGameModeError] = useState<string | null>(null);
+  const [viewport, setViewport] = useState({ x: 0, y: 0, zoom: 1 });
+  const [infoBoxPositions, setInfoBoxPositions] = useState<Map<string, { x: number; y: number }>>(new Map());
+  
   // Scene state
   const [scenes, setScenes] = useState<Scene[]>([]);
   const [activeSceneId, setActiveSceneId] = useState<string | null>(null);
@@ -619,26 +632,165 @@ function App() {
     setActiveTool('token');
   };
 
+  // Game Mode Handlers
+  const handleGameModeSceneSelect = (sceneId: string) => {
+    setActiveSceneId(sceneId);
+  };
+
+  const handleGameModeElementSelect = (elementId: string) => {
+    // Set selected element
+    setSelectedElementId(elementId);
+    setSelectedElementIds([]);
+    
+    // Lock token by default in game mode if not already locked
+    const element = activeScene?.elements.find(el => el.id === elementId);
+    if (element && element.type === 'token' && element.locked === undefined) {
+      updateElement(elementId, { locked: true });
+    }
+    
+    // Center viewport on element (only from playlist)
+    if (centerElementHandlerRef.current) {
+      centerElementHandlerRef.current(elementId);
+    }
+    
+    // Close all unpinned InfoBoxes
+    setOpenInfoBoxes(prev => {
+      const next = new Set<string>();
+      // Keep pinned boxes open
+      prev.forEach(id => {
+        if (pinnedInfoBoxes.has(id)) {
+          next.add(id);
+        }
+      });
+      // Always open the selected element's InfoBox
+      next.add(elementId);
+      return next;
+    });
+  };
+
+  const handleCanvasElementSelect = (elementId: string) => {
+    // Set selected element (no viewport centering)
+    setSelectedElementId(elementId);
+    setSelectedElementIds([]);
+    
+    // Lock token by default in game mode if not already locked
+    if (viewMode === 'game') {
+      const element = activeScene?.elements.find(el => el.id === elementId);
+      if (element && element.type === 'token' && element.locked === undefined) {
+        updateElement(elementId, { locked: true });
+      }
+    }
+    
+    // Close all unpinned InfoBoxes
+    setOpenInfoBoxes(prev => {
+      const next = new Set<string>();
+      // Keep pinned boxes open
+      prev.forEach(id => {
+        if (pinnedInfoBoxes.has(id)) {
+          next.add(id);
+        }
+      });
+      // Always open the selected element's InfoBox
+      next.add(elementId);
+      return next;
+    });
+  };
+
+  const handleToggleInfoBox = (elementId: string) => {
+    setOpenInfoBoxes(prev => {
+      const next = new Set(prev);
+      if (next.has(elementId)) {
+        next.delete(elementId);
+      } else {
+        next.add(elementId);
+      }
+      return next;
+    });
+  };
+
+  const handleCloseInfoBox = (elementId: string) => {
+    setOpenInfoBoxes(prev => {
+      const next = new Set(prev);
+      next.delete(elementId);
+      return next;
+    });
+    // If closing selected element's box, deselect it
+    if (selectedElementId === elementId && !pinnedInfoBoxes.has(elementId)) {
+      setSelectedElementId(null);
+    }
+  };
+
+  const handleToggleLockInfoBox = (elementId: string) => {
+    // Toggle the element's locked property
+    const element = activeScene?.elements.find(el => el.id === elementId);
+    if (element) {
+      updateElement(elementId, { locked: !element.locked });
+    }
+  };
+
+  const handleTogglePinInfoBox = (elementId: string) => {
+    setPinnedInfoBoxes(prev => {
+      const next = new Set(prev);
+      if (next.has(elementId)) {
+        next.delete(elementId);
+      } else {
+        next.add(elementId);
+      }
+      return next;
+    });
+  };
+
+  const handleShowGameModeError = (message: string) => {
+    setGameModeError(message);
+    setTimeout(() => setGameModeError(null), 3000);
+  };
+
+  // Get screen position for InfoBox (left of element)
+  const getInfoBoxPosition = (_element: MapElement): { x: number; y: number } => {
+    // This is a placeholder - we'll need viewport info from Canvas
+    // For now, position it at a fixed offset
+    return { x: 100, y: 100 };
+  };
+
+  // Convert world coordinates to screen coordinates
+  const worldToScreen = (worldX: number, worldY: number): { x: number; y: number } => {
+    return {
+      x: worldX * viewport.zoom + viewport.x,
+      y: worldY * viewport.zoom + viewport.y
+    };
+  };
+
   return (
     <div className="flex h-screen w-screen bg-dm-dark text-gray-200">
-      {/* Left Panel - Properties */}
-      <LeftPanel
-        selectedElement={selectedElement}
-        selectedElements={selectedElements}
-        updateElement={updateElement}
-        deleteElement={deleteElement}
-        deleteElements={deleteElements}
-        isOpen={leftPanelOpen}
-        setIsOpen={setLeftPanelOpen}
-        centerViewportOnElement={(_id) => {
-          // This will be passed to Canvas, but for now we can leave it as a placeholder
-          // The actual implementation needs to be in Canvas
-        }}
-      />
+      {/* Left Panel - Properties (Planning Mode Only) */}
+      {viewMode === 'planning' && (
+        <LeftPanel
+          selectedElement={selectedElement}
+          selectedElements={selectedElements}
+          updateElement={updateElement}
+          deleteElement={deleteElement}
+          deleteElements={deleteElements}
+          isOpen={leftPanelOpen}
+          setIsOpen={setLeftPanelOpen}
+          centerViewportOnElement={(_id) => {
+            // This will be passed to Canvas, but for now we can leave it as a placeholder
+            // The actual implementation needs to be in Canvas
+          }}
+        />
+      )}
 
       {/* Center Canvas */}
       <Canvas
         scene={activeScene}
+        viewMode={viewMode}
+        onToggleViewMode={() => {
+          const newMode = viewMode === 'planning' ? 'game' : 'planning';
+          setViewMode(newMode);
+          // Always switch to pointer tool when entering game mode
+          if (newMode === 'game') {
+            setActiveTool('pointer');
+          }
+        }}
         activeTool={activeTool}
         activeColor={activeColor}
         activeIcon={activeIcon}
@@ -656,6 +808,7 @@ function App() {
         setActiveTool={setActiveTool}
         activeSceneId={activeSceneId}
         leftPanelOpen={leftPanelOpen}
+        onToggleLeftPanel={() => setLeftPanelOpen(!leftPanelOpen)}
         showTokenBadges={showTokenBadges}
         setShowTokenBadges={setShowTokenBadges}
         onDoubleClickElement={() => setLeftPanelOpen(true)}
@@ -685,60 +838,133 @@ function App() {
         onSwitchToDrawTab={() => setRightPanelActiveTab('draw')}
         xlabShapeMode={xlabShapeMode}
         setXlabShapeMode={setXlabShapeMode}
+        onElementSelected={viewMode === 'game' ? handleCanvasElementSelect : undefined}
+        onViewportChange={setViewport}
       />
 
-      {/* Right Panel */}
-      <RightPanel
-        scenes={scenes}
-        activeSceneId={activeSceneId}
-        setActiveSceneId={setActiveSceneId}
-        addScene={addScene}
-        addCanvasScene={addCanvasScene}
-        updateSceneName={updateSceneName}
-        deleteScene={deleteScene}
-        moveSceneToCollection={moveSceneToCollection}
-        duplicateScene={duplicateScene}
-        collections={collections}
-        addCollection={addCollection}
-        updateCollectionName={updateCollectionName}
-        updateCollectionAppearance={updateCollectionAppearance}
-        deleteCollection={deleteCollection}
-        selectedElement={selectedElement}
-        updateElement={updateElement}
-        deleteElement={deleteElement}
-        tokenTemplates={tokenTemplates}
-        addTokenTemplate={addTokenTemplate}
-        setActiveTool={setActiveTool}
-        activeTokenTemplate={activeTokenTemplate}
-        setActiveTokenTemplate={setActiveTokenTemplate}
-        onRecentTokensChange={setRecentTokens}
-        activeTool={activeTool}
-        selectedFloorTexture={selectedFloorTexture}
-        onSelectFloorTexture={setSelectedFloorTexture}
-        tileSize={tileSize}
-        onTileSizeChange={setTileSize}
-        showWalls={showWalls}
-        onShowWallsChange={setShowWalls}
-        selectedWallTexture={selectedWallTexture}
-        onSelectWallTexture={setSelectedWallTexture}
-        wallThickness={wallThickness}
-        onWallThicknessChange={setWallThickness}
-        wallTileSize={wallTileSize}
-        onWallTileSizeChange={setWallTileSize}
-        roomSubTool={roomSubTool}
-        setRoomSubTool={setRoomSubTool}
-        onMergeRooms={mergeRoomsHandlerRef.current || undefined}
-        onMergeWalls={mergeWallsHandlerRef.current || undefined}
-        onCenterElement={handleCenterElement}
-        selectedTerrainBrush={selectedTerrainBrush}
-        onSelectTerrainBrush={setSelectedTerrainBrush}
-        backgroundBrushSize={backgroundBrushSize}
-        onBackgroundBrushSizeChange={setBackgroundBrushSize}
-        activeTab={rightPanelActiveTab}
-        onActiveTabChange={setRightPanelActiveTab}
-        xlabShapeMode={xlabShapeMode}
-        onXlabShapeModeChange={setXlabShapeMode}
-      />
+      {/* Right Panel (Planning Mode Only) */}
+      {viewMode === 'planning' && (
+        <RightPanel
+          scenes={scenes}
+          activeSceneId={activeSceneId}
+          setActiveSceneId={setActiveSceneId}
+          addScene={addScene}
+          addCanvasScene={addCanvasScene}
+          updateSceneName={updateSceneName}
+          deleteScene={deleteScene}
+          moveSceneToCollection={moveSceneToCollection}
+          duplicateScene={duplicateScene}
+          collections={collections}
+          addCollection={addCollection}
+          updateCollectionName={updateCollectionName}
+          updateCollectionAppearance={updateCollectionAppearance}
+          deleteCollection={deleteCollection}
+          selectedElement={selectedElement}
+          updateElement={updateElement}
+          deleteElement={deleteElement}
+          allElements={activeScene?.elements || []}
+          tokenTemplates={tokenTemplates}
+          addTokenTemplate={addTokenTemplate}
+          setActiveTool={setActiveTool}
+          activeTokenTemplate={activeTokenTemplate}
+          setActiveTokenTemplate={setActiveTokenTemplate}
+          onRecentTokensChange={setRecentTokens}
+          activeTool={activeTool}
+          selectedFloorTexture={selectedFloorTexture}
+          onSelectFloorTexture={setSelectedFloorTexture}
+          tileSize={tileSize}
+          onTileSizeChange={setTileSize}
+          showWalls={showWalls}
+          onShowWallsChange={setShowWalls}
+          selectedWallTexture={selectedWallTexture}
+          onSelectWallTexture={setSelectedWallTexture}
+          wallTextures={wallTextures}
+          wallThickness={wallThickness}
+          onWallThicknessChange={setWallThickness}
+          wallTileSize={wallTileSize}
+          onWallTileSizeChange={setWallTileSize}
+          roomSubTool={roomSubTool}
+          setRoomSubTool={setRoomSubTool}
+          onMergeRooms={mergeRoomsHandlerRef.current || undefined}
+          onMergeWalls={mergeWallsHandlerRef.current || undefined}
+          onCenterElement={handleCenterElement}
+          selectedTerrainBrush={selectedTerrainBrush}
+          onSelectTerrainBrush={setSelectedTerrainBrush}
+          backgroundBrushSize={backgroundBrushSize}
+          onBackgroundBrushSizeChange={setBackgroundBrushSize}
+          activeTab={rightPanelActiveTab}
+          onActiveTabChange={setRightPanelActiveTab}
+          xlabShapeMode={xlabShapeMode}
+          onXlabShapeModeChange={setXlabShapeMode}
+        />
+      )}
+
+      {/* Game Mode Components */}
+      {viewMode === 'game' && (
+        <>
+          {/* Playlist Panel */}
+          <PlaylistPanel
+            scenes={scenes}
+            collections={collections}
+            activeSceneId={activeSceneId}
+            onSceneSelect={handleGameModeSceneSelect}
+            onElementSelect={handleGameModeElementSelect}
+            onToggleInfoBox={handleToggleInfoBox}
+            openInfoBoxes={openInfoBoxes}
+            selectedElementId={selectedElementId}
+            onCenterElement={handleCenterElement}
+          />
+
+          {/* Info Boxes for open playlist elements */}
+          {activeScene && Array.from(openInfoBoxes).map(elementId => {
+            const element = activeScene.elements.find(el => el.id === elementId);
+            if (!element || !element.playlistObject) return null;
+            
+            const infoBoxPos = infoBoxPositions.get(elementId) || getInfoBoxPosition(element);
+            
+            return (
+              <div key={elementId}>
+                <InfoBox
+                  element={element}
+                  position={infoBoxPos}
+                  onClose={() => handleCloseInfoBox(elementId)}
+                  isLocked={element.locked || false}
+                  onToggleLock={() => handleToggleLockInfoBox(elementId)}
+                  isPinned={pinnedInfoBoxes.has(elementId)}
+                  onTogglePin={() => handleTogglePinInfoBox(elementId)}
+                  updateElement={updateElement}
+                  onShowError={handleShowGameModeError}
+                  viewMode={viewMode}
+                  onPositionChange={(newPos) => {
+                    setInfoBoxPositions(prev => new Map(prev).set(elementId, newPos));
+                  }}
+                />
+                {/* Connector line between element and InfoBox */}
+                {element.type === 'token' && 'x' in element && 'y' in element && 'size' in element && (
+                  <InfoBoxConnector
+                    element={element}
+                    infoBoxPosition={infoBoxPos}
+                    elementScreenPosition={worldToScreen(element.x, element.y)}
+                    elementSize={element.size}
+                    viewport={viewport}
+                  />
+                )}
+              </div>
+            );
+          })}
+        </>
+      )}
+
+      {/* Game Mode Error Message */}
+      {viewMode === 'game' && gameModeError && (
+        <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50">
+          <div className="bg-red-900/80 border border-red-700/50 rounded-lg shadow-lg px-5 py-3">
+            <p className="text-red-200 text-sm text-center">
+              {gameModeError}
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

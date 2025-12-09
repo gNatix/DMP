@@ -23,6 +23,7 @@ interface RightPanelProps {
   selectedElement: MapElement | null;
   updateElement: (id: string, updates: Partial<MapElement>) => void;
   deleteElement: (id: string) => void;
+  allElements?: MapElement[]; // All elements in active scene
   tokenTemplates: TokenTemplate[];
   addTokenTemplate: (name: string, imageUrl: string) => void;
   setActiveTool: (tool: ToolType) => void;
@@ -38,6 +39,7 @@ interface RightPanelProps {
   onShowWallsChange: (show: boolean) => void;
   selectedWallTexture: string | null;
   onSelectWallTexture: (url: string) => void;
+  wallTextures?: { name: string; download_url: string }[];
   wallThickness: number;
   onWallThicknessChange: (thickness: number) => void;
   wallTileSize: number;
@@ -77,6 +79,7 @@ const RightPanel = ({
   selectedElement,
   updateElement,
   deleteElement,
+  allElements = [],
   tokenTemplates,
   addTokenTemplate,
   setActiveTool,
@@ -92,6 +95,7 @@ const RightPanel = ({
   onShowWallsChange,
   selectedWallTexture,
   onSelectWallTexture,
+  wallTextures = [],
   wallThickness,
   onWallThicknessChange,
   wallTileSize,
@@ -214,6 +218,7 @@ const RightPanel = ({
             onShowWallsChange={onShowWallsChange}
             selectedWallTexture={selectedWallTexture}
             onSelectWallTexture={onSelectWallTexture}
+            wallTextures={wallTextures}
             wallThickness={wallThickness}
             onWallThicknessChange={onWallThicknessChange}
             wallTileSize={wallTileSize}
@@ -221,6 +226,7 @@ const RightPanel = ({
             selectedRoom={selectedElement?.type === 'room' ? selectedElement : null}
             selectedWall={selectedElement?.type === 'wall' ? selectedElement : null}
             updateElement={updateElement}
+            allElements={allElements}
             setActiveTool={setActiveTool}
             roomSubTool={roomSubTool}
             setRoomSubTool={setRoomSubTool}

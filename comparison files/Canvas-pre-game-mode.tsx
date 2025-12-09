@@ -1,14 +1,12 @@
 import { useRef, useState, useEffect } from 'react';
-import { Scene, MapElement, AnnotationElement, TokenElement, RoomElement, WallElement, ToolType, IconType, ColorType, TokenTemplate, RoomSubTool, Point, TerrainTile, TerrainStamp, TerrainShapeMode, ViewMode } from '../types';
-import { Circle, Square, Triangle, Star, Diamond, Heart, Skull, MapPin, Search, Eye, DoorOpen, Landmark, Footprints, Info, Gamepad2, StopCircle } from 'lucide-react';
+import { Scene, MapElement, AnnotationElement, TokenElement, RoomElement, WallElement, ToolType, IconType, ColorType, TokenTemplate, RoomSubTool, Point, TerrainTile, TerrainStamp, TerrainShapeMode } from '../types';
+import { Circle, Square, Triangle, Star, Diamond, Heart, Skull, MapPin, Search, Eye, DoorOpen, Landmark, Footprints, Info } from 'lucide-react';
 import Toolbox from './toolbox/Toolbox';
 import polygonClipping from 'polygon-clipping';
 import { useTextInput } from '../contexts/TextInputContext';
 
 interface CanvasProps {
   scene: Scene | null;
-  viewMode: ViewMode;
-  onToggleViewMode: () => void;
   activeTool: ToolType;
   activeColor: ColorType;
   activeIcon: IconType;
@@ -56,8 +54,6 @@ interface CanvasProps {
   onSwitchToDrawTab: () => void;
   xlabShapeMode: TerrainShapeMode;
   setXlabShapeMode: (mode: TerrainShapeMode) => void;
-  onElementSelected?: (elementId: string) => void; // Callback when element is selected (for game mode InfoBox)
-  onViewportChange?: (viewport: { x: number; y: number; zoom: number }) => void; // Callback for viewport changes
 }
 
 // Visual stacking order (back → front):
@@ -80,8 +76,6 @@ const Z_TOKENS = 5;       // Layer 6: Tokens and interactive elements
 
 const Canvas = ({
   scene,
-  viewMode,
-  onToggleViewMode,
   activeTool,
   activeColor,
   activeIcon,
@@ -127,9 +121,7 @@ const Canvas = ({
   wallTextures = [],
   onSelectWallTexture = () => {},
   xlabShapeMode,
-  setXlabShapeMode: _setXlabShapeMode,
-  onElementSelected,
-  onViewportChange
+  setXlabShapeMode: _setXlabShapeMode
 }: CanvasProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
@@ -435,13 +427,6 @@ const Canvas = ({
       setHistoryIndex(0);
     }
   }, [scene?.id]);
-
-  // Notify parent about viewport changes
-  useEffect(() => {
-    if (onViewportChange) {
-      onViewportChange(viewport);
-    }
-  }, [viewport, onViewportChange]);
 
   // Load terrain tiles from scene
   useEffect(() => {
@@ -1976,12 +1961,6 @@ const Canvas = ({
 
       // Delete
       if (e.key === 'Delete' || e.key === 'Backspace') {
-        // Prevent deletion in game mode
-        if (viewMode === 'game') {
-          e.preventDefault();
-          return;
-        }
-        
         e.preventDefault();
         if (selectedElementIds.length > 0) {
           saveToHistory();
@@ -2404,14 +2383,12 @@ const Canvas = ({
 
   // Start brush painting
   const startBrushPainting = (worldX: number, worldY: number) => {
-    // Use terrain brush (primary) or background texture (X-Lab shapes)
-    const brushUrl = selectedTerrainBrush || selectedBackgroundTexture;
-    if (!brushUrl) return;
+    if (!selectedBackgroundTexture) return;
     
     // Load brush image if not already loaded or if texture changed
-    if (!brushImageRef.current || brushImageRef.current.src !== brushUrl) {
+    if (!brushImageRef.current || brushImageRef.current.src !== selectedBackgroundTexture) {
       const img = new Image();
-      img.src = brushUrl;
+      img.src = selectedBackgroundTexture;
       img.onload = () => {
         brushImageRef.current = img;
         
@@ -2425,25 +2402,9 @@ const Canvas = ({
         }
       };
       img.onerror = () => {
-        console.error('[BRUSH PAINT] Failed to load brush image:', brushUrl);
+        console.error('[BRUSH PAINT] Failed to load brush image:', selectedBackgroundTexture);
       };
     } else {
-      // Image already loaded - check if we need to reload for new URL
-      if (brushImageRef.current.src !== brushUrl) {
-        const img = new Image();
-        img.src = brushUrl;
-        img.onload = () => {
-          brushImageRef.current = img;
-          if (isShiftPressed) {
-            setBrushAnchorPoint({ x: worldX, y: worldY });
-          } else {
-            stampBrush(worldX, worldY);
-            setLastBrushStamp({ x: worldX, y: worldY });
-          }
-        };
-        return;
-      }
-      
       // If shift is pressed, just set anchor for line mode
       if (isShiftPressed) {
         setBrushAnchorPoint({ x: worldX, y: worldY });
@@ -2981,15 +2942,6 @@ const Canvas = ({
             // Select but don't drag
             setSelectedElementId(clickedElement.id);
             setSelectedElementIds([]);
-            
-            // In game mode, notify parent to open InfoBox (even for locked elements)
-            if (viewMode === 'game' && onElementSelected) {
-              onElementSelected(clickedElement.id);
-              // Don't show error in game mode - locked is normal state
-              return;
-            }
-            
-            // In planning mode, show lock error
             const elementName = clickedElement.type === 'token' 
               ? clickedElement.name 
               : clickedElement.type === 'room'
@@ -2999,44 +2951,10 @@ const Canvas = ({
             setTimeout(() => setLockedElementError(null), 3000);
             return;
           }
-
-          // Game mode: Check movement restrictions
-          if (viewMode === 'game') {
-            // Rooms and walls are permanently locked in game mode
-            if (clickedElement.type === 'room' || clickedElement.type === 'wall') {
-              setSelectedElementId(clickedElement.id);
-              setSelectedElementIds([]);
-              const elementName = clickedElement.type === 'room' 
-                ? (clickedElement.name || 'Room')
-                : (clickedElement.name || 'Wall');
-              setLockedElementError(`${elementName} cannot be moved in Game Mode.`);
-              setTimeout(() => setLockedElementError(null), 3000);
-              return;
-            }
-            
-            // Check if element is in playlist (has playlistObject flag)
-            if (!clickedElement.playlistObject) {
-              setSelectedElementId(clickedElement.id);
-              setSelectedElementIds([]);
-              const elementName = clickedElement.type === 'token' 
-                ? clickedElement.name 
-                : clickedElement.type;
-              setLockedElementError(`End Game Mode to move "${elementName}"`);
-              setTimeout(() => setLockedElementError(null), 3000);
-              return;
-            }
-            
-            // Tokens require explicit unlock via InfoBox (checked via locked property above)
-          }
           
           // Regular click: Select single and start dragging
           setSelectedElementId(clickedElement.id);
           setSelectedElementIds([]);
-          
-          // In game mode, notify parent to open InfoBox and scroll playlist
-          if (viewMode === 'game' && onElementSelected) {
-            onElementSelected(clickedElement.id);
-          }
           
           let offsetX, offsetY;
           if (clickedElement.type === 'room' && clickedElement.vertices) {
@@ -3098,9 +3016,6 @@ const Canvas = ({
       };
       setTempElement(tempAnnotation);
     } else if (effectiveTool === 'token' && activeTokenTemplate) {
-      // Prevent browser's default drag behavior
-      e.preventDefault();
-      
       // Start creating token with drag-to-size
       setIsCreating(true);
       setCreateStart({ x, y });
@@ -3295,8 +3210,8 @@ const Canvas = ({
         return;
       }
       
-      // Normal brush painting (default behavior - supports both terrain brush and background texture)
-      if (!selectedBackgroundTexture && !selectedTerrainBrush) {
+      // Normal brush painting (default behavior - UNCHANGED)
+      if (!selectedBackgroundTexture) {
         console.warn('[BRUSH PAINT] No texture selected!');
         return;
       }
@@ -4694,7 +4609,6 @@ const Canvas = ({
                   ref={imgRef}
                   src={scene.backgroundMapUrl}
                   alt="canvas"
-                  draggable={false}
                   style={{ display: 'none', zIndex: Z_MAP }}
                 />
                 <div
@@ -5270,8 +5184,8 @@ const Canvas = ({
               );
             })()}
 
-        {/* Terrain shape preview (rectangle, circle, polygon) - works on both scenes and maps */}
-        {xlabTerrainShapeStart && xlabTerrainShapeEnd && xlabShapeMode && (selectedBackgroundTexture || selectedTerrainBrush) && (() => {
+        {/* X-Lab: Terrain shape preview (rectangle, circle, polygon) */}
+        {scene && xlabTerrainShapeStart && xlabTerrainShapeEnd && xlabShapeMode && selectedBackgroundTexture && (() => {
               const minX = Math.min(xlabTerrainShapeStart.x, xlabTerrainShapeEnd.x);
               const maxX = Math.max(xlabTerrainShapeStart.x, xlabTerrainShapeEnd.x);
               const minY = Math.min(xlabTerrainShapeStart.y, xlabTerrainShapeEnd.y);
@@ -5335,20 +5249,19 @@ const Canvas = ({
                 <svg
                   style={{
                     position: 'absolute',
-                    left: 0,
-                    top: 0,
-                    width: '100%',
-                    height: '100%',
+                    left: viewport.x,
+                    top: viewport.y,
+                    width: scene.width * viewport.zoom,
+                    height: scene.height * viewport.zoom,
                     pointerEvents: 'none',
                     overflow: 'visible',
-                    zIndex: 1000,
                   }}
                 >
                   {/* Border shape */}
                   {xlabShapeMode === 'rectangle' && (
                     <rect
-                      x={viewport.x + minX * viewport.zoom}
-                      y={viewport.y + minY * viewport.zoom}
+                      x={minX * viewport.zoom}
+                      y={minY * viewport.zoom}
                       width={width * viewport.zoom}
                       height={height * viewport.zoom}
                       fill="none"
@@ -5359,8 +5272,8 @@ const Canvas = ({
                   )}
                   {xlabShapeMode === 'circle' && (
                     <ellipse
-                      cx={viewport.x + (minX + maxX) / 2 * viewport.zoom}
-                      cy={viewport.y + (minY + maxY) / 2 * viewport.zoom}
+                      cx={(minX + maxX) / 2 * viewport.zoom}
+                      cy={(minY + maxY) / 2 * viewport.zoom}
                       rx={width / 2 * viewport.zoom}
                       ry={height / 2 * viewport.zoom}
                       fill="none"
@@ -5371,8 +5284,8 @@ const Canvas = ({
                   )}
                   {xlabShapeMode === 'polygon' && (
                     <rect
-                      x={viewport.x + minX * viewport.zoom}
-                      y={viewport.y + minY * viewport.zoom}
+                      x={minX * viewport.zoom}
+                      y={minY * viewport.zoom}
                       width={width * viewport.zoom}
                       height={height * viewport.zoom}
                       fill="none"
@@ -5385,14 +5298,11 @@ const Canvas = ({
                   {/* Overlapping brush stamps - exactly like stampBrush() rendering */}
                   <g opacity={0.5}>
                     {stampPositions.map((pos, idx) => {
-                      const centerX = viewport.x + pos.x * viewport.zoom;
-                      const centerY = viewport.y + pos.y * viewport.zoom;
+                      const centerX = pos.x * viewport.zoom;
+                      const centerY = pos.y * viewport.zoom;
                       const radius = (backgroundBrushSize / 2) * viewport.zoom;
                       const clipId = `xlab-clip-${idx}`;
-                      const textureUrl = selectedTerrainBrush || selectedBackgroundTexture;
                       
-                      if (!textureUrl) return null;
-
                       return (
                         <g key={idx}>
                           <defs>
@@ -5401,7 +5311,7 @@ const Canvas = ({
                             </clipPath>
                           </defs>
                           <image
-                            href={textureUrl}
+                            href={selectedBackgroundTexture}
                             x={centerX - radius}
                             y={centerY - radius}
                             width={backgroundBrushSize * viewport.zoom}
@@ -5914,26 +5824,7 @@ const Canvas = ({
             )}
       </div>
 
-      {/* Mode Toggle Button - Top Center */}
-      <button
-        onClick={onToggleViewMode}
-        className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2 bg-dm-panel border border-dm-border rounded-lg hover:bg-dm-hover transition-colors shadow-lg"
-        title={viewMode === 'planning' ? 'Switch to Game Mode' : 'Switch to Planning Mode'}
-      >
-        {viewMode === 'planning' ? (
-          <>
-            <Gamepad2 className="w-5 h-5 text-blue-400" />
-            <span className="text-sm text-gray-200">Start Game Mode</span>
-          </>
-        ) : (
-          <>
-            <StopCircle className="w-5 h-5 text-red-400" />
-            <span className="text-sm text-gray-200">End Game Mode</span>
-          </>
-        )}
-      </button>
-
-      {/* Toolbox - shows different buttons based on mode */}
+      {/* Toolbox */}
       <Toolbox
         activeTool={activeTool}
         setActiveTool={setActiveTool}
@@ -5989,7 +5880,6 @@ const Canvas = ({
         onHideTokenPreview={() => setCursorPosition(null)}
         isLeftPanelOpen={leftPanelOpen}
         onToggleLeftPanel={onToggleLeftPanel}
-        viewMode={viewMode}
       />
 
       {/* Zoom Limit Error Message */}

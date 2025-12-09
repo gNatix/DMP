@@ -61,9 +61,7 @@ const ColorPickerSubmenu = ({
           gridTemplateColumns: 'repeat(4, 1fr)',
           gap: '6px'
         }}>
-          {(Object.keys(colorMap) as ColorType[])
-            .filter(color => color !== 'green') // Exclude green from picker
-            .map((color) => (
+          {(Object.keys(colorMap) as ColorType[]).map((color) => (
             <button
               key={color}
               onClick={() => onSelectColor(color)}

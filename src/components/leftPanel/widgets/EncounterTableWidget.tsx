@@ -1,13 +1,14 @@
 import { Dices, Trash2 } from 'lucide-react';
-import { EventRollTableWidget as EventRollTableWidgetType } from '../../../types';
+import { EventRollTableWidget as EventRollTableWidgetType, ViewMode } from '../../../types';
 
 interface EncounterTableWidgetProps {
   widget: EventRollTableWidgetType;
   onUpdate: (updates: Partial<EventRollTableWidgetType>) => void;
   onDelete: () => void;
+  viewMode?: ViewMode;
 }
 
-const EncounterTableWidget = ({ widget, onUpdate, onDelete }: EncounterTableWidgetProps) => {
+const EncounterTableWidget = ({ widget, onUpdate, onDelete, viewMode }: EncounterTableWidgetProps) => {
   const diceOptions: Array<'d4' | 'd6' | 'd8' | 'd10' | 'd12'> = ['d4', 'd6', 'd8', 'd10', 'd12'];
   
   const getDiceSize = (diceType: string): number => {
@@ -55,13 +56,15 @@ const EncounterTableWidget = ({ widget, onUpdate, onDelete }: EncounterTableWidg
             ))}
           </select>
         </div>
-        <button
-          onClick={onDelete}
-          className="p-1 hover:bg-red-500/20 rounded transition-colors"
-          title="Delete widget"
-        >
-          <Trash2 size={14} className="text-red-400" />
-        </button>
+        {viewMode !== 'game' && (
+          <button
+            onClick={onDelete}
+            className="p-1 hover:bg-red-500/20 rounded transition-colors"
+            title="Delete widget"
+          >
+            <Trash2 size={14} className="text-red-400" />
+          </button>
+        )}
       </div>
 
       {/* Event Table */}
@@ -86,7 +89,7 @@ const EncounterTableWidget = ({ widget, onUpdate, onDelete }: EncounterTableWidg
               <textarea
                 value={event}
                 onChange={(e) => handleEventChange(index, e.target.value)}
-                className="flex-1 bg-transparent px-2 py-1.5 text-xs text-gray-200 focus:outline-none focus:bg-gray-700/30 resize-none overflow-hidden min-h-[28px]"
+                className="flex-1 bg-transparent px-2 py-1.5 text-xs text-gray-200 focus:outline-none focus:bg-gray-700/30 resize-none overflow-hidden min-h-[28px] cursor-text"
                 placeholder={`Event for roll ${index + 1}`}
                 rows={1}
                 style={{ height: 'auto' }}

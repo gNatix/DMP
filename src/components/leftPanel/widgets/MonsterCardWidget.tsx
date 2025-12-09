@@ -1,15 +1,16 @@
 import { useState } from 'react';
 import { Trash2, Image as ImageIcon } from 'lucide-react';
-import { MonsterCardWidget as MonsterCardWidgetType } from '../../../types';
+import { MonsterCardWidget as MonsterCardWidgetType, ViewMode } from '../../../types';
 import RichTextEditor from '../../RichTextEditor';
 
 interface MonsterCardWidgetProps {
   widget: MonsterCardWidgetType;
   onUpdate: (updates: Partial<MonsterCardWidgetType>) => void;
   onDelete: () => void;
+  viewMode?: ViewMode;
 }
 
-const MonsterCardWidget = ({ widget, onUpdate, onDelete }: MonsterCardWidgetProps) => {
+const MonsterCardWidget = ({ widget, onUpdate, onDelete, viewMode }: MonsterCardWidgetProps) => {
   const [isEditingName, setIsEditingName] = useState(false);
   const [nameInput, setNameInput] = useState(widget.name || '');
 
@@ -83,7 +84,7 @@ const MonsterCardWidget = ({ widget, onUpdate, onDelete }: MonsterCardWidgetProp
               }
             })}
             onWheel={(e) => handleAbilityScroll(e, stat)}
-            className="w-8 bg-transparent text-center text-base font-bold focus:outline-none text-white [-moz-appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            className="w-8 bg-transparent text-center text-base font-bold focus:outline-none text-white [-moz-appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none cursor-text"
             min="1"
             max="30"
           />
@@ -99,13 +100,15 @@ const MonsterCardWidget = ({ widget, onUpdate, onDelete }: MonsterCardWidgetProp
 
   return (
     <div className="bg-neutral-800/90 border-2 border-neutral-700 rounded-lg p-4 relative group shadow-lg">
-      <button
-        onClick={onDelete}
-        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 transition-all z-10 p-1 hover:bg-red-900/20 rounded"
-        title="Remove widget"
-      >
-        <Trash2 size={16} />
-      </button>
+      {viewMode !== 'game' && (
+        <button
+          onClick={onDelete}
+          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 transition-all z-10 p-1 hover:bg-red-900/20 rounded"
+          title="Remove widget"
+        >
+          <Trash2 size={16} />
+        </button>
+      )}
 
       {/* Row 1: Info/Stats and Image */}
       <div className="grid gap-3 mb-4" style={{ gridTemplateColumns: '2fr 1fr' }}>
@@ -121,14 +124,14 @@ const MonsterCardWidget = ({ widget, onUpdate, onDelete }: MonsterCardWidgetProp
                 onChange={(e) => setNameInput(e.target.value)}
                 onBlur={handleNameSave}
                 onKeyDown={handleNameKeyDown}
-                className="w-full bg-transparent text-center text-base font-bold focus:outline-none text-white border-b border-gray-600 pb-1"
+                className="w-full bg-transparent text-center text-base font-bold focus:outline-none text-white border-b border-gray-600 pb-1 cursor-text"
                 placeholder="Monster Name"
                 autoFocus
               />
             ) : (
               <div
                 onClick={() => setIsEditingName(true)}
-                className="text-center text-base font-bold text-white cursor-pointer hover:text-amber-400 transition-colors border-b border-gray-600 pb-1"
+                className="text-center text-base font-bold text-white hover:text-amber-400 transition-colors border-b border-gray-600 pb-1 cursor-text"
               >
                 {widget.name || 'Monster'}
               </div>
@@ -139,7 +142,7 @@ const MonsterCardWidget = ({ widget, onUpdate, onDelete }: MonsterCardWidgetProp
               placeholder="Medium Beast, Neutral..."
               value={widget.monsterType || ''}
               onChange={(e) => onUpdate({ monsterType: e.target.value })}
-              className="w-full bg-transparent text-center text-xs text-gray-300 focus:outline-none placeholder:text-gray-600 italic"
+              className="w-full bg-transparent text-center text-xs text-gray-300 focus:outline-none placeholder:text-gray-600 italic cursor-text"
             />
           </div>
 
@@ -154,7 +157,7 @@ const MonsterCardWidget = ({ widget, onUpdate, onDelete }: MonsterCardWidgetProp
                   onChange={(e) => onUpdate({ challenge: e.target.value })}
                   onWheel={handleCRScroll}
                   placeholder="1/4"
-                  className="w-8 bg-transparent text-center text-base font-bold focus:outline-none text-white"
+                  className="w-8 bg-transparent text-center text-base font-bold focus:outline-none text-white cursor-text"
                 />
               </div>
             </div>
@@ -166,7 +169,7 @@ const MonsterCardWidget = ({ widget, onUpdate, onDelete }: MonsterCardWidgetProp
                   value={widget.ac}
                   onChange={(e) => onUpdate({ ac: parseInt(e.target.value) || 0 })}
                   onWheel={(e) => handleNumberScroll(e, 'ac')}
-                  className="w-8 bg-transparent text-center text-base font-bold focus:outline-none text-white [-moz-appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  className="w-8 bg-transparent text-center text-base font-bold focus:outline-none text-white [-moz-appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none cursor-text"
                 />
               </div>
             </div>
@@ -178,7 +181,7 @@ const MonsterCardWidget = ({ widget, onUpdate, onDelete }: MonsterCardWidgetProp
                   value={widget.hp}
                   onChange={(e) => onUpdate({ hp: parseInt(e.target.value) || 0 })}
                   onWheel={(e) => handleNumberScroll(e, 'hp')}
-                  className="w-8 bg-transparent text-center text-base font-bold focus:outline-none text-white [-moz-appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  className="w-8 bg-transparent text-center text-base font-bold focus:outline-none text-white [-moz-appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none cursor-text"
                 />
               </div>
             </div>
@@ -190,7 +193,7 @@ const MonsterCardWidget = ({ widget, onUpdate, onDelete }: MonsterCardWidgetProp
                   value={widget.speed}
                   onChange={(e) => onUpdate({ speed: parseInt(e.target.value) || 0 })}
                   onWheel={(e) => handleNumberScroll(e, 'speed')}
-                  className="w-8 bg-transparent text-center text-base font-bold focus:outline-none text-white [-moz-appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  className="w-8 bg-transparent text-center text-base font-bold focus:outline-none text-white [-moz-appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none cursor-text"
                 />
               </div>
             </div>

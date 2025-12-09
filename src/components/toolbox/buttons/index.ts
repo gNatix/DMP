@@ -20,6 +20,7 @@ import GridButton, { gridButtonConfig } from './GridButton';
 import ColorPickerButton, { colorPickerButtonConfig } from './ColorPickerButton';
 import FitToViewButton, { fitToViewButtonConfig } from './FitToViewButton';
 import XLabButton, { xLabButtonConfig } from './XLabButton';
+import InfoButton, { infoButtonConfig } from './InfoButton';
 
 export const toolButtons = [
   // Selection tools
@@ -50,6 +51,9 @@ export const toolButtons = [
   { component: LockButton, config: lockButtonConfig },
   { component: ColorPickerButton, config: colorPickerButtonConfig },
   
+  // Toggle
+  { component: InfoButton, config: infoButtonConfig },
+  
   // View tools
   { component: GridButton, config: gridButtonConfig },
   { component: FitToViewButton, config: fitToViewButtonConfig },
@@ -67,7 +71,7 @@ export const getButtonsByCategory = (category: string) => {
 
 // Helper to get all enabled buttons grouped by category
 export const getButtonsGroupedByCategory = () => {
-  const categories = ['selection', 'drawing', 'navigation', 'history', 'layers', 'view', 'utilities'];
+  const categories = ['selection', 'drawing', 'navigation', 'history', 'layers', 'toggle', 'view', 'utilities'];
   
   return categories
     .map(category => ({
@@ -98,4 +102,5 @@ export {
   ColorPickerButton,
   FitToViewButton,
   XLabButton,
+  InfoButton,
 };

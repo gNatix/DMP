@@ -18,6 +18,36 @@ body {
   box-sizing: border-box;
 }
 
+/* Global text cursor for all text input fields */
+input[type="text"],
+input[type="number"],
+input[type="email"],
+input[type="password"],
+input[type="search"],
+input[type="tel"],
+input[type="url"],
+textarea,
+[contenteditable="true"],
+.ProseMirror {
+  cursor: text !important;
+}
+
+/* Prevent selection on images and canvas for better drag UX */
+img {
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  pointer-events: auto;
+}
+
+canvas {
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
 /* Custom Scrollbar Styling */
 ::-webkit-scrollbar {
   width: 12px;

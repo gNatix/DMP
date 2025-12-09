@@ -103,6 +103,22 @@ export interface ToolButtonConfig {
   enabled: boolean;
   
   /**
+   * enabledInPlanningMode - Whether button is enabled in planning mode (optional)
+   * If not specified, uses 'enabled' value
+   * true  = Button is visible in planning mode
+   * false = Button is hidden in planning mode
+   */
+  enabledInPlanningMode?: boolean;
+  
+  /**
+   * enabledInGameMode - Whether button is enabled in game mode (optional)
+   * If not specified, defaults to false (hidden in game mode)
+   * true  = Button is visible in game mode
+   * false = Button is hidden in game mode
+   */
+  enabledInGameMode?: boolean;
+  
+  /**
    * category - Which group this button belongs to
    * See CATEGORY section above for options
    * Example: 'selection', 'drawing', 'utilities'

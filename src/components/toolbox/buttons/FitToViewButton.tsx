@@ -6,6 +6,8 @@ import { useKeyboardShortcut } from '../../../hooks/useKeyboardShortcut';
 export const fitToViewButtonConfig: ToolButtonConfig = {
   id: 'fit-to-view',
   enabled: true,
+  enabledInGameMode: true, // Show in game mode
+  enabledInPlanningMode: true, // Show in planning mode
   category: 'toggle',
   weight: 4, // After color picker in view category
   

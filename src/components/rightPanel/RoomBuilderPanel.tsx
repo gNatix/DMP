@@ -11,6 +11,7 @@ interface RoomBuilderPanelProps {
   onShowWallsChange: (show: boolean) => void;
   selectedWallTexture: string | null;
   onSelectWallTexture: (url: string) => void;
+  wallTextures?: { name: string; download_url: string }[];
   wallThickness: number;
   onWallThicknessChange: (thickness: number) => void;
   wallTileSize: number;
@@ -18,6 +19,7 @@ interface RoomBuilderPanelProps {
   selectedRoom: RoomElement | null;
   selectedWall: WallElement | null;
   updateElement: (id: string, updates: Partial<MapElement>) => void;
+  allElements?: MapElement[]; // All elements in the scene for name generation
   setActiveTool: (tool: ToolType) => void;
   roomSubTool: RoomSubTool;
   setRoomSubTool: (subTool: RoomSubTool) => void;
@@ -50,6 +52,7 @@ const RoomBuilderPanel = ({
   onShowWallsChange: _onShowWallsChange,
   selectedWallTexture,
   onSelectWallTexture,
+  wallTextures: externalWallTextures = [],
   wallThickness,
   onWallThicknessChange,
   wallTileSize,
@@ -57,6 +60,7 @@ const RoomBuilderPanel = ({
   selectedRoom,
   selectedWall,
   updateElement,
+  allElements = [],
   setActiveTool,
   roomSubTool,
   setRoomSubTool,
@@ -73,8 +77,8 @@ const RoomBuilderPanel = ({
 }: RoomBuilderPanelProps) => {
   const [floorTextures, setFloorTextures] = useState<AssetFile[]>([]);
   const [loadingFloors, setLoadingFloors] = useState(true);
-  const [wallTextures, setWallTextures] = useState<AssetFile[]>([]);
-  const [loadingWalls, setLoadingWalls] = useState(true);
+  // Use external wall textures instead of loading them again
+  const wallTextures = externalWallTextures;
   const [backgroundTextures, setBackgroundTextures] = useState<AssetFile[]>([]);
   const [loadingBackgrounds, setLoadingBackgrounds] = useState(true);
   const [isSubtractMode, setIsSubtractMode] = useState(false);
@@ -107,23 +111,6 @@ const RoomBuilderPanel = ({
     };
 
     loadFloorTextures();
-  }, []);
-
-  // Load wall textures
-  useEffect(() => {
-    const loadWallTextures = async () => {
-      try {
-        const response = await fetch('https://dmp.natixlabs.com/list-files.php?path=room-elements/walls');
-        const data = await response.json();
-        setWallTextures(data);
-      } catch (error) {
-        console.error('Failed to load wall textures:', error);
-      } finally {
-        setLoadingWalls(false);
-      }
-    };
-
-    loadWallTextures();
   }, []);
 
   // Load background textures
@@ -182,9 +169,37 @@ const RoomBuilderPanel = ({
     }
   };
 
+  // Extract texture name from URL
+  const getTextureName = (url: string): string => {
+    if (!url || url === 'transparent') return 'Wall';
+    const parts = url.split('/');
+    const filename = parts[parts.length - 1];
+    return filename.split('.')[0].replace(/_/g, ' ');
+  };
+
+  // Generate unique wall name based on existing walls
+  const generateWallName = (textureUrl: string, existingWalls: WallElement[]): string => {
+    const existingNames = new Set(existingWalls.map(w => w.name || ''));
+    const textureName = getTextureName(textureUrl);
+    const baseName = textureName ? `${textureName} Wall` : 'Wall';
+    
+    let counter = 1;
+    while (existingNames.has(`${baseName} ${counter}`)) {
+      counter++;
+    }
+    return `${baseName} ${counter}`;
+  };
+
   // Handle wall texture change
   const handleWallTextureClick = (url: string) => {
     if (selectedWall) {
+      // Check if wall has custom name - only auto-update if it doesn't
+      if (!selectedWall.hasCustomName) {
+        const otherWalls = allElements.filter(el => el.type === 'wall' && el.id !== selectedWall.id) as WallElement[];
+        const newName = generateWallName(url, otherWalls);
+        updateElement(selectedWall.id, { wallTextureUrl: url, name: newName });
+        return;
+      }
       updateElement(selectedWall.id, { wallTextureUrl: url });
     } else if (selectedRoom) {
       updateElement(selectedRoom.id, { wallTextureUrl: url });
@@ -411,9 +426,7 @@ const RoomBuilderPanel = ({
               {/* Wall Texture Selection */}
               <div className="mb-3">
                 <label className="text-xs text-gray-400 mb-2 block">Wall Texture</label>
-                {loadingWalls ? (
-                  <div className="text-sm text-gray-400">Loading walls...</div>
-                ) : wallTextures.length === 0 ? (
+                {wallTextures.length === 0 ? (
                   <div className="text-sm text-gray-400">No wall textures found</div>
                 ) : (
                   <div className="grid grid-cols-6 gap-2">
@@ -801,11 +814,8 @@ const RoomBuilderPanel = ({
             {/* Wall Texture Selection */}
             <div className="mb-4">
               <label className="block text-xs text-gray-400 mb-2">Wall Texture</label>
-              {loadingWalls ? (
-                <div className="text-center py-4 text-sm text-gray-500">Loading textures...</div>
-              ) : (
-                <div className="grid grid-cols-6 gap-2 mb-4">
-                  {wallTextures.map((texture) => (
+              <div className="grid grid-cols-6 gap-2 mb-4">
+                {wallTextures.map((texture) => (
                     <button
                       key={texture.download_url}
                       onClick={() => handleWallTextureClick(texture.download_url)}
@@ -824,7 +834,6 @@ const RoomBuilderPanel = ({
                     </button>
                   ))}
                 </div>
-              )}
             </div>
 
             {/* Wall Thickness Slider */}

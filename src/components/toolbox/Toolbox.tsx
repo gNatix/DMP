@@ -20,6 +20,7 @@ const TOOLBOX_CONFIG = {
     'navigation': 30,  // Navigation (e.g., pan, zoom)
     'history': 40,     // Undo/redo
     'layers': 50,      // Layer management (e.g., duplicate, delete, layer up/down)
+    'toggle': 55,      // Toggle panels (e.g., info)
     'view': 60,        // View options (e.g., grid, fit to view)
     'utilities': 70,   // Utilities (e.g., lock, badges, color picker)
   } as Record<string, number>,
@@ -51,10 +52,12 @@ import LayerUpButton, { layerUpButtonConfig } from './buttons/LayerUpButton';
 import LayerDownButton, { layerDownButtonConfig } from './buttons/LayerDownButton';
 import BadgeToggleButton, { badgeToggleButtonConfig } from './buttons/BadgeToggleButton';
 import LockButton, { lockButtonConfig } from './buttons/LockButton';
+import GameModeLockButton, { gameModeLockButtonConfig } from './buttons/GameModeLockButton';
 import GridButton, { gridButtonConfig } from './buttons/GridButton';
 import ColorPickerButton, { colorPickerButtonConfig } from './buttons/ColorPickerButton';
 import FitToViewButton, { fitToViewButtonConfig } from './buttons/FitToViewButton';
 import XLabButton, { xLabButtonConfig } from './buttons/XLabButton';
+import InfoButton, { infoButtonConfig } from './buttons/InfoButton';
 
 // Import submenu components (for buttons that need them)
 // Submenus are rendered by individual button components
@@ -107,6 +110,9 @@ interface ToolboxProps {
   forceShowTerrainSubmenu?: boolean;
   forceShowGridSubmenu?: boolean;
   onSwitchToXLab?: () => void;
+  isLeftPanelOpen: boolean;
+  onToggleLeftPanel: () => void;
+  viewMode?: 'planning' | 'game'; // Add viewMode prop
 }
 
 // Registry of all available buttons with their configs
@@ -126,10 +132,12 @@ const BUTTON_REGISTRY = [
   { component: LayerDownButton, config: layerDownButtonConfig },
   { component: BadgeToggleButton, config: badgeToggleButtonConfig },
   { component: LockButton, config: lockButtonConfig },
+  { component: GameModeLockButton, config: gameModeLockButtonConfig },
   { component: GridButton, config: gridButtonConfig },
   { component: ColorPickerButton, config: colorPickerButtonConfig },
   { component: FitToViewButton, config: fitToViewButtonConfig },
   { component: XLabButton, config: xLabButtonConfig },
+  { component: InfoButton, config: infoButtonConfig },
 ];
 
 const Toolbox = (props: ToolboxProps) => {
@@ -171,6 +179,9 @@ const Toolbox = (props: ToolboxProps) => {
     onSelectWallTexture = () => {},
     onSwitchToDrawTab,
     onSwitchToXLab,
+    isLeftPanelOpen,
+    onToggleLeftPanel,
+    viewMode = 'planning', // Default to planning mode
   } = props;
 
   // ========== CENTRAL SUBMENU STATE (SINGLE SOURCE OF TRUTH) ==========
@@ -684,7 +695,12 @@ const Toolbox = (props: ToolboxProps) => {
 
     // Dynamically build categories from enabled buttons
     BUTTON_REGISTRY.forEach((button) => {
-      if (button.config.enabled) {
+      // Check if button is enabled for current view mode
+      const isEnabledInCurrentMode = viewMode === 'game'
+        ? button.config.enabledInGameMode ?? false
+        : button.config.enabledInPlanningMode ?? button.config.enabled;
+      
+      if (isEnabledInCurrentMode) {
         const category = button.config.category;
         if (!grouped[category]) {
           grouped[category] = [];
@@ -848,6 +864,10 @@ const Toolbox = (props: ToolboxProps) => {
                   specificProps = { onToggleLock, selectedElementLocked, hasSelection };
                   break;
 
+                case 'gamemode-lock':
+                  specificProps = { onToggleLock, selectedElementLocked, hasSelection };
+                  break;
+
                 case 'grid':
                   specificProps = {
                     showGrid,
@@ -882,6 +902,13 @@ const Toolbox = (props: ToolboxProps) => {
                 case 'xlab':
                   specificProps = {
                     onSwitchToXLab,
+                  };
+                  break;
+
+                case 'info':
+                  specificProps = {
+                    isLeftPanelOpen,
+                    onToggleLeftPanel,
                   };
                   break;
 

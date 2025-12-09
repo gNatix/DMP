@@ -1,13 +1,14 @@
-import { StatBlockWidget as StatBlockWidgetType } from '../../../types';
+import { StatBlockWidget as StatBlockWidgetType, ViewMode } from '../../../types';
 import { Trash2 } from 'lucide-react';
 
 interface StatBlockWidgetProps {
   widget: StatBlockWidgetType;
   onChange: (updates: Partial<StatBlockWidgetType>) => void;
   onDelete: () => void;
+  viewMode?: ViewMode;
 }
 
-const StatBlockWidget = ({ widget, onChange, onDelete }: StatBlockWidgetProps) => {
+const StatBlockWidget = ({ widget, onChange, onDelete, viewMode }: StatBlockWidgetProps) => {
   const handleStatChange = (stat: keyof StatBlockWidgetType['stats'], value: string) => {
     const numValue = parseInt(value) || 0;
     onChange({
@@ -37,7 +38,7 @@ const StatBlockWidget = ({ widget, onChange, onDelete }: StatBlockWidgetProps) =
             pattern="[0-9]*"
             value={value}
             onChange={(e) => handleStatChange(stat, e.target.value)}
-            className="w-8 bg-transparent text-center text-base font-bold focus:outline-none text-white [-moz-appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            className="w-8 bg-transparent text-center text-base font-bold focus:outline-none text-white [-moz-appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none cursor-text"
             min="1"
             max="30"
           />
@@ -53,13 +54,15 @@ const StatBlockWidget = ({ widget, onChange, onDelete }: StatBlockWidgetProps) =
 
   return (
     <div className="bg-neutral-800/90 border-2 border-neutral-700 rounded-lg p-4 relative group shadow-lg">
-      <button
-        onClick={onDelete}
-        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 transition-all z-10 p-1 hover:bg-red-900/20 rounded"
-        title="Remove widget"
-      >
-        <Trash2 size={16} />
-      </button>
+      {viewMode !== 'game' && (
+        <button
+          onClick={onDelete}
+          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 transition-all z-10 p-1 hover:bg-red-900/20 rounded"
+          title="Remove widget"
+        >
+          <Trash2 size={16} />
+        </button>
+      )}
       
       <div className="grid grid-cols-6 gap-4 pb-4">
         {renderStat('STR', 'str')}

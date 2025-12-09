@@ -8,6 +8,8 @@ import GridControlsSubmenu from '../submenus/GridControlsSubmenu';
 export const gridButtonConfig: ToolButtonConfig = {
   id: 'grid',
   enabled: true,
+  enabledInGameMode: true, // Show in game mode
+  enabledInPlanningMode: true, // Show in planning mode
   category: 'toggle',
   weight: 3, // First in view category
   

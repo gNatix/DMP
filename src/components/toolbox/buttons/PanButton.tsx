@@ -6,6 +6,7 @@ import { useKeyboardShortcut } from '../../../hooks/useKeyboardShortcut';
 export const panButtonConfig: ToolButtonConfig = {
   id: 'pan',
   enabled: true,
+  enabledInGameMode: true,
   category: 'navigation',
   weight: 1, // First in navigation category
   

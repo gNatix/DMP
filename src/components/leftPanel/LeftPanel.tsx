@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { MapElement, Widget, TextWidget, StatBlockWidget, EventRollTableWidget, MonsterCardWidget, WidgetType } from '../../types';
-import { ChevronRight, ChevronLeft, MapPin, Plus, GripVertical, Trash2 } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Plus, GripVertical } from 'lucide-react';
 import TextWidgetComponent from './widgets/TextWidgetComponent';
 import StatBlockWidgetComponent from './widgets/StatBlockWidget';
 import EncounterTableWidgetComponent from './widgets/EncounterTableWidget';
@@ -23,9 +23,9 @@ const LeftPanel = ({
   selectedElement,
   selectedElements,
   updateElement,
-  deleteElement,
-  deleteElements,
-  centerViewportOnElement,
+  deleteElement: _deleteElement,
+  deleteElements: _deleteElements,
+  centerViewportOnElement: _centerViewportOnElement,
   isOpen: externalIsOpen,
   setIsOpen: setExternalIsOpen
 }: LeftPanelProps) => {
@@ -35,6 +35,9 @@ const LeftPanel = ({
   const [dragOverWidgetId, setDragOverWidgetId] = useState<string | null>(null);
   const [dropPosition, setDropPosition] = useState<'above' | 'below'>('below');
   const [dragPreviewPos, setDragPreviewPos] = useState({ x: 0, y: 0 });
+  
+  // Track elements where user has manually toggled playlistObject after widgets were added
+  const [playlistManuallyDisabled, setPlaylistManuallyDisabled] = useState<Set<string>>(new Set());
   
   // Use external control if provided, otherwise use internal state
   const isExpanded = externalIsOpen !== undefined ? externalIsOpen : internalIsExpanded;
@@ -60,6 +63,7 @@ const LeftPanel = ({
 
     const widgets = selectedElement.widgets || [];
     const newOrder = Math.max(0, ...widgets.map(w => w.order)) + 1;
+    const isFirstWidget = widgets.length === 0;
 
     let newWidget: Widget;
     if (widgetType === 'text') {
@@ -121,9 +125,17 @@ const LeftPanel = ({
       return;
     }
 
-    updateElement(selectedElement.id, {
+    // Auto-enable playlistObject when adding the first widget
+    // (only if user hasn't explicitly disabled it)
+    const updates: Partial<MapElement> = {
       widgets: [...widgets, newWidget]
-    });
+    };
+    
+    if (isFirstWidget && !playlistManuallyDisabled.has(selectedElement.id)) {
+      updates.playlistObject = true;
+    }
+
+    updateElement(selectedElement.id, updates);
   };
 
   // Update widget handler
@@ -334,37 +346,48 @@ const LeftPanel = ({
         <div className="fixed top-0 left-0 h-screen w-[450px] bg-dm-panel border-r border-dm-border flex flex-col overflow-hidden z-40 shadow-xl">
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-dm-border">
-            <h2 className="text-lg font-semibold text-gray-200">Properties</h2>
+            {hasSingleSelection && selectedElement ? (
+              <input
+                type="text"
+                value={
+                  selectedElement.type === 'token' 
+                    ? selectedElement.name || '' 
+                    : selectedElement.type === 'room'
+                    ? selectedElement.name || ''
+                    : selectedElement.type === 'wall'
+                    ? selectedElement.name || ''
+                    : (selectedElement.type === 'annotation' && 'label' in selectedElement) 
+                    ? selectedElement.label || '' 
+                    : ''
+                }
+                onChange={(e) => {
+                  if (selectedElement.type === 'token') {
+                    updateElement(selectedElement.id, { name: e.target.value });
+                  } else if (selectedElement.type === 'room') {
+                    updateElement(selectedElement.id, { name: e.target.value });
+                  } else if (selectedElement.type === 'wall') {
+                    updateElement(selectedElement.id, { name: e.target.value, hasCustomName: true });
+                  } else if (selectedElement.type === 'annotation') {
+                    updateElement(selectedElement.id, { label: e.target.value });
+                  }
+                }}
+                placeholder={
+                  selectedElement.type === 'token' 
+                    ? 'Token name...' 
+                    : selectedElement.type === 'room'
+                    ? 'Room name...'
+                    : selectedElement.type === 'wall'
+                    ? 'Wall name...'
+                    : 'Element name...'
+                }
+                className="flex-1 text-lg font-semibold bg-dm-dark border border-dm-border text-gray-200 focus:outline-none focus:border-blue-500 rounded px-3 py-2 hover:border-gray-600 transition-colors"
+              />
+            ) : hasMultiSelection ? (
+              <h2 className="text-lg font-semibold text-gray-200">{selectedElements.length} elements selected</h2>
+            ) : (
+              <h2 className="text-lg font-semibold text-gray-200">No selection</h2>
+            )}
             <div className="flex items-center gap-2">
-              {hasSingleSelection && selectedElement && (
-                <>
-                  {centerViewportOnElement && (
-                    <button
-                      onClick={() => centerViewportOnElement(selectedElement.id)}
-                      className="p-1 hover:bg-dm-hover rounded transition-colors"
-                      title="Go to element"
-                    >
-                      <MapPin className="w-5 h-5 text-blue-400 hover:text-blue-300" />
-                    </button>
-                  )}
-                  <button
-                    onClick={() => deleteElement(selectedElement.id)}
-                    className="p-1 hover:bg-dm-hover rounded transition-colors"
-                    title="Delete element"
-                  >
-                    <Trash2 className="w-5 h-5 text-red-400 hover:text-red-300" />
-                  </button>
-                </>
-              )}
-              {hasMultiSelection && (
-                <button
-                  onClick={() => deleteElements(selectedElements.map(e => e.id))}
-                  className="p-1 hover:bg-dm-hover rounded transition-colors"
-                  title={`Delete ${selectedElements.length} elements`}
-                >
-                  <Trash2 className="w-5 h-5 text-red-400 hover:text-red-300" />
-                </button>
-              )}
               <button
                 onClick={() => setIsExpanded(false)}
                 className="p-1 hover:bg-dm-hover rounded transition-colors"
@@ -393,38 +416,26 @@ const LeftPanel = ({
 
             {hasSingleSelection && selectedElement && (
               <div className="space-y-4">
-                {/* Name input only */}
+                {/* Playlist Object Checkbox */}
                 <div className="flex items-center gap-2">
-                  <label className="text-xs text-gray-500 uppercase tracking-wide flex-shrink-0">Name:</label>
                   <input
-                    type="text"
-                    value={
-                      selectedElement.type === 'token' 
-                        ? selectedElement.name || '' 
-                        : selectedElement.type === 'room'
-                        ? selectedElement.name || ''
-                        : (selectedElement.type === 'annotation' && 'label' in selectedElement) 
-                        ? selectedElement.label || '' 
-                        : ''
-                    }
+                    type="checkbox"
+                    id="playlistObject"
+                    checked={selectedElement.playlistObject || false}
                     onChange={(e) => {
-                      if (selectedElement.type === 'token') {
-                        updateElement(selectedElement.id, { name: e.target.value });
-                      } else if (selectedElement.type === 'room') {
-                        updateElement(selectedElement.id, { name: e.target.value });
-                      } else if (selectedElement.type === 'annotation') {
-                        updateElement(selectedElement.id, { label: e.target.value });
+                      const isChecked = e.target.checked;
+                      updateElement(selectedElement.id, { playlistObject: isChecked });
+                      
+                      // Track if user manually disables it when widgets exist
+                      if (!isChecked && selectedElement.widgets && selectedElement.widgets.length > 0) {
+                        setPlaylistManuallyDisabled(prev => new Set(prev).add(selectedElement.id));
                       }
                     }}
-                    placeholder={
-                      selectedElement.type === 'token' 
-                        ? 'Token name...' 
-                        : selectedElement.type === 'room'
-                        ? 'Room name...'
-                        : 'Location name...'
-                    }
-                    className="flex-1 px-3 py-2 bg-dm-dark border border-dm-border rounded text-sm focus:outline-none focus:border-gray-600"
+                    className="w-4 h-4 bg-dm-dark border border-dm-border rounded text-blue-600 focus:ring-blue-500 focus:ring-2"
                   />
+                  <label htmlFor="playlistObject" className="text-sm text-gray-300 cursor-pointer">
+                    Display in game mode playlist
+                  </label>
                 </div>
 
                 {/* Widgets Section */}

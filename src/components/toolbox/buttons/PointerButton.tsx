@@ -6,6 +6,7 @@ import { useKeyboardShortcut } from '../../../hooks/useKeyboardShortcut';
 export const pointerButtonConfig: ToolButtonConfig = {
   id: 'pointer',
   enabled: true,
+  enabledInGameMode: true,
   category: 'selection',
   weight: 1, // First in selection category
   
