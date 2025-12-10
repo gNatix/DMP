@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from 'react';
-import { Scene, MapElement, AnnotationElement, TokenElement, RoomElement, WallElement, ToolType, IconType, ColorType, TokenTemplate, RoomSubTool, Point, TerrainTile, TerrainStamp, TerrainShapeMode, ViewMode } from '../types';
+import { Scene, MapElement, AnnotationElement, TokenElement, RoomElement, WallElement, ToolType, IconType, ColorType, TokenTemplate, RoomSubTool, Point, TerrainTile, TerrainStamp, TerrainShapeMode, ViewMode, WallOpening } from '../types';
 import { Circle, Square, Triangle, Star, Diamond, Heart, Skull, MapPin, Search, Eye, DoorOpen, Landmark, Footprints, Info, Gamepad2, StopCircle } from 'lucide-react';
 import Toolbox from './toolbox/Toolbox';
 import polygonClipping from 'polygon-clipping';
@@ -21,6 +21,7 @@ interface CanvasProps {
   updateElement: (id: string, updates: Partial<MapElement>) => void;
   updateElements: (updates: Map<string, Partial<MapElement>>) => void;
   deleteElements: (ids: string[]) => void;
+  replaceElements: (idsToRemove: string[], elementsToAdd: MapElement[]) => void;
   updateScene: (sceneId: string, updates: Partial<Scene>) => void;
   activateAutoCreatedScene: () => void;
   setActiveTool: (tool: ToolType) => void;
@@ -54,10 +55,12 @@ interface CanvasProps {
   wallTextures?: Array<{ name: string; download_url: string }>;
   onSelectWallTexture?: (url: string) => void;
   onSwitchToDrawTab: () => void;
+  wallCutterToolBrushSize: number;
+  setWallCutterToolBrushSize: (size: number) => void;
   xlabShapeMode: TerrainShapeMode;
   setXlabShapeMode: (mode: TerrainShapeMode) => void;
-  onElementSelected?: (elementId: string) => void; // Callback when element is selected (for game mode InfoBox)
-  onViewportChange?: (viewport: { x: number; y: number; zoom: number }) => void; // Callback for viewport changes
+  onElementSelected?: (elementId: string) => void;
+  onViewportChange?: (viewport: { x: number; y: number; zoom: number }) => void;
 }
 
 // Visual stacking order (back → front):
@@ -94,6 +97,7 @@ const Canvas = ({
   updateElement,
   updateElements,
   deleteElements,
+  replaceElements,
   updateScene,
   activateAutoCreatedScene,
   setActiveTool,
@@ -126,6 +130,8 @@ const Canvas = ({
   onSelectTerrainBrush,
   wallTextures = [],
   onSelectWallTexture = () => {},
+  wallCutterToolBrushSize: wallCutterToolBrushSizeProp,
+  setWallCutterToolBrushSize: setWallCutterToolBrushSizeProp,
   xlabShapeMode,
   setXlabShapeMode: _setXlabShapeMode,
   onElementSelected,
@@ -200,6 +206,11 @@ const Canvas = ({
   // X-Lab: Terrain shape fill state (separate from normal terrain brush)
   const [xlabTerrainShapeStart, setXlabTerrainShapeStart] = useState<{ x: number; y: number } | null>(null);
   const [xlabTerrainShapeEnd, setXlabTerrainShapeEnd] = useState<{ x: number; y: number } | null>(null);
+
+  // Wall Cutter Tool state - rectangle mode only
+  const wallCutterToolBrushSize = wallCutterToolBrushSizeProp;
+  const [wallCutterToolStart, setWallCutterToolStart] = useState<{ x: number; y: number } | null>(null);
+  const [wallCutterToolEnd, setWallCutterToolEnd] = useState<{ x: number; y: number } | null>(null);
 
   // Tile management helper functions
   const getTileKey = (worldX: number, worldY: number): string => {
@@ -1588,37 +1599,6 @@ const Canvas = ({
       if (rooms.length === 0) return { vertices: [] };
       if (rooms.length === 1) return { vertices: rooms[0].vertices || [], holes: rooms[0].holes };
       
-      // Helper function to apply rotation to vertices
-      const applyRotation = (vertices: Point[], rotation: number): Point[] => {
-        if (!rotation || rotation === 0) return vertices;
-        
-        // Calculate bounding box (same as how SVG is positioned)
-        const xs = vertices.map(v => v.x);
-        const ys = vertices.map(v => v.y);
-        const minX = Math.min(...xs);
-        const maxX = Math.max(...xs);
-        const minY = Math.min(...ys);
-        const maxY = Math.max(...ys);
-        
-        // Center of the bounding box (matches SVG transformOrigin: center center)
-        const centerX = (minX + maxX) / 2;
-        const centerY = (minY + maxY) / 2;
-        
-        // Rotate each vertex around bounding box center
-        const radians = (rotation * Math.PI) / 180;
-        const cos = Math.cos(radians);
-        const sin = Math.sin(radians);
-        
-        return vertices.map(v => {
-          const dx = v.x - centerX;
-          const dy = v.y - centerY;
-          return {
-            x: centerX + dx * cos - dy * sin,
-            y: centerY + dx * sin + dy * cos
-          };
-        });
-      };
-      
       // Convert room vertices and holes to polygon-clipping format
       const polygons = rooms.map(room => {
         if (!room.vertices || room.vertices.length < 3) return null;
@@ -1681,6 +1661,37 @@ const Canvas = ({
     console.log('Selected rooms:', selectedRooms.length);
     console.log('Groups found:', groups.map(g => g.length));
     
+    // Helper function to apply rotation to vertices (used by both merge and wallOpening preservation)
+    const applyRotation = (vertices: Point[], rotation: number): Point[] => {
+      if (!rotation || rotation === 0) return vertices;
+      
+      // Calculate bounding box (same as how SVG is positioned)
+      const xs = vertices.map(v => v.x);
+      const ys = vertices.map(v => v.y);
+      const minX = Math.min(...xs);
+      const maxX = Math.max(...xs);
+      const minY = Math.min(...ys);
+      const maxY = Math.max(...ys);
+      
+      // Center of the bounding box (matches SVG transformOrigin: center center)
+      const centerX = (minX + maxX) / 2;
+      const centerY = (minY + maxY) / 2;
+      
+      // Rotate each vertex around bounding box center
+      const radians = (rotation * Math.PI) / 180;
+      const cos = Math.cos(radians);
+      const sin = Math.sin(radians);
+      
+      return vertices.map(v => {
+        const dx = v.x - centerX;
+        const dy = v.y - centerY;
+        return {
+          x: centerX + dx * cos - dy * sin,
+          y: centerY + dx * sin + dy * cos
+        };
+      });
+    };
+    
     // Check for widget conflicts in any group that will be merged
     for (const group of groups) {
       if (group.length > 1) {
@@ -1719,6 +1730,133 @@ const Canvas = ({
         const roomsWithWidgets = group.filter(room => room.widgets && room.widgets.length > 0);
         let widgetsToUse = roomsWithWidgets.length === 1 ? roomsWithWidgets[0].widgets : [];
         
+        // Collect and preserve wallOpenings from all rooms
+        const mergedWallOpenings: WallOpening[] = [];
+        const mergedHoleWallOpenings: any[] = [];
+        
+        group.forEach(room => {
+          // Process regular wallOpenings
+          if (room.wallOpenings && room.wallOpenings.length > 0) {
+            const rotatedVertices = applyRotation(room.vertices, room.rotation || 0);
+            
+            room.wallOpenings.forEach(opening => {
+              const segmentStart = rotatedVertices[opening.segmentIndex];
+              const segmentEnd = rotatedVertices[(opening.segmentIndex + 1) % rotatedVertices.length];
+              
+              if (!segmentStart || !segmentEnd) return;
+              
+              // Calculate world position of the opening on this segment
+              const dx = segmentEnd.x - segmentStart.x;
+              const dy = segmentEnd.y - segmentStart.y;
+              const openingStartX = segmentStart.x + dx * opening.startRatio;
+              const openingStartY = segmentStart.y + dy * opening.startRatio;
+              const openingEndX = segmentStart.x + dx * opening.endRatio;
+              const openingEndY = segmentStart.y + dy * opening.endRatio;
+              
+              // Find matching segment in merged room
+              for (let i = 0; i < mergedVertices.length; i++) {
+                const v1 = mergedVertices[i];
+                const v2 = mergedVertices[(i + 1) % mergedVertices.length];
+                
+                // Check if this segment contains our opening points
+                const segDx = v2.x - v1.x;
+                const segDy = v2.y - v1.y;
+                const segLength = Math.sqrt(segDx * segDx + segDy * segDy);
+                
+                if (segLength < 0.1) continue;
+                
+                // Project opening points onto this segment
+                const t1 = ((openingStartX - v1.x) * segDx + (openingStartY - v1.y) * segDy) / (segLength * segLength);
+                const t2 = ((openingEndX - v1.x) * segDx + (openingEndY - v1.y) * segDy) / (segLength * segLength);
+                
+                // Check if points are on this segment (with tolerance)
+                if (t1 >= -0.01 && t1 <= 1.01 && t2 >= -0.01 && t2 <= 1.01) {
+                  // Calculate distance from projected points to actual points
+                  const proj1X = v1.x + t1 * segDx;
+                  const proj1Y = v1.y + t1 * segDy;
+                  const dist1 = Math.sqrt((proj1X - openingStartX) ** 2 + (proj1Y - openingStartY) ** 2);
+                  
+                  const proj2X = v1.x + t2 * segDx;
+                  const proj2Y = v1.y + t2 * segDy;
+                  const dist2 = Math.sqrt((proj2X - openingEndX) ** 2 + (proj2Y - openingEndY) ** 2);
+                  
+                  if (dist1 < 5 && dist2 < 5) {
+                    // Found matching segment - add wallOpening
+                    mergedWallOpenings.push({
+                      segmentIndex: i,
+                      startRatio: Math.max(0, Math.min(1, t1)),
+                      endRatio: Math.max(0, Math.min(1, t2))
+                    });
+                    break;
+                  }
+                }
+              }
+            });
+          }
+          
+          // Process holeWallOpenings
+          if (room.holeWallOpenings && room.holeWallOpenings.length > 0 && room.holes && mergedHoles) {
+            room.holeWallOpenings.forEach(opening => {
+              const originalHole = room.holes![opening.holeIndex];
+              if (!originalHole) return;
+              
+              const rotatedHole = applyRotation(originalHole, room.rotation || 0);
+              const segmentStart = rotatedHole[opening.segmentIndex];
+              const segmentEnd = rotatedHole[(opening.segmentIndex + 1) % rotatedHole.length];
+              
+              if (!segmentStart || !segmentEnd) return;
+              
+              // Calculate world position of the opening
+              const dx = segmentEnd.x - segmentStart.x;
+              const dy = segmentEnd.y - segmentStart.y;
+              const openingStartX = segmentStart.x + dx * opening.startRatio;
+              const openingStartY = segmentStart.y + dy * opening.startRatio;
+              const openingEndX = segmentStart.x + dx * opening.endRatio;
+              const openingEndY = segmentStart.y + dy * opening.endRatio;
+              
+              // Find matching hole and segment in merged room
+              for (let holeIdx = 0; holeIdx < mergedHoles.length; holeIdx++) {
+                const mergedHole = mergedHoles[holeIdx];
+                
+                for (let segIdx = 0; segIdx < mergedHole.length; segIdx++) {
+                  const v1 = mergedHole[segIdx];
+                  const v2 = mergedHole[(segIdx + 1) % mergedHole.length];
+                  
+                  const segDx = v2.x - v1.x;
+                  const segDy = v2.y - v1.y;
+                  const segLength = Math.sqrt(segDx * segDx + segDy * segDy);
+                  
+                  if (segLength < 0.1) continue;
+                  
+                  // Project opening points onto this segment
+                  const t1 = ((openingStartX - v1.x) * segDx + (openingStartY - v1.y) * segDy) / (segLength * segLength);
+                  const t2 = ((openingEndX - v1.x) * segDx + (openingEndY - v1.y) * segDy) / (segLength * segLength);
+                  
+                  if (t1 >= -0.01 && t1 <= 1.01 && t2 >= -0.01 && t2 <= 1.01) {
+                    const proj1X = v1.x + t1 * segDx;
+                    const proj1Y = v1.y + t1 * segDy;
+                    const dist1 = Math.sqrt((proj1X - openingStartX) ** 2 + (proj1Y - openingStartY) ** 2);
+                    
+                    const proj2X = v1.x + t2 * segDx;
+                    const proj2Y = v1.y + t2 * segDy;
+                    const dist2 = Math.sqrt((proj2X - openingEndX) ** 2 + (proj2Y - openingEndY) ** 2);
+                    
+                    if (dist1 < 5 && dist2 < 5) {
+                      mergedHoleWallOpenings.push({
+                        holeIndex: holeIdx,
+                        segmentIndex: segIdx,
+                        startRatio: Math.max(0, Math.min(1, t1)),
+                        endRatio: Math.max(0, Math.min(1, t2))
+                      });
+                      break;
+                    }
+                  }
+                }
+              }
+            });
+          }
+        });
+        
         const firstRoom = group[0];
         const mergedRoom: RoomElement = {
           ...firstRoom,
@@ -1726,7 +1864,8 @@ const Canvas = ({
           name: generateUniqueName(firstRoom.name || 'Room'),
           vertices: mergedVertices,
           holes: mergedHoles,
-          wallOpenings: [],
+          wallOpenings: mergedWallOpenings,
+          holeWallOpenings: mergedHoleWallOpenings.length > 0 ? mergedHoleWallOpenings : undefined,
           widgets: widgetsToUse,
           rotation: 0  // Reset rotation - merged vertices are already in final position
         };
@@ -2491,6 +2630,384 @@ const Canvas = ({
     if (distance >= stampThreshold) {
       stampBrush(constrainedX, constrainedY);
       setLastBrushStamp({ x: constrainedX, y: constrainedY });
+    }
+  };
+
+  // Door Tool: DISABLED - All door tool functions have been commented out
+
+  // Wall Cutter Tool: Apply freehand path cut (DISABLED)
+
+  // Wall Cutter Tool: Actually cut and remove wall geometry (rectangle mode)
+  const applyWallCutterRectangle = () => {
+    console.log('[WALL CUTTER RECT] Starting rectangle cut operation');
+    if (!scene || !wallCutterToolStart || !wallCutterToolEnd) return;
+    
+    const minX = Math.min(wallCutterToolStart.x, wallCutterToolEnd.x);
+    const maxX = Math.max(wallCutterToolStart.x, wallCutterToolEnd.x);
+    const minY = Math.min(wallCutterToolStart.y, wallCutterToolEnd.y);
+    const maxY = Math.max(wallCutterToolStart.y, wallCutterToolEnd.y);
+    
+    console.log('[WALL CUTTER RECT] Rectangle bounds:', { minX, maxX, minY, maxY });
+    
+    // Helper function to check line-rectangle intersection
+    const lineIntersectsRect = (p1: Point, p2: Point): { start: number; end: number } | null => {
+      const dx = p2.x - p1.x;
+      const dy = p2.y - p1.y;
+      const length = Math.sqrt(dx * dx + dy * dy);
+      
+      if (length === 0) return null;
+      
+      let tMin = 0;
+      let tMax = 1;
+      
+      // Check intersection with vertical edges
+      if (dx !== 0) {
+        const t1 = (minX - p1.x) / dx;
+        const t2 = (maxX - p1.x) / dx;
+        tMin = Math.max(tMin, Math.min(t1, t2));
+        tMax = Math.min(tMax, Math.max(t1, t2));
+      } else if (p1.x < minX || p1.x > maxX) {
+        return null;
+      }
+      
+      // Check intersection with horizontal edges
+      if (dy !== 0) {
+        const t1 = (minY - p1.y) / dy;
+        const t2 = (maxY - p1.y) / dy;
+        tMin = Math.max(tMin, Math.min(t1, t2));
+        tMax = Math.min(tMax, Math.max(t1, t2));
+      } else if (p1.y < minY || p1.y > maxY) {
+        return null;
+      }
+      
+      if (tMin <= tMax && tMax >= 0 && tMin <= 1) {
+        return { start: tMin, end: tMax };
+      }
+      
+      return null;
+    };
+    
+    const wallsToRemove: string[] = [];
+    const wallsToAdd: WallElement[] = [];
+    const roomUpdates: Array<{ id: string; updates: Partial<RoomElement> }> = [];
+    
+    scene.elements.forEach(element => {
+      if (element.type === 'wall') {
+        const wall = element as WallElement;
+        const vertices = wall.vertices;
+        
+        // Check each segment of the wall
+        for (let i = 0; i < vertices.length - 1; i++) {
+          const p1 = vertices[i];
+          const p2 = vertices[i + 1];
+          
+          const intersection = lineIntersectsRect(p1, p2);
+          
+          if (intersection && intersection.end - intersection.start > 0.01) {
+            console.log('[WALL CUTTER RECT] Cutting wall:', wall.id, 'segment:', i, 'intersection:', intersection);
+            console.log('[WALL CUTTER RECT] Original wall vertices:', JSON.stringify(vertices));
+            console.log('[WALL CUTTER RECT] Segment p1:', p1, 'p2:', p2);
+            wallsToRemove.push(wall.id);
+            
+            const dx = p2.x - p1.x;
+            const dy = p2.y - p1.y;
+            
+            // Create wall segment BEFORE the cut (if significant)
+            if (intersection.start > 0.01) {
+              const beforeVertices = vertices.slice(0, i + 1);
+              beforeVertices.push({
+                x: p1.x + intersection.start * dx,
+                y: p1.y + intersection.start * dy
+              });
+              
+              const beforeWall = {
+                ...wall,
+                id: `${wall.id}_before_${Date.now()}`,
+                vertices: beforeVertices
+              };
+              console.log('[WALL CUTTER RECT] Creating BEFORE segment:', beforeWall);
+              console.log('[WALL CUTTER RECT] BEFORE vertices:', JSON.stringify(beforeVertices));
+              wallsToAdd.push(beforeWall);
+            }
+            
+            // Create wall segment AFTER the cut (if significant)
+            if (intersection.end < 0.99) {
+              const afterVertices = [{
+                x: p1.x + intersection.end * dx,
+                y: p1.y + intersection.end * dy
+              }];
+              afterVertices.push(...vertices.slice(i + 1));
+              
+              const afterWall = {
+                ...wall,
+                id: `${wall.id}_after_${Date.now()}`,
+                vertices: afterVertices
+              };
+              console.log('[WALL CUTTER RECT] Creating AFTER segment:', afterWall);
+              console.log('[WALL CUTTER RECT] AFTER vertices:', JSON.stringify(afterVertices));
+              wallsToAdd.push(afterWall);
+            }
+            
+            break; // Only cut once per wall
+          }
+        }
+      } else if (element.type === 'room') {
+        const room = element as RoomElement;
+        const vertices = room.vertices;
+        const newVertices: Point[] = [];
+        const newWallOpenings: any[] = [];
+        
+        let modified = false;
+        
+        // Map old vertex index to new vertex index
+        const vertexIndexMap = new Map<number, number>();
+        
+        for (let i = 0; i < vertices.length; i++) {
+          const p1 = vertices[i];
+          const p2 = vertices[(i + 1) % vertices.length];
+          
+          // Check if p1 is inside the rectangle
+          const p1Inside = p1.x >= minX && p1.x <= maxX && p1.y >= minY && p1.y <= maxY;
+          
+          // If p1 is NOT inside, add it normally
+          if (!p1Inside) {
+            vertexIndexMap.set(i, newVertices.length);
+            newVertices.push(p1);
+          } else {
+            // p1 is inside rectangle - skip it (will be replaced by intersection points)
+            modified = true;
+          }
+          
+          const intersection = lineIntersectsRect(p1, p2);
+          
+          if (intersection && intersection.end - intersection.start > 0.01) {
+            const dx = p2.x - p1.x;
+            const dy = p2.y - p1.y;
+            
+            // Check if this segment already has a wall opening (is already "empty")
+            const existingOpening = room.wallOpenings?.find(o => o.segmentIndex === i);
+            
+            if (!existingOpening) {
+              // Only add intersection points if we're cutting through an actual wall
+              
+              // Add intersection start point if we're entering the rectangle
+              if (intersection.start > 0.01) {
+                newVertices.push({
+                  x: p1.x + intersection.start * dx,
+                  y: p1.y + intersection.start * dy
+                });
+              }
+              
+              // Add intersection end point if we're exiting the rectangle
+              if (intersection.end < 0.99) {
+                newVertices.push({
+                  x: p1.x + intersection.end * dx,
+                  y: p1.y + intersection.end * dy
+                });
+                
+                // Add wallOpening for the segment between entry and exit points
+                const openingSegmentIndex = newVertices.length - 2;
+                newWallOpenings.push({
+                  segmentIndex: openingSegmentIndex,
+                  startRatio: 0,
+                  endRatio: 1
+                });
+              }
+              
+              modified = true;
+            } else {
+              // Segment already has opening - preserve it but update the segment index
+              const newSegmentIndex = vertexIndexMap.get(i);
+              if (newSegmentIndex !== undefined) {
+                newWallOpenings.push({
+                  ...existingOpening,
+                  segmentIndex: newSegmentIndex
+                });
+              }
+            }
+          } else {
+            // No intersection - preserve existing wallOpening if any
+            const existingOpening = room.wallOpenings?.find(o => o.segmentIndex === i);
+            if (existingOpening) {
+              const newSegmentIndex = vertexIndexMap.get(i);
+              if (newSegmentIndex !== undefined) {
+                newWallOpenings.push({
+                  ...existingOpening,
+                  segmentIndex: newSegmentIndex
+                });
+              }
+            }
+          }
+        }
+        
+        // Update room with new vertices and wallOpenings if modified
+        if (modified && newVertices.length >= 3) {
+          roomUpdates.push({
+            id: room.id,
+            updates: {
+              vertices: newVertices,
+              wallOpenings: newWallOpenings
+            }
+          });
+        }
+        
+        // Process holes (if any) - apply wall cutter to hole edges
+        if (room.holes && room.holes.length > 0) {
+          const updatedHoles: Point[][] = [];
+          let updatedHoleWallOpenings: any[] = [];
+          let holesModified = false;
+          
+          room.holes.forEach((hole, holeIndex) => {
+            const newHoleVertices: Point[] = [];
+            let holeModified = false;
+            
+            // Map old vertex index to new vertex index for this hole
+            const holeVertexIndexMap = new Map<number, number>();
+            
+            for (let i = 0; i < hole.length; i++) {
+              const p1 = hole[i];
+              const p2 = hole[(i + 1) % hole.length];
+              
+              // Check if p1 is inside the rectangle
+              const p1Inside = p1.x >= minX && p1.x <= maxX && p1.y >= minY && p1.y <= maxY;
+              
+              // If p1 is NOT inside, add it normally
+              if (!p1Inside) {
+                holeVertexIndexMap.set(i, newHoleVertices.length);
+                newHoleVertices.push(p1);
+              } else {
+                // p1 is inside rectangle - skip it (will be replaced by intersection points)
+                holeModified = true;
+              }
+              
+              const intersection = lineIntersectsRect(p1, p2);
+              
+              if (intersection && intersection.end - intersection.start > 0.01) {
+                const dx = p2.x - p1.x;
+                const dy = p2.y - p1.y;
+                
+                // Check if original segment had a wall opening
+                const existingOpening = room.holeWallOpenings?.find(
+                  o => o.holeIndex === holeIndex && o.segmentIndex === i
+                );
+                
+                if (!existingOpening) {
+                  // Only add intersection points if we're cutting through an actual wall
+                  
+                  // Add intersection start point if we're entering the rectangle
+                  if (intersection.start > 0.01) {
+                    newHoleVertices.push({
+                      x: p1.x + intersection.start * dx,
+                      y: p1.y + intersection.start * dy
+                    });
+                  }
+                  
+                  // Add intersection end point if we're exiting the rectangle
+                  if (intersection.end < 0.99) {
+                    newHoleVertices.push({
+                      x: p1.x + intersection.end * dx,
+                      y: p1.y + intersection.end * dy
+                    });
+                    
+                    // Add holeWallOpening for the segment between entry and exit points
+                    const openingSegmentIndex = newHoleVertices.length - 2;
+                    updatedHoleWallOpenings.push({
+                      holeIndex: updatedHoles.length, // Use index in updatedHoles array
+                      segmentIndex: openingSegmentIndex,
+                      startRatio: 0,
+                      endRatio: 1
+                    });
+                  }
+                  
+                  holeModified = true;
+                } else {
+                  // Segment already has opening - preserve it but update the indices
+                  const newSegmentIndex = holeVertexIndexMap.get(i);
+                  if (newSegmentIndex !== undefined) {
+                    updatedHoleWallOpenings.push({
+                      ...existingOpening,
+                      holeIndex: updatedHoles.length,
+                      segmentIndex: newSegmentIndex
+                    });
+                  }
+                }
+              } else {
+                // No intersection - preserve existing wallOpening if any
+                const existingOpening = room.holeWallOpenings?.find(
+                  o => o.holeIndex === holeIndex && o.segmentIndex === i
+                );
+                if (existingOpening) {
+                  const newSegmentIndex = holeVertexIndexMap.get(i);
+                  if (newSegmentIndex !== undefined) {
+                    updatedHoleWallOpenings.push({
+                      ...existingOpening,
+                      holeIndex: updatedHoles.length,
+                      segmentIndex: newSegmentIndex
+                    });
+                  }
+                }
+              }
+            }
+            
+            // Only keep hole if it still has at least 3 vertices
+            if (newHoleVertices.length >= 3) {
+              updatedHoles.push(newHoleVertices);
+              if (holeModified) holesModified = true;
+            } else {
+              holesModified = true; // Hole was removed
+            }
+          });
+          
+          // Collect hole updates for this room
+          if (holesModified) {
+            // Find existing update for this room or create new one
+            const existingUpdate = roomUpdates.find(u => u.id === room.id);
+            if (existingUpdate) {
+              existingUpdate.updates.holes = updatedHoles.length > 0 ? updatedHoles : undefined;
+              existingUpdate.updates.holeWallOpenings = updatedHoleWallOpenings.length > 0 ? updatedHoleWallOpenings : undefined;
+            } else {
+              roomUpdates.push({
+                id: room.id,
+                updates: {
+                  holes: updatedHoles.length > 0 ? updatedHoles : undefined,
+                  holeWallOpenings: updatedHoleWallOpenings.length > 0 ? updatedHoleWallOpenings : undefined
+                }
+              });
+            }
+          }
+        }
+      }
+    });
+    
+    // Apply all room updates in one batch
+    if (roomUpdates.length > 0) {
+      const updatedElements = scene.elements.map(el => {
+        const update = roomUpdates.find(u => u.id === el.id);
+        if (update && el.type === 'room') {
+          return { ...el, ...update.updates } as RoomElement;
+        }
+        return el;
+      });
+      
+      if (activeSceneId) {
+        updateScene(activeSceneId, { elements: updatedElements });
+      }
+    }
+    
+    // Apply wall changes - use atomic replace to avoid React batching issues
+    if (wallsToRemove.length > 0 || wallsToAdd.length > 0) {
+      console.log('[WALL CUTTER RECT] Replacing walls - removing:', wallsToRemove.length, 'adding:', wallsToAdd.length);
+      replaceElements(wallsToRemove, wallsToAdd);
+      
+      // Log what's actually in the scene after the operation
+      setTimeout(() => {
+        const wallsInScene = scene?.elements.filter(e => e.type === 'wall') || [];
+        console.log('[WALL CUTTER RECT] FINAL RESULT - Walls in scene:', wallsInScene.length);
+        wallsInScene.forEach(w => {
+          const wall = w as any;
+          console.log('  -', wall.id, 'vertices:', JSON.stringify(wall.vertices));
+        });
+      }, 100);
     }
   };
 
@@ -3303,6 +3820,13 @@ const Canvas = ({
       
       setIsPaintingBackground(true);
       startBrushPainting(x, y);
+    } else if (effectiveTool === 'doorTool') {
+      // Door Tool - DISABLED
+      return;
+    } else if (effectiveTool === 'wallCutterTool') {
+      // Wall Cutter Tool - rectangle mode only
+      setWallCutterToolStart({ x, y });
+      setWallCutterToolEnd({ x, y });
     }
   };
 
@@ -3489,6 +4013,12 @@ const Canvas = ({
     } else if (activeTool === 'background' && selectedTerrainBrush && scene && !isOverUI) {
       // Update cursor position for terrain brush preview
       setCursorPosition({ x, y });
+    } else if (activeTool === 'doorTool' && scene && !isOverUI) {
+      // Update cursor position for door tool preview
+      setCursorPosition({ x, y });
+    } else if (activeTool === 'wallCutterTool' && scene && !isOverUI) {
+      // Update cursor position for wall cutter tool preview
+      setCursorPosition({ x, y });
     } else if (activeTool !== 'room' || roomSubTool !== 'custom') {
       // Only clear cursor position if NOT in custom/magnetic room mode
       setCursorPosition(null);
@@ -3527,6 +4057,14 @@ const Canvas = ({
     // X-Lab: Handle shape dragging (all shapes)
     if (xlabTerrainShapeStart && xlabShapeMode !== null) {
       setXlabTerrainShapeEnd({ x, y });
+      return;
+    }
+
+    // Door Tool: DISABLED
+    
+    // Wall Cutter Tool: Handle rectangle dragging
+    if (wallCutterToolStart) {
+      setWallCutterToolEnd({ x, y });
       return;
     }
 
@@ -4084,6 +4622,18 @@ const Canvas = ({
       setXlabTerrainShapeEnd(null);
       return; // Exit early to prevent double history save
     }
+
+    // Door Tool: DISABLED
+
+    // Finalize wall cutter tool rectangle
+    if (wallCutterToolStart && wallCutterToolEnd) {
+      applyWallCutterRectangle();
+      setWallCutterToolStart(null);
+      setWallCutterToolEnd(null);
+      saveToHistory();
+    }
+
+    // Wall Cutter freehand and Door Tool: DISABLED
 
     // Save to history if we were dragging or resizing
     if (draggedElement || resizingElement || draggedMultiple || rotatingElement || scalingElement || movingVertex) {
@@ -5986,6 +6536,8 @@ const Canvas = ({
         wallTextures={wallTextures}
         selectedWallTexture={selectedWallTexture}
         onSelectWallTexture={onSelectWallTexture}
+        wallCutterToolBrushSize={wallCutterToolBrushSize}
+        setWallCutterToolBrushSize={setWallCutterToolBrushSizeProp}
         onHideTokenPreview={() => setCursorPosition(null)}
         isLeftPanelOpen={leftPanelOpen}
         onToggleLeftPanel={onToggleLeftPanel}
@@ -6105,6 +6657,27 @@ const Canvas = ({
             backgroundSize: 'cover',
             backgroundPosition: 'center',
             opacity: 0.7
+          }}
+        />
+      )}
+
+      {/* Door Tool: DISABLED */}
+
+      {/* Wall Cutter Tool: Freehand mode DISABLED */}
+
+      {/* Wall Cutter Tool Rectangle Preview (rectangle mode) */}
+      {wallCutterToolStart && wallCutterToolEnd && activeTool === 'wallCutterTool' && (
+        <div
+          style={{
+            position: 'absolute',
+            left: viewport.x + Math.min(wallCutterToolStart.x, wallCutterToolEnd.x) * viewport.zoom,
+            top: viewport.y + Math.min(wallCutterToolStart.y, wallCutterToolEnd.y) * viewport.zoom,
+            width: Math.abs(wallCutterToolEnd.x - wallCutterToolStart.x) * viewport.zoom,
+            height: Math.abs(wallCutterToolEnd.y - wallCutterToolStart.y) * viewport.zoom,
+            border: '2px dashed #8b5cf6',
+            pointerEvents: 'none',
+            zIndex: 40,
+            backgroundColor: 'rgba(139, 92, 246, 0.1)'
           }}
         />
       )}
@@ -6612,15 +7185,124 @@ const MapElementComponent = ({ element, isSelected, viewport, showTokenBadges, r
                 )}
               </defs>
               
-              {/* Walls - as stroke on the polygon edge */}
-              <path
-                d={relativePolygonPath}
-                fill="none"
-                stroke={element.wallTextureUrl === 'transparent' ? 'none' : (element.wallTextureUrl ? `url(#${wallPatternId})` : "rgba(100, 100, 100, 0.8)")}
-                strokeWidth={element.wallThickness}
-                strokeLinejoin="miter"
-                strokeLinecap="square"
-              />
+              {/* Walls - render each edge segment individually to support wallOpenings */}
+              {relativeVertices.map((v1, i) => {
+                const v2 = relativeVertices[(i + 1) % relativeVertices.length];
+                const wallOpening = roomElement.wallOpenings?.find(o => o.segmentIndex === i);
+                
+                if (!wallOpening) {
+                  // No opening - render full segment
+                  return (
+                    <line
+                      key={`wall-${i}`}
+                      x1={v1.x}
+                      y1={v1.y}
+                      x2={v2.x}
+                      y2={v2.y}
+                      stroke={element.wallTextureUrl === 'transparent' ? 'none' : (element.wallTextureUrl ? `url(#${wallPatternId})` : "rgba(100, 100, 100, 0.8)")}
+                      strokeWidth={element.wallThickness}
+                      strokeLinecap="square"
+                    />
+                  );
+                }
+                
+                // Has opening - render two segments (before and after opening)
+                const dx = v2.x - v1.x;
+                const dy = v2.y - v1.y;
+                
+                return (
+                  <g key={`wall-${i}`}>
+                    {/* Segment before opening */}
+                    {wallOpening.startRatio > 0 && (
+                      <line
+                        x1={v1.x}
+                        y1={v1.y}
+                        x2={v1.x + dx * wallOpening.startRatio}
+                        y2={v1.y + dy * wallOpening.startRatio}
+                        stroke={element.wallTextureUrl === 'transparent' ? 'none' : (element.wallTextureUrl ? `url(#${wallPatternId})` : "rgba(100, 100, 100, 0.8)")}
+                        strokeWidth={element.wallThickness}
+                        strokeLinecap="square"
+                      />
+                    )}
+                    {/* Segment after opening */}
+                    {wallOpening.endRatio < 1 && (
+                      <line
+                        x1={v1.x + dx * wallOpening.endRatio}
+                        y1={v1.y + dy * wallOpening.endRatio}
+                        x2={v2.x}
+                        y2={v2.y}
+                        stroke={element.wallTextureUrl === 'transparent' ? 'none' : (element.wallTextureUrl ? `url(#${wallPatternId})` : "rgba(100, 100, 100, 0.8)")}
+                        strokeWidth={element.wallThickness}
+                        strokeLinecap="square"
+                      />
+                    )}
+                  </g>
+                );
+              })}
+              
+              {/* Hole walls - render wall texture around each hole */}
+              {roomElement.holes?.flatMap((hole, holeIdx) => {
+                const relativeHole = hole.map(v => ({
+                  x: v.x - minX,
+                  y: v.y - minY
+                }));
+                
+                return relativeHole.map((v1, i) => {
+                  const v2 = relativeHole[(i + 1) % relativeHole.length];
+                  const holeWallOpening = roomElement.holeWallOpenings?.find(
+                    o => o.holeIndex === holeIdx && o.segmentIndex === i
+                  );
+                  
+                  if (!holeWallOpening) {
+                    // No opening - render full segment
+                    return (
+                      <line
+                        key={`hole-wall-${holeIdx}-${i}`}
+                        x1={v1.x}
+                        y1={v1.y}
+                        x2={v2.x}
+                        y2={v2.y}
+                        stroke={element.wallTextureUrl === 'transparent' ? 'none' : (element.wallTextureUrl ? `url(#${wallPatternId})` : "rgba(100, 100, 100, 0.8)")}
+                        strokeWidth={element.wallThickness}
+                        strokeLinecap="square"
+                      />
+                    );
+                  }
+                  
+                  // Has opening - render two segments (before and after opening)
+                  const dx = v2.x - v1.x;
+                  const dy = v2.y - v1.y;
+                  
+                  return (
+                    <g key={`hole-wall-${holeIdx}-${i}`}>
+                      {/* Segment before opening */}
+                      {holeWallOpening.startRatio > 0 && (
+                        <line
+                          x1={v1.x}
+                          y1={v1.y}
+                          x2={v1.x + dx * holeWallOpening.startRatio}
+                          y2={v1.y + dy * holeWallOpening.startRatio}
+                          stroke={element.wallTextureUrl === 'transparent' ? 'none' : (element.wallTextureUrl ? `url(#${wallPatternId})` : "rgba(100, 100, 100, 0.8)")}
+                          strokeWidth={element.wallThickness}
+                          strokeLinecap="square"
+                        />
+                      )}
+                      {/* Segment after opening */}
+                      {holeWallOpening.endRatio < 1 && (
+                        <line
+                          x1={v1.x + dx * holeWallOpening.endRatio}
+                          y1={v1.y + dy * holeWallOpening.endRatio}
+                          x2={v2.x}
+                          y2={v2.y}
+                          stroke={element.wallTextureUrl === 'transparent' ? 'none' : (element.wallTextureUrl ? `url(#${wallPatternId})` : "rgba(100, 100, 100, 0.8)")}
+                          strokeWidth={element.wallThickness}
+                          strokeLinecap="square"
+                        />
+                      )}
+                    </g>
+                  );
+                });
+              })}
             </svg>
           )}
           
@@ -7095,21 +7777,66 @@ const MapElementComponent = ({ element, isSelected, viewport, showTokenBadges, r
     const height = maxY - minY + wallElement.wallThickness * 2;
     
     const wallPatternId = `wall-pattern-${element.id}`;
+    const transparentTiles = wallElement.transparentTiles || new Set<string>();
     
-    // Create paths for each segment
+    // Create paths for each segment, broken into tiles with transparency support
     const segments = hasSegments ? wallElement.segments! : [wallElement.vertices || []];
-    const paths = segments.map((segmentVertices) => {
-      const relativeVertices = segmentVertices.map(v => ({
-        x: v.x - minX + wallElement.wallThickness,
-        y: v.y - minY + wallElement.wallThickness
-      }));
-      
-      return relativeVertices.map((v, i) => 
-        `${i === 0 ? 'M' : 'L'}${v.x},${v.y}`
-      ).join(' ');
-    });
+    const tileSize = wallElement.wallTileSize || 50;
     
-    const combinedPath = paths.join(' ');
+    // Render wall as individual tile segments (respecting transparent tiles)
+    const tileSegments: JSX.Element[] = [];
+    
+    segments.forEach((segmentVertices, segIdx) => {
+      for (let i = 0; i < segmentVertices.length - 1; i++) {
+        const v1 = segmentVertices[i];
+        const v2 = segmentVertices[i + 1];
+        
+        // Calculate segment length and direction
+        const dx = v2.x - v1.x;
+        const dy = v2.y - v1.y;
+        const segmentLength = Math.sqrt(dx * dx + dy * dy);
+        const numTiles = Math.ceil(segmentLength / tileSize);
+        
+        // Render each tile along this segment
+        for (let t = 0; t < numTiles; t++) {
+          const t1 = t / numTiles;
+          const t2 = Math.min((t + 1) / numTiles, 1);
+          
+          const tileX1 = v1.x + dx * t1;
+          const tileY1 = v1.y + dy * t1;
+          const tileX2 = v1.x + dx * t2;
+          const tileY2 = v1.y + dy * t2;
+          
+          // Check if this tile should be transparent (door/opening)
+          const tileCenterX = (tileX1 + tileX2) / 2;
+          const tileCenterY = (tileY1 + tileY2) / 2;
+          const tileKey = `${Math.floor(tileCenterX / tileSize)},${Math.floor(tileCenterY / tileSize)}`;
+          
+          if (transparentTiles.has(tileKey)) {
+            continue; // Skip transparent tiles (doors/openings)
+          }
+          
+          // Render this tile segment
+          const relX1 = tileX1 - minX + wallElement.wallThickness;
+          const relY1 = tileY1 - minY + wallElement.wallThickness;
+          const relX2 = tileX2 - minX + wallElement.wallThickness;
+          const relY2 = tileY2 - minY + wallElement.wallThickness;
+          
+          tileSegments.push(
+            <line
+              key={`seg-${segIdx}-${i}-${t}`}
+              x1={relX1}
+              y1={relY1}
+              x2={relX2}
+              y2={relY2}
+              stroke={wallElement.wallTextureUrl ? `url(#${wallPatternId})` : '#8b5cf6'}
+              strokeWidth={wallElement.wallThickness}
+              strokeLinecap="square"
+            />
+          );
+        }
+      }
+    });
     
     return (
       <>
@@ -7142,16 +7869,8 @@ const MapElementComponent = ({ element, isSelected, viewport, showTokenBadges, r
             )}
           </defs>
           
-          {/* Wall polyline(s) */}
-          <path
-            d={combinedPath}
-            fill="none"
-            stroke={wallElement.wallTextureUrl ? `url(#${wallPatternId})` : '#8b5cf6'}
-            strokeWidth={wallElement.wallThickness}
-            strokeLinecap="square"
-            strokeLinejoin="miter"
-            style={{ pointerEvents: 'auto', cursor: 'pointer' }}
-          />
+          {/* Render wall as individual tile segments */}
+          {tileSegments}
         </svg>
         
         {/* Selection indicator */}
@@ -7167,16 +7886,29 @@ const MapElementComponent = ({ element, isSelected, viewport, showTokenBadges, r
               overflow: 'visible'
             }}
           >
-            {/* Selection outline */}
-            <path
-              d={combinedPath}
-              fill="none"
-              stroke="#22c55e"
-              strokeWidth={(wallElement.wallThickness + 4) / viewport.zoom}
-              strokeLinecap="square"
-              strokeLinejoin="miter"
-              opacity={0.5}
-            />
+            {/* Selection outline - render full path */}
+            {segments.map((segmentVertices, segIdx) => {
+              const relativeVertices = segmentVertices.map(v => ({
+                x: v.x - minX + wallElement.wallThickness,
+                y: v.y - minY + wallElement.wallThickness
+              }));
+              const pathD = relativeVertices.map((v, i) => 
+                `${i === 0 ? 'M' : 'L'}${v.x},${v.y}`
+              ).join(' ');
+              
+              return (
+                <path
+                  key={`outline-${segIdx}`}
+                  d={pathD}
+                  fill="none"
+                  stroke="#22c55e"
+                  strokeWidth={(wallElement.wallThickness + 4) / viewport.zoom}
+                  strokeLinecap="square"
+                  strokeLinejoin="miter"
+                  opacity={0.5}
+                />
+              );
+            })}
             
             {/* Vertex handles for all segments */}
             {allVertices.map((v, i) => (

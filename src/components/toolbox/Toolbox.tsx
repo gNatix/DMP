@@ -42,6 +42,7 @@ import TokenButton, { tokenButtonConfig } from './buttons/TokenButton';
 import TerrainButton, { terrainButtonConfig } from './buttons/TerrainButton';
 import RoomButton, { roomButtonConfig } from './buttons/RoomButton';
 import WallButton, { wallButtonConfig } from './buttons/WallButton';
+import WallCutterToolButton, { wallCutterToolButtonConfig } from './buttons/WallCutterToolButton';
 import PanButton, { panButtonConfig } from './buttons/PanButton';
 import ZoomButton, { zoomButtonConfig } from './buttons/ZoomButton';
 import UndoButton, { undoButtonConfig } from './buttons/UndoButton';
@@ -106,6 +107,8 @@ interface ToolboxProps {
   wallTextures?: { name: string; download_url: string }[];
   selectedWallTexture?: string | null;
   onSelectWallTexture?: (url: string) => void;
+  wallCutterToolBrushSize: number;
+  setWallCutterToolBrushSize: (size: number) => void;
   onSwitchToDrawTab?: () => void;
   forceShowTerrainSubmenu?: boolean;
   forceShowGridSubmenu?: boolean;
@@ -122,6 +125,7 @@ const BUTTON_REGISTRY = [
   { component: TerrainButton, config: terrainButtonConfig },
   { component: RoomButton, config: roomButtonConfig },
   { component: WallButton, config: wallButtonConfig },
+  { component: WallCutterToolButton, config: wallCutterToolButtonConfig },
   { component: PanButton, config: panButtonConfig },
   { component: ZoomButton, config: zoomButtonConfig },
   { component: UndoButton, config: undoButtonConfig },
@@ -177,6 +181,8 @@ const Toolbox = (props: ToolboxProps) => {
     wallTextures = [],
     selectedWallTexture = null,
     onSelectWallTexture = () => {},
+    wallCutterToolBrushSize,
+    setWallCutterToolBrushSize,
     onSwitchToDrawTab,
     onSwitchToXLab,
     isLeftPanelOpen,
@@ -815,6 +821,13 @@ const Toolbox = (props: ToolboxProps) => {
                     onSelectWallTexture,
                     cycleWall,
                     selectLastUsedWall,
+                  };
+                  break;
+
+                case 'wallCutterTool':
+                  specificProps = {
+                    wallCutterToolBrushSize,
+                    setWallCutterToolBrushSize,
                   };
                   break;
 

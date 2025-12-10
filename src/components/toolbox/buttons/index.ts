@@ -6,6 +6,8 @@ import TokenButton, { tokenButtonConfig } from './TokenButton';
 import TerrainButton, { terrainButtonConfig } from './TerrainButton';
 import RoomButton, { roomButtonConfig } from './RoomButton';
 import WallButton, { wallButtonConfig } from './WallButton';
+import DoorToolButton, { doorToolButtonConfig } from './DoorToolButton';
+import WallCutterToolButton, { wallCutterToolButtonConfig } from './WallCutterToolButton';
 import PanButton, { panButtonConfig } from './PanButton';
 import ZoomButton, { zoomButtonConfig } from './ZoomButton';
 import UndoButton, { undoButtonConfig } from './UndoButton';
@@ -31,6 +33,8 @@ export const toolButtons = [
   { component: TerrainButton, config: terrainButtonConfig },
   { component: RoomButton, config: roomButtonConfig },
   { component: WallButton, config: wallButtonConfig },
+  { component: DoorToolButton, config: doorToolButtonConfig },
+  { component: WallCutterToolButton, config: wallCutterToolButtonConfig },
   
   // Navigation tools
   { component: PanButton, config: panButtonConfig },
@@ -80,7 +84,6 @@ export const getButtonsGroupedByCategory = () => {
     }))
     .filter(group => group.buttons.length > 0);
 };
-
 export * from './types';
 export {
   PointerButton,
@@ -88,6 +91,8 @@ export {
   TerrainButton,
   RoomButton,
   WallButton,
+  DoorToolButton,
+  WallCutterToolButton,
   PanButton,
   ZoomButton,
   UndoButton,

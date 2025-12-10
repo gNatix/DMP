@@ -4,7 +4,7 @@ export type ViewMode = "planning" | "game";
 
 export type ElementType = "annotation" | "token" | "room" | "wall";
 
-export type ToolType = "pointer" | "marker" | "token" | "pan" | "zoom-in" | "zoom-out" | "room" | "background" | "wall" | "wall-line" | "xlab";
+export type ToolType = "pointer" | "marker" | "token" | "pan" | "zoom-in" | "zoom-out" | "room" | "background" | "wall" | "wall-line" | "xlab" | "doorTool" | "wallCutterTool";
 
 export type RoomSubTool = "rectangle" | "pentagon" | "hexagon" | "octagon" | "erase" | "custom" | 
   "subtract-rectangle" | "subtract-pentagon" | "subtract-hexagon" | "subtract-octagon" | "subtract-custom";
@@ -24,6 +24,13 @@ export interface Point {
 // Wall segment opening (door/entrance) for polygon-based rooms
 export interface WallOpening {
   segmentIndex: number; // Which edge/segment this opening is on (index into vertices array)
+  startRatio: number; // Position along the segment where opening starts (0.0 to 1.0)
+  endRatio: number; // Position along the segment where opening ends (0.0 to 1.0)
+}
+
+export interface HoleWallOpening {
+  holeIndex: number; // Which hole this opening is on
+  segmentIndex: number; // Which edge/segment of that hole (index into hole vertices array)
   startRatio: number; // Position along the segment where opening starts (0.0 to 1.0)
   endRatio: number; // Position along the segment where opening ends (0.0 to 1.0)
 }
@@ -86,6 +93,9 @@ export interface RoomElement {
   // Wall openings (doors/entrances) on polygon edges
   wallOpenings: WallOpening[];
   
+  // Wall openings on hole edges
+  holeWallOpenings?: HoleWallOpening[];
+  
   // Appearance
   floorTextureUrl: string;
   tileSize: number; // Size of the floor texture tiles in pixels (default 50)
@@ -119,6 +129,9 @@ export interface WallElement {
   wallTextureUrl: string; // URL to wall texture image
   wallThickness: number; // Thickness of walls in pixels (default 8)
   wallTileSize: number; // Size of the wall texture tiles in pixels (default 50)
+  
+  // Transparent tiles (for doors/openings)
+  transparentTiles?: Set<string>; // Set of "x,y" strings representing transparent tile positions
   
   // Metadata
   name?: string; // Optional name for the wall

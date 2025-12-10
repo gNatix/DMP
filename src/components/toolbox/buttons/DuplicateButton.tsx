@@ -11,7 +11,7 @@ export const duplicateButtonConfig: ToolButtonConfig = {
   
   icon: <Copy size={18} />,
   label: 'Duplicate',
-  shortcutKey: 'D',
+  shortcutKey: 'Ctrl+D',
   
   buttonType: 'action',         // OPTIONS: 'tool' | 'toggle' | 'action' | 'submenu'
   highlightStyle: null,         // OPTIONS: 'full' (colored bg) | 'border' (colored border) | null (no highlight)
@@ -26,8 +26,14 @@ interface DuplicateButtonPropsExtended extends ToolButtonProps {
 }
 
 const DuplicateButton = ({ onDuplicate, hasSelection }: DuplicateButtonPropsExtended) => {
-  // Handle keyboard shortcut
+  // Handle keyboard shortcuts (Ctrl+D and Shift+D)
   useKeyboardShortcut('d', () => {
+    if (hasSelection) {
+      onDuplicate();
+    }
+  }, { ctrl: true });
+  
+  useKeyboardShortcut('D', () => {
     if (hasSelection) {
       onDuplicate();
     }
