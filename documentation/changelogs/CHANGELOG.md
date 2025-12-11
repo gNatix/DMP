@@ -8,6 +8,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Wall Cutter Tool**: Added tooltip label "Wall Cutter (A)" for better tool identification
+- **Lock System Enhancement**: Arrow key movement now properly respects locked element status
+
+### Fixed
+- **Wall Cutter**: Now works atomically across all 4 wall types simultaneously (wall line, polyline walls, room outer walls, and hole walls)
+- **Undo/Redo System**: Comprehensive quality fixes
+  - History now saves BEFORE operations start (not after), ensuring correct state restoration
+  - Added initial history state when scene loads
+  - Fixed 15+ locations where history timing was incorrect:
+    - Element drag, resize, rotation, and scaling operations
+    - Vertex manipulation (move, add for walls, rooms, and holes)
+    - Multi-element drag operations
+    - Wall merge and room merge operations
+    - Erase tool operations
+    - Wall cutter operations
+  - Removed duplicate history saves after operations completed
+  - Fixed state declaration order to prevent useEffect/useState conflicts
+
+### Removed
+- Unused `replaceElements` function (replaced by atomic `updateScene` calls)
+
+---
+
+### Added (Previous Updates)
 - **Game Mode**: Complete game mode implementation for running D&D sessions
   - Game Playlist panel with draggable positioning
   - Interactive element selection and InfoBox system

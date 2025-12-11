@@ -21,7 +21,6 @@ interface CanvasProps {
   updateElement: (id: string, updates: Partial<MapElement>) => void;
   updateElements: (updates: Map<string, Partial<MapElement>>) => void;
   deleteElements: (ids: string[]) => void;
-  replaceElements: (idsToRemove: string[], elementsToAdd: MapElement[]) => void;
   updateScene: (sceneId: string, updates: Partial<Scene>) => void;
   activateAutoCreatedScene: () => void;
   setActiveTool: (tool: ToolType) => void;
@@ -97,7 +96,6 @@ const Canvas = ({
   updateElement,
   updateElements,
   deleteElements,
-  replaceElements,
   updateScene,
   activateAutoCreatedScene,
   setActiveTool,
@@ -211,6 +209,14 @@ const Canvas = ({
   const wallCutterToolBrushSize = wallCutterToolBrushSizeProp;
   const [wallCutterToolStart, setWallCutterToolStart] = useState<{ x: number; y: number } | null>(null);
   const [wallCutterToolEnd, setWallCutterToolEnd] = useState<{ x: number; y: number } | null>(null);
+
+  // Undo/Redo state
+  const [history, setHistory] = useState<{ elements: MapElement[]; terrainTiles?: { [key: string]: TerrainTile } }[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const [historyInitialized, setHistoryInitialized] = useState(false);
+
+  // Clipboard state for copy/paste
+  const [clipboard, setClipboard] = useState<MapElement[]>([]);
 
   // Tile management helper functions
   const getTileKey = (worldX: number, worldY: number): string => {
@@ -509,6 +515,24 @@ const Canvas = ({
     }
   }, [terrainTiles, scene?.id, activeSceneId]);
 
+  // Initialize history when scene loads (save initial state)
+  useEffect(() => {
+    if (scene && !historyInitialized) {
+      const tilesToSave = scene.terrainTiles ? JSON.parse(JSON.stringify(scene.terrainTiles)) : undefined;
+      setHistory([{ 
+        elements: JSON.parse(JSON.stringify(scene.elements)),
+        terrainTiles: tilesToSave
+      }]);
+      setHistoryIndex(0);
+      setHistoryInitialized(true);
+    }
+  }, [scene?.id, historyInitialized]);
+
+  // Reset history initialization flag when scene changes
+  useEffect(() => {
+    setHistoryInitialized(false);
+  }, [scene?.id]);
+
   // Expose merge handler to parent (only pass the function reference, don't call it)
   useEffect(() => {
     if (onMergeRooms) {
@@ -766,13 +790,6 @@ const Canvas = ({
       };
     });
   };
-
-  // Clipboard state for copy/paste
-  const [clipboard, setClipboard] = useState<MapElement[]>([]);
-
-  // Undo/Redo state
-  const [history, setHistory] = useState<{ elements: MapElement[]; terrainTiles?: { [key: string]: TerrainTile } }[]>([]);
-  const [historyIndex, setHistoryIndex] = useState(-1);
 
   // Save state to history
   const saveToHistory = (customTerrainTiles?: { [key: string]: TerrainTile }) => {
@@ -1546,6 +1563,9 @@ const Canvas = ({
       return;
     }
 
+    // Save to history BEFORE merging
+    saveToHistory();
+
     // Collect all vertices from all selected rooms
     const allVertices: { x: number; y: number }[] = [];
     selectedRooms.forEach(room => {
@@ -1919,6 +1939,9 @@ const Canvas = ({
       return;
     }
 
+    // Save to history BEFORE merging
+    saveToHistory();
+
     console.log('[MERGE WALLS] Merging', selectedWalls.length, 'walls into segments');
 
     // Collect all segments from all selected walls
@@ -2065,6 +2088,23 @@ const Canvas = ({
         
         const selectedIds = selectedElementIds.length > 0 ? selectedElementIds : selectedElementId ? [selectedElementId] : [];
         if (selectedIds.length === 0) return;
+
+        // Check if any selected element is locked
+        const lockedElements = selectedIds
+          .map(id => scene.elements.find(el => el.id === id))
+          .filter(el => el && el.locked);
+        
+        if (lockedElements.length > 0) {
+          // Show error message
+          const elementName = lockedElements[0]!.type === 'token' 
+            ? lockedElements[0]!.name 
+            : lockedElements[0]!.type === 'room'
+            ? (lockedElements[0] as any).name || 'Room'
+            : 'Element';
+          setLockedElementError(`"${elementName}" is locked. Unlock before moving.`);
+          setTimeout(() => setLockedElementError(null), 3000);
+          return;
+        }
 
         // Determine offset based on arrow key (shift = 10px, normal = 1px)
         const step = e.shiftKey ? 10 : 1;
@@ -2694,62 +2734,102 @@ const Canvas = ({
     scene.elements.forEach(element => {
       if (element.type === 'wall') {
         const wall = element as WallElement;
-        const vertices = wall.vertices;
         
-        // Check each segment of the wall
-        for (let i = 0; i < vertices.length - 1; i++) {
-          const p1 = vertices[i];
-          const p2 = vertices[i + 1];
+        // Handle both single-segment walls and multi-segment polyline walls
+        const hasSegments = wall.segments && wall.segments.length > 0;
+        const allSegments = hasSegments ? wall.segments! : [wall.vertices];
+        
+        let wallCut = false;
+        const newSegments: Point[][] = [];
+        
+        // Process each polyline segment
+        allSegments.forEach((segmentVertices, segmentIdx) => {
+          let currentSegment: Point[] = [];
           
-          const intersection = lineIntersectsRect(p1, p2);
-          
-          if (intersection && intersection.end - intersection.start > 0.01) {
-            console.log('[WALL CUTTER RECT] Cutting wall:', wall.id, 'segment:', i, 'intersection:', intersection);
-            console.log('[WALL CUTTER RECT] Original wall vertices:', JSON.stringify(vertices));
-            console.log('[WALL CUTTER RECT] Segment p1:', p1, 'p2:', p2);
-            wallsToRemove.push(wall.id);
+          // Check each line segment within this polyline
+          for (let i = 0; i < segmentVertices.length - 1; i++) {
+            const p1 = segmentVertices[i];
+            const p2 = segmentVertices[i + 1];
             
-            const dx = p2.x - p1.x;
-            const dy = p2.y - p1.y;
+            const intersection = lineIntersectsRect(p1, p2);
             
-            // Create wall segment BEFORE the cut (if significant)
-            if (intersection.start > 0.01) {
-              const beforeVertices = vertices.slice(0, i + 1);
-              beforeVertices.push({
-                x: p1.x + intersection.start * dx,
-                y: p1.y + intersection.start * dy
-              });
+            if (intersection && intersection.end - intersection.start > 0.01) {
+              console.log('[WALL CUTTER RECT] Cutting wall:', wall.id, 'segment:', segmentIdx, 'line:', i, 'intersection:', intersection);
+              wallCut = true;
               
-              const beforeWall = {
-                ...wall,
-                id: `${wall.id}_before_${Date.now()}`,
-                vertices: beforeVertices
-              };
-              console.log('[WALL CUTTER RECT] Creating BEFORE segment:', beforeWall);
-              console.log('[WALL CUTTER RECT] BEFORE vertices:', JSON.stringify(beforeVertices));
-              wallsToAdd.push(beforeWall);
-            }
-            
-            // Create wall segment AFTER the cut (if significant)
-            if (intersection.end < 0.99) {
-              const afterVertices = [{
-                x: p1.x + intersection.end * dx,
-                y: p1.y + intersection.end * dy
-              }];
-              afterVertices.push(...vertices.slice(i + 1));
+              const dx = p2.x - p1.x;
+              const dy = p2.y - p1.y;
               
-              const afterWall = {
-                ...wall,
-                id: `${wall.id}_after_${Date.now()}`,
-                vertices: afterVertices
-              };
-              console.log('[WALL CUTTER RECT] Creating AFTER segment:', afterWall);
-              console.log('[WALL CUTTER RECT] AFTER vertices:', JSON.stringify(afterVertices));
-              wallsToAdd.push(afterWall);
+              // Add vertices before intersection to current segment
+              if (currentSegment.length === 0) {
+                currentSegment.push(...segmentVertices.slice(0, i + 1));
+              }
+              
+              // Add intersection start point if we're entering the rectangle
+              if (intersection.start > 0.01) {
+                currentSegment.push({
+                  x: p1.x + intersection.start * dx,
+                  y: p1.y + intersection.start * dy
+                });
+              }
+              
+              // Save segment before cut if it has at least 2 points
+              if (currentSegment.length >= 2) {
+                newSegments.push([...currentSegment]);
+              }
+              
+              // Start new segment after the cut
+              currentSegment = [];
+              if (intersection.end < 0.99) {
+                currentSegment.push({
+                  x: p1.x + intersection.end * dx,
+                  y: p1.y + intersection.end * dy
+                });
+                // Add remaining vertices
+                currentSegment.push(...segmentVertices.slice(i + 1));
+              }
+              
+              break; // Only cut once per polyline segment
+            } else {
+              // No intersection - keep building current segment
+              if (currentSegment.length === 0 && i === 0) {
+                currentSegment.push(p1);
+              }
+              if (i === segmentVertices.length - 2) {
+                // Last line segment - add both points if we haven't added them yet
+                if (currentSegment.length === 0) {
+                  currentSegment.push(p1, p2);
+                } else {
+                  currentSegment.push(p2);
+                }
+              }
             }
-            
-            break; // Only cut once per wall
           }
+          
+          // Save remaining segment if any
+          if (currentSegment.length >= 2) {
+            newSegments.push([...currentSegment]);
+          } else if (!wallCut && segmentVertices.length >= 2) {
+            // No cut happened in this segment - keep it as is
+            newSegments.push([...segmentVertices]);
+          }
+        });
+        
+        if (wallCut) {
+          wallsToRemove.push(wall.id);
+          
+          // Create new wall elements from the remaining segments
+          newSegments.forEach((vertices, idx) => {
+            if (vertices.length >= 2) {
+              const newWall: WallElement = {
+                ...wall,
+                id: `${wall.id}_split_${Date.now()}_${idx}`,
+                vertices: vertices,
+                segments: undefined // Single segment walls don't use segments array
+              };
+              wallsToAdd.push(newWall);
+            }
+          });
         }
       } else if (element.type === 'room') {
         const room = element as RoomElement;
@@ -2979,35 +3059,32 @@ const Canvas = ({
       }
     });
     
-    // Apply all room updates in one batch
-    if (roomUpdates.length > 0) {
-      const updatedElements = scene.elements.map(el => {
-        const update = roomUpdates.find(u => u.id === el.id);
-        if (update && el.type === 'room') {
-          return { ...el, ...update.updates } as RoomElement;
+    // Apply ALL changes atomically in one operation
+    if (roomUpdates.length > 0 || wallsToRemove.length > 0 || wallsToAdd.length > 0) {
+      console.log('[WALL CUTTER RECT] Applying atomic update - room updates:', roomUpdates.length, 'walls to remove:', wallsToRemove.length, 'walls to add:', wallsToAdd.length);
+      
+      // Build complete new elements array with all changes applied
+      let newElements = scene.elements.map(el => {
+        // Apply room updates
+        const roomUpdate = roomUpdates.find(u => u.id === el.id);
+        if (roomUpdate && el.type === 'room') {
+          return { ...el, ...roomUpdate.updates } as RoomElement;
         }
         return el;
       });
       
-      if (activeSceneId) {
-        updateScene(activeSceneId, { elements: updatedElements });
-      }
-    }
-    
-    // Apply wall changes - use atomic replace to avoid React batching issues
-    if (wallsToRemove.length > 0 || wallsToAdd.length > 0) {
-      console.log('[WALL CUTTER RECT] Replacing walls - removing:', wallsToRemove.length, 'adding:', wallsToAdd.length);
-      replaceElements(wallsToRemove, wallsToAdd);
+      // Remove cut walls
+      newElements = newElements.filter(el => !wallsToRemove.includes(el.id));
       
-      // Log what's actually in the scene after the operation
-      setTimeout(() => {
-        const wallsInScene = scene?.elements.filter(e => e.type === 'wall') || [];
-        console.log('[WALL CUTTER RECT] FINAL RESULT - Walls in scene:', wallsInScene.length);
-        wallsInScene.forEach(w => {
-          const wall = w as any;
-          console.log('  -', wall.id, 'vertices:', JSON.stringify(wall.vertices));
-        });
-      }, 100);
+      // Add new wall segments
+      newElements.push(...wallsToAdd);
+      
+      // Apply everything in one atomic update
+      if (activeSceneId) {
+        updateScene(activeSceneId, { elements: newElements });
+      }
+      
+      console.log('[WALL CUTTER RECT] Atomic update complete - new element count:', newElements.length);
     }
   };
 
@@ -3061,6 +3138,7 @@ const Canvas = ({
     if (selectedElementId) {
       const handle = getResizeHandleAtPosition(x, y, selectedElementId, scene.elements);
       if (handle) {
+        saveToHistory(); // Save before starting resize
         setResizingElement({ id: selectedElementId, handle });
         return;
       }
@@ -3098,6 +3176,7 @@ const Canvas = ({
         
         if (distToCenterHandle < 15 / viewport.zoom) {
           const startAngle = Math.atan2(y - centerY, x - centerX) * (180 / Math.PI);
+          saveToHistory(); // Save before starting rotation
           setRotatingElement({
             id: element.id,
             startAngle,
@@ -3133,10 +3212,12 @@ const Canvas = ({
           if (distToVertex < 6 / viewport.zoom) {
             if (e.ctrlKey || e.shiftKey) {
               // CTRL/SHIFT + click on vertex: Move vertex
+              saveToHistory(); // Save before moving vertex
               setMovingVertex({ id: element.id, vertexIndex: i });
               return;
             } else {
               // Direct click on vertex: Scale from opposite corner
+              saveToHistory(); // Save before scaling
               setScalingElement({
                 id: element.id,
                 cornerIndex: i,
@@ -3220,6 +3301,7 @@ const Canvas = ({
               if (distToVertex < 6 / viewport.zoom) {
                 if (e.ctrlKey || e.shiftKey) {
                   // CTRL/SHIFT + click on hole vertex: Move vertex
+                  saveToHistory(); // Save before moving hole vertex
                   setMovingVertex({ id: element.id, vertexIndex, holeIndex });
                   return;
                 }
@@ -3330,6 +3412,7 @@ const Canvas = ({
             if (distToVertex < 6 / viewport.zoom) {
               if (e.ctrlKey || e.shiftKey) {
                 // CTRL/SHIFT + click on vertex: Move vertex
+                saveToHistory(); // Save before moving wall vertex
                 setMovingVertex({ id: element.id, vertexIndex: i, segmentBased: hasSegments });
                 return;
               }
@@ -3491,6 +3574,7 @@ const Canvas = ({
               dragOffsets.set(id, { x: x - elX, y: y - elY });
             }
           });
+          saveToHistory(); // Save before starting multi-element drag
           setDraggedMultiple({ offsetX: x, offsetY: y, initialOffsets: dragOffsets });
         } else {
           // Check if element is locked
@@ -3586,6 +3670,7 @@ const Canvas = ({
             offsetY = 0;
           }
           
+          saveToHistory(); // Save before starting drag
           setDraggedElement({
             id: clickedElement.id,
             offsetX,
@@ -3726,6 +3811,9 @@ const Canvas = ({
         });
         
         if (roomsUnderCursor.length > 0) {
+          if (!isErasing) {
+            saveToHistory(); // Save before starting erase
+          }
           setIsErasing(true);
           // Erase on all rooms under cursor
           roomsUnderCursor.forEach(room => {
@@ -4627,20 +4715,23 @@ const Canvas = ({
 
     // Finalize wall cutter tool rectangle
     if (wallCutterToolStart && wallCutterToolEnd) {
+      saveToHistory(); // Save BEFORE cutting
       applyWallCutterRectangle();
       setWallCutterToolStart(null);
       setWallCutterToolEnd(null);
-      saveToHistory();
+      // Note: No saveToHistory after - the cut itself is the new state
     }
 
     // Wall Cutter freehand and Door Tool: DISABLED
 
-    // Save to history if we were dragging or resizing
-    if (draggedElement || resizingElement || draggedMultiple || rotatingElement || scalingElement || movingVertex) {
-      saveToHistory();
-    }
-
-    // Stop background painting
+    // Clear drag/resize/rotate states
+    // Note: History was already saved when these operations started
+    setDraggedElement(null);
+    setResizingElement(null);
+    setDraggedMultiple(null);
+    setRotatingElement(null);
+    setScalingElement(null);
+    setMovingVertex(null);
     if (isPaintingBackground) {
       setIsPaintingBackground(false);
       setLastBrushStamp(null);
@@ -4661,8 +4752,8 @@ const Canvas = ({
 
     // Stop erasing
     if (isErasing) {
-      saveToHistory();
       setIsErasing(false);
+      // Note: History was saved when erasing started
     }
 
     setIsPanning(false);

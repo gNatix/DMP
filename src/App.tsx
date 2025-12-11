@@ -475,26 +475,6 @@ function App() {
     setSelectedElementIds([]);
   };
 
-  // Replace elements atomically (delete + add in one operation)
-  const replaceElements = (elementIdsToRemove: string[], elementsToAdd: MapElement[]) => {
-    console.log('[APP] replaceElements - removing:', elementIdsToRemove, 'adding:', elementsToAdd.length, 'elements');
-    if (!activeSceneId || !activeScene) return;
-    
-    const filteredElements = activeScene.elements.filter(e => !elementIdsToRemove.includes(e.id));
-    const elementsWithZIndex = elementsToAdd.map(element => ({
-      ...element,
-      zIndex: element.type === 'room' ? -100 : (element.zIndex ?? 0)
-    }));
-    
-    updateScene(activeSceneId, {
-      elements: [...filteredElements, ...elementsWithZIndex]
-    });
-    
-    console.log('[APP] replaceElements completed - new count:', filteredElements.length + elementsWithZIndex.length);
-    setSelectedElementId(null);
-    setSelectedElementIds([]);
-  };
-
   // Add new scene
   const addScene = (name: string, backgroundMapUrl: string, backgroundMapName: string, collectionId?: string) => {
     // Check if this is a transparent canvas (SVG with transparent fill)
@@ -856,7 +836,6 @@ function App() {
         updateElement={updateElement}
         updateElements={updateElements}
         deleteElements={deleteElements}
-        replaceElements={replaceElements}
         updateScene={updateScene}
         activateAutoCreatedScene={activateAutoCreatedScene}
         setActiveTool={setActiveTool}
