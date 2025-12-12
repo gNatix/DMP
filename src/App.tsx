@@ -201,6 +201,9 @@ function App() {
     const timeoutId = setTimeout(async () => {
       console.log('[APP] Auto-saving scene to Supabase:', activeScene.name);
       
+      // DEBUG: Log raw user.id from context
+      console.log("[APP DEBUG] user.id:", user?.id);
+      
       // CRITICAL: ALWAYS fetch fresh user with valid user.id before saving
       const authenticatedUser = await getAuthenticatedUser();
       

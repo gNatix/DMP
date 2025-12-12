@@ -47,6 +47,7 @@ export const saveSceneToSupabase = async (scene: Scene, userId: string): Promise
       console.error('[Supabase] ❌ Save FAILED:', error.message);
       console.error('[Supabase] Error code:', error.code);
       if (error.hint) console.error('[Supabase] Hint:', error.hint);
+      console.error("[Supabase ERROR OBJECT] =>", error);
       return { error };
     }
 
