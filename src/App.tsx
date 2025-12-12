@@ -190,6 +190,7 @@ function App() {
     // Debounce auto-save (wait 1 second after last change)
     const timeoutId = setTimeout(async () => {
       console.log('[APP] Auto-saving scene to Supabase:', activeScene.name);
+      console.log('[APP] User ID for save:', user.id);
       await saveSceneToSupabase(activeScene, user.id);
     }, 1000);
 
