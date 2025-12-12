@@ -131,45 +131,55 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   // Initialize auth state on mount
   useEffect(() => {
     let mounted = true;
+    let initialized = false;
 
     const initializeAuth = async () => {
       try {
-        console.log('[AUTH] Initializing...');
+        console.log('[AUTH] Initializing with getSession()...');
         
-        // Use getUser() for fresh, validated user data
-        const { data: { user: authUser }, error } = await supabase.auth.getUser();
-
-        if (error) {
-          console.log('[AUTH] Init - no user:', error.message);
+        // Use getSession() first - it's fast (from localStorage)
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError) {
+          console.log('[AUTH] Session error:', sessionError.message);
           if (mounted) setIsLoading(false);
+          initialized = true;
           return;
         }
 
-        // If no user, show login form
-        if (!authUser) {
-          console.log('[AUTH] Init - not logged in');
+        // If no session, user is not logged in
+        if (!session || !session.user) {
+          console.log('[AUTH] No session - not logged in');
           if (mounted) setIsLoading(false);
+          initialized = true;
           return;
         }
 
-        console.log('[AUTH] Init - user found:', authUser.id);
+        console.log('[AUTH] Session found, user:', session.user.id);
+        
+        // Use session.user directly for faster init
         if (mounted) {
-          await updateUserState(authUser);
+          await updateUserState(session.user);
+          setSession(session);
           setIsLoading(false);
+          initialized = true;
         }
       } catch (error) {
         console.error('[AUTH] Init exception:', error);
-        if (mounted) setIsLoading(false);
+        if (mounted) {
+          setIsLoading(false);
+          initialized = true;
+        }
       }
     };
 
-    // Safety timeout - never stay loading more than 5 seconds
+    // Safety timeout - never stay loading more than 3 seconds
     const timeout = setTimeout(() => {
-      if (mounted) {
+      if (mounted && !initialized) {
         console.warn('[AUTH] Init timeout - forcing ready state');
         setIsLoading(false);
       }
-    }, 5000);
+    }, 3000);
 
     initializeAuth();
 
@@ -184,17 +194,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
       setSession(currentSession);
 
-      // ALWAYS re-fetch fresh user - DO NOT use session.user (may be stale)
-      console.log('[AUTH] Fetching fresh user after state change...');
-      const { data: { user: freshUser }, error } = await supabase.auth.getUser();
+      // Use session.user directly - it's provided by Supabase
+      const sessionUser = currentSession?.user || null;
+      console.log('[AUTH] Session user:', sessionUser?.id || 'null');
       
-      if (error) {
-        console.error('[AUTH] Error getting user after state change:', error.message);
-      }
-      
-      console.log('[AUTH] Fresh user after state change:', freshUser?.id || 'null');
-      
-      await updateUserState(freshUser);
+      await updateUserState(sessionUser);
       setIsLoading(false);
       
       console.log('[AUTH] State change handling complete');
