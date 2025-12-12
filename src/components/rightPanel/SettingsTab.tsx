@@ -102,10 +102,12 @@ const SettingsTab = ({}: SettingsTabProps) => {
     }
   };
 
-  if (isLoading) {
+  // Only show loading if we're loading AND have a user (checking session)
+  // If no user, always show login form
+  if (isLoading && mergedUser) {
     return (
       <div className="p-4 flex items-center justify-center h-64">
-        <div className="text-gray-400">Loading authentication...</div>
+        <div className="text-gray-400">Loading profile...</div>
       </div>
     );
   }

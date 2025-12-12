@@ -141,13 +141,14 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           return;
         }
 
-        // CRITICAL: If no user, still set isLoading to false
+        // If no user, show login form
         if (!authUser) {
           console.log('[AUTH] Init - not logged in');
           if (mounted) setIsLoading(false);
           return;
         }
 
+        console.log('[AUTH] Init - user found:', authUser.id);
         if (mounted) {
           await updateUserState(authUser);
           setIsLoading(false);
@@ -157,6 +158,14 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         if (mounted) setIsLoading(false);
       }
     };
+
+    // Safety timeout - never stay loading more than 5 seconds
+    const timeout = setTimeout(() => {
+      if (mounted) {
+        console.warn('[AUTH] Init timeout - forcing ready state');
+        setIsLoading(false);
+      }
+    }, 5000);
 
     initializeAuth();
 
@@ -177,6 +186,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
     return () => {
       mounted = false;
+      clearTimeout(timeout);
       subscription.unsubscribe();
     };
   }, [updateUserState]);
