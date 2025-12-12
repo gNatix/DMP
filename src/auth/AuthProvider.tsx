@@ -141,6 +141,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           return;
         }
 
+        // CRITICAL: If no user, still set isLoading to false
+        if (!authUser) {
+          console.log('[AUTH] Init - not logged in');
+          if (mounted) setIsLoading(false);
+          return;
+        }
+
         if (mounted) {
           await updateUserState(authUser);
           setIsLoading(false);
