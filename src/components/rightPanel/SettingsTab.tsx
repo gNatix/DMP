@@ -81,10 +81,13 @@ const SettingsTab = ({}: SettingsTabProps) => {
   if (isLoading) {
     return (
       <div className="p-4 flex items-center justify-center h-64">
-        <div className="text-gray-400">Loading...</div>
+        <div className="text-gray-400">Loading authentication...</div>
       </div>
     );
   }
+
+  // Debug log
+  console.log('[SettingsTab] user:', user?.email, 'profile:', profile);
 
   return (
     <div className="p-4 space-y-6">

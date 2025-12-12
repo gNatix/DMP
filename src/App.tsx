@@ -7,8 +7,13 @@ import LeftPanel from './components/leftPanel/LeftPanel';
 import PlaylistPanel from './components/gameMode/PlaylistPanel';
 import InfoBox from './components/gameMode/InfoBox';
 import InfoBoxConnector from './components/gameMode/InfoBoxConnector';
+import { useAuth } from './auth/AuthContext';
+import { saveSceneToSupabase, loadScenesFromSupabase, deleteSceneFromSupabase, syncLocalScenesToSupabase } from './services/sceneService';
 
 function App() {
+  // Auth state
+  const { user, isLoading: authLoading } = useAuth();
+  
   // View mode state
   const [viewMode, setViewMode] = useState<ViewMode>('planning');
   
@@ -134,6 +139,57 @@ function App() {
 
   // X-Lab experimental features
   const [xlabShapeMode, setXlabShapeMode] = useState<TerrainShapeMode>(null);
+
+  // Sync scenes to Supabase when user logs in
+  useEffect(() => {
+    if (!user || authLoading) return;
+
+    const syncScenes = async () => {
+      console.log('[APP] User logged in, syncing scenes...');
+      
+      // Load scenes from Supabase
+      const { scenes: cloudScenes, error: loadError } = await loadScenesFromSupabase(user.id);
+      
+      if (loadError) {
+        console.error('[APP] Failed to load cloud scenes:', loadError);
+        return;
+      }
+
+      // If user has cloud scenes, use those
+      if (cloudScenes && cloudScenes.length > 0) {
+        console.log('[APP] Loading', cloudScenes.length, 'scenes from cloud');
+        setScenes(cloudScenes);
+        if (!activeSceneId && cloudScenes[0]) {
+          setActiveSceneId(cloudScenes[0].id);
+        }
+        return;
+      }
+
+      // Otherwise, sync local scenes to cloud
+      if (scenes.length > 0) {
+        console.log('[APP] Syncing local scenes to cloud...');
+        await syncLocalScenesToSupabase(scenes, user.id);
+      }
+    };
+
+    syncScenes();
+  }, [user, authLoading]); // Only run when user logs in
+
+  // Auto-save active scene to Supabase when it changes
+  useEffect(() => {
+    if (!user || !activeSceneId) return;
+
+    const activeScene = scenes.find(s => s.id === activeSceneId);
+    if (!activeScene) return;
+
+    // Debounce auto-save (wait 1 second after last change)
+    const timeoutId = setTimeout(async () => {
+      console.log('[APP] Auto-saving scene to Supabase:', activeScene.name);
+      await saveSceneToSupabase(activeScene, user.id);
+    }, 1000);
+
+    return () => clearTimeout(timeoutId);
+  }, [scenes, activeSceneId, user]);
 
   // Load terrain brushes on mount
   useEffect(() => {
@@ -567,10 +623,15 @@ function App() {
   };
 
   // Delete scene
-  const deleteScene = (sceneId: string) => {
+  const deleteScene = async (sceneId: string) => {
     setScenes(prev => prev.filter(s => s.id !== sceneId));
     if (activeSceneId === sceneId) {
       setActiveSceneId(null);
+    }
+    
+    // Delete from Supabase if user is logged in
+    if (user) {
+      await deleteSceneFromSupabase(sceneId, user.id);
     }
   };
 
