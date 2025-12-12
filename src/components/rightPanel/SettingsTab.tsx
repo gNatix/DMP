@@ -8,7 +8,8 @@ interface SettingsTabProps {
 }
 
 const SettingsTab = ({}: SettingsTabProps) => {
-  const { user, profile, isLoading, signIn, signUp, signInWithGoogle, signOut } = useAuth();
+  // Use mergedUser for display - it's the stable, merged user object
+  const { mergedUser, isLoading, signIn, signUp, signInWithGoogle, signOut } = useAuth();
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -22,7 +23,7 @@ const SettingsTab = ({}: SettingsTabProps) => {
       try {
         const startTime = Date.now();
         
-        const { data, error } = await supabase
+        const { error } = await supabase
           .from('profiles')
           .select('count')
           .limit(1)
@@ -122,19 +123,19 @@ const SettingsTab = ({}: SettingsTabProps) => {
           {/* Avatar */}
           <div className="flex items-center gap-4">
             <div className="w-16 h-16 rounded-full bg-dm-panel flex items-center justify-center border-2 border-dm-border">
-              {profile?.avatar_url ? (
-                <img src={profile.avatar_url} alt="Avatar" className="w-full h-full rounded-full object-cover" />
+              {mergedUser?.avatar_url ? (
+                <img src={mergedUser.avatar_url} alt="Avatar" className="w-full h-full rounded-full object-cover" />
               ) : (
                 <User className="w-8 h-8 text-gray-400" />
               )}
             </div>
             <div>
-              {user ? (
+              {mergedUser ? (
                 <>
                   <p className="text-sm font-medium text-gray-200">
-                    {profile?.display_name || profile?.username || 'User'}
+                    {mergedUser.display_name || mergedUser.username || 'User'}
                   </p>
-                  <p className="text-xs text-gray-500 mt-1">{user.email}</p>
+                  <p className="text-xs text-gray-500 mt-1">{mergedUser.email}</p>
                 </>
               ) : (
                 <>
@@ -146,7 +147,7 @@ const SettingsTab = ({}: SettingsTabProps) => {
           </div>
 
           {/* Auth Form or Logout */}
-          {user ? (
+          {mergedUser ? (
             <button
               onClick={handleSignOut}
               className="w-full bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded transition-colors flex items-center justify-center gap-2"
@@ -253,7 +254,7 @@ const SettingsTab = ({}: SettingsTabProps) => {
         </div>
 
         {/* Account Settings (only show when logged in) */}
-        {user && (
+        {mergedUser && (
           <div className="bg-dm-dark rounded-lg p-4">
             <h4 className="text-sm font-medium text-gray-300 mb-3">
               Settings
