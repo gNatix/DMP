@@ -17,6 +17,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   // Fetch user profile from database
   const fetchProfile = async (userId: string) => {
     try {
+      console.log('[AUTH] fetchProfile called for userId:', userId);
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -24,13 +25,14 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         .single();
 
       if (error) {
-        console.error('Error fetching profile:', error);
+        console.error('[AUTH] Error fetching profile:', error);
         return null;
       }
 
+      console.log('[AUTH] Profile data:', data);
       return data as Profile;
     } catch (error) {
-      console.error('Error in fetchProfile:', error);
+      console.error('[AUTH] Error in fetchProfile:', error);
       return null;
     }
   };
@@ -38,26 +40,32 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   // Initialize auth state
   useEffect(() => {
     let mounted = true;
+    console.log('[AUTH] AuthProvider initializing...');
 
     const initializeAuth = async () => {
       try {
+        console.log('[AUTH] Getting session...');
         // Get initial session
         const { data: { session: initialSession } } = await supabase.auth.getSession();
+        console.log('[AUTH] Session retrieved:', initialSession?.user?.email || 'No user');
 
         if (mounted) {
           setSession(initialSession);
           setUser(initialSession?.user ?? null);
 
           if (initialSession?.user) {
+            console.log('[AUTH] Fetching profile for user:', initialSession.user.id);
             const userProfile = await fetchProfile(initialSession.user.id);
+            console.log('[AUTH] Profile fetched:', userProfile?.username || 'No profile');
             setProfile(userProfile);
           }
 
           setIsLoading(false);
+          console.log('[AUTH] Initialization complete, isLoading set to false');
         }
       } catch (error) {
-        console.error('Error initializing auth:', error);
-        console.warn('Auth features will be disabled due to initialization error');
+        console.error('[AUTH] Error initializing auth:', error);
+        console.warn('[AUTH] Auth features will be disabled due to initialization error');
         if (mounted) {
           setIsLoading(false);
         }
