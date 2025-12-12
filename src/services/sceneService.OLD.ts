@@ -16,16 +16,9 @@ export interface SupabaseScene {
 
 /**
  * Save a scene to Supabase
- * CRITICAL: Requires valid UUID for user_id - RLS policies will block invalid IDs
  */
 export const saveSceneToSupabase = async (scene: Scene, userId: string): Promise<{ error: Error | null }> => {
   try {
-    // Validate userId is a UUID before attempting save
-    if (!userId || typeof userId !== 'string' || userId.length < 36) {
-      console.error('[Supabase] ❌ CRITICAL: Invalid userId provided:', typeof userId, userId);
-      return { error: new Error('Invalid user ID - must be a valid UUID') };
-    }
-
     const sceneData = {
       id: scene.id,
       user_id: userId,
@@ -37,20 +30,15 @@ export const saveSceneToSupabase = async (scene: Scene, userId: string): Promise
       terrain_tiles: scene.terrainTiles || {},
     };
 
-    console.log('[Supabase] Saving scene:', scene.name, 'with user_id:', userId);
-
     const { data, error } = await supabase
       .from('scenes')
       .upsert(sceneData, { onConflict: 'id' });
 
     if (error) {
-      console.error('[Supabase] ❌ Save FAILED:', error.message);
-      console.error('[Supabase] Error code:', error.code);
-      if (error.hint) console.error('[Supabase] Hint:', error.hint);
+      console.error('[Supabase] Save error:', error.message);
       return { error };
     }
 
-    console.log('[Supabase] ✅ Scene saved successfully');
     return { error: null };
   } catch (error) {
     console.error('[Supabase] Save exception:', error);
@@ -63,12 +51,6 @@ export const saveSceneToSupabase = async (scene: Scene, userId: string): Promise
  */
 export const loadScenesFromSupabase = async (userId: string): Promise<{ scenes: Scene[] | null; error: Error | null }> => {
   try {
-    // Validate userId
-    if (!userId || typeof userId !== 'string' || userId.length < 36) {
-      console.error('[Supabase] ❌ CRITICAL: Invalid userId for load:', userId);
-      return { scenes: null, error: new Error('Invalid user ID') };
-    }
-
     const { data, error } = await supabase
       .from('scenes')
       .select('*')
@@ -105,12 +87,6 @@ export const loadScenesFromSupabase = async (userId: string): Promise<{ scenes: 
  */
 export const deleteSceneFromSupabase = async (sceneId: string, userId: string): Promise<{ error: Error | null }> => {
   try {
-    // Validate userId
-    if (!userId || typeof userId !== 'string' || userId.length < 36) {
-      console.error('[Supabase] ❌ CRITICAL: Invalid userId for delete:', userId);
-      return { error: new Error('Invalid user ID') };
-    }
-
     console.log('[Supabase] Deleting scene:', sceneId);
 
     const { error } = await supabase
@@ -138,12 +114,6 @@ export const deleteSceneFromSupabase = async (sceneId: string, userId: string): 
  */
 export const syncLocalScenesToSupabase = async (localScenes: Scene[], userId: string): Promise<{ error: Error | null }> => {
   try {
-    // Validate userId
-    if (!userId || typeof userId !== 'string' || userId.length < 36) {
-      console.error('[Supabase] ❌ CRITICAL: Invalid userId for sync:', userId);
-      return { error: new Error('Invalid user ID') };
-    }
-
     console.log('[Supabase] Syncing', localScenes.length, 'local scenes to cloud');
 
     // Get existing scene IDs from Supabase

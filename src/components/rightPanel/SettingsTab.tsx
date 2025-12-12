@@ -20,7 +20,6 @@ const SettingsTab = ({}: SettingsTabProps) => {
   useEffect(() => {
     const testConnection = async () => {
       try {
-        console.log('[SettingsTab] Testing Supabase connection...');
         const startTime = Date.now();
         
         const { data, error } = await supabase
@@ -30,9 +29,9 @@ const SettingsTab = ({}: SettingsTabProps) => {
           .single();
         
         const elapsed = Date.now() - startTime;
-        console.log(`[SettingsTab] Supabase test completed in ${elapsed}ms`, { data, error });
+        console.log(`[Supabase] Connection test: ${elapsed}ms`, error ? 'FAILED' : 'OK');
       } catch (err) {
-        console.error('[SettingsTab] Supabase test failed:', err);
+        console.error('[Supabase] Connection test failed:', err);
       }
     };
     
@@ -75,12 +74,9 @@ const SettingsTab = ({}: SettingsTabProps) => {
 
   const handleSignOut = async () => {
     try {
-      console.log('[SettingsTab] Sign out clicked');
       await signOut();
-      console.log('[SettingsTab] Sign out successful');
       setSuccessMessage('Successfully logged out');
     } catch (err) {
-      console.error('[SettingsTab] Sign out failed:', err);
       setError('Failed to log out');
       console.error(err);
     }
@@ -105,8 +101,6 @@ const SettingsTab = ({}: SettingsTabProps) => {
     }
   };
 
-  console.log('[SettingsTab] Render state:', { isLoading, hasUser: !!user, hasProfile: !!profile, userEmail: user?.email });
-
   if (isLoading) {
     return (
       <div className="p-4 flex items-center justify-center h-64">
@@ -114,9 +108,6 @@ const SettingsTab = ({}: SettingsTabProps) => {
       </div>
     );
   }
-
-  // Debug log
-  console.log('[SettingsTab] user:', user?.email, 'profile:', profile);
 
   return (
     <div className="p-4 space-y-6">

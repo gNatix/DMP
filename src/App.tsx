@@ -17,7 +17,7 @@ import { saveSceneToSupabase, loadScenesFromSupabase, deleteSceneFromSupabase, s
 
 function App() {
   // Auth state
-  const { user, isLoading: authLoading } = useAuth();
+  const { user, isLoading: authLoading, getAuthenticatedUser } = useAuth();
   
   // View mode state
   const [viewMode, setViewMode] = useState<ViewMode>('planning');
@@ -152,8 +152,18 @@ function App() {
     const syncScenes = async () => {
       console.log('[APP] User logged in, syncing scenes...');
       
+      // CRITICAL: Get fresh authenticated user with valid user.id
+      const authenticatedUser = await getAuthenticatedUser();
+      
+      if (!authenticatedUser || !authenticatedUser.id) {
+        console.error('[APP] ❌ Cannot sync - no valid user.id');
+        return;
+      }
+      
+      console.log('[APP] ✅ Syncing with user.id:', authenticatedUser.id);
+      
       // Load scenes from Supabase
-      const { scenes: cloudScenes, error: loadError } = await loadScenesFromSupabase(user.id);
+      const { scenes: cloudScenes, error: loadError } = await loadScenesFromSupabase(authenticatedUser.id);
       
       if (loadError) {
         console.error('[APP] Failed to load cloud scenes:', loadError);
@@ -173,12 +183,12 @@ function App() {
       // Otherwise, sync local scenes to cloud
       if (scenes.length > 0) {
         console.log('[APP] Syncing local scenes to cloud...');
-        await syncLocalScenesToSupabase(scenes, user.id);
+        await syncLocalScenesToSupabase(scenes, authenticatedUser.id);
       }
     };
 
     syncScenes();
-  }, [user, authLoading]); // Only run when user logs in
+  }, [user, authLoading, getAuthenticatedUser]); // Only run when user logs in
 
   // Auto-save active scene to Supabase when it changes
   useEffect(() => {
@@ -190,12 +200,21 @@ function App() {
     // Debounce auto-save (wait 1 second after last change)
     const timeoutId = setTimeout(async () => {
       console.log('[APP] Auto-saving scene to Supabase:', activeScene.name);
-      console.log('[APP] User ID for save:', user.id);
-      await saveSceneToSupabase(activeScene, user.id);
+      
+      // CRITICAL: ALWAYS fetch fresh user with valid user.id before saving
+      const authenticatedUser = await getAuthenticatedUser();
+      
+      if (!authenticatedUser || !authenticatedUser.id) {
+        console.error('[APP] ❌ Cannot save - no valid user.id');
+        return;
+      }
+      
+      console.log('[APP] ✅ Saving with user.id:', authenticatedUser.id);
+      await saveSceneToSupabase(activeScene, authenticatedUser.id);
     }, 1000);
 
     return () => clearTimeout(timeoutId);
-  }, [scenes, activeSceneId, user]);
+  }, [scenes, activeSceneId, user, getAuthenticatedUser]);
 
   // Load terrain brushes on mount
   useEffect(() => {
@@ -637,7 +656,11 @@ function App() {
     
     // Delete from Supabase if user is logged in
     if (user) {
-      await deleteSceneFromSupabase(sceneId, user.id);
+      // CRITICAL: Get fresh user.id before deleting
+      const authenticatedUser = await getAuthenticatedUser();
+      if (authenticatedUser?.id) {
+        await deleteSceneFromSupabase(sceneId, authenticatedUser.id);
+      }
     }
   };
 

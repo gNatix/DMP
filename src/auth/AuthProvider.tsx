@@ -8,16 +8,76 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
+// Merged user type combining auth user and profile
+export interface MergedUser {
+  id: string;
+  email: string;
+  username?: string;
+  display_name?: string;
+  avatar_url?: string;
+}
+
 export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch user profile from database
-  const fetchProfile = async (userId: string) => {
+  /**
+   * CRITICAL: Get authenticated user with profile merged
+   * ALWAYS fetches fresh data from Supabase - never uses cached/stale data
+   * This ensures user.id is ALWAYS a valid UUID
+   */
+  const getAuthenticatedUser = async (): Promise<MergedUser | null> => {
     try {
-      console.log('[AUTH] fetchProfile called for userId:', userId);
+      // ALWAYS fetch fresh user from Supabase - DO NOT use cached user
+      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError || !authUser) {
+        console.error('[AUTH] getAuthenticatedUser - no auth user:', authError?.message);
+        return null;
+      }
+
+      // CRITICAL: Validate user.id is a valid UUID string
+      if (!authUser.id || typeof authUser.id !== 'string' || authUser.id.length < 36) {
+        console.error('[AUTH] ❌ CRITICAL: user.id is INVALID:', typeof authUser.id, authUser.id);
+        console.error('[AUTH] Full user object:', authUser);
+        return null;
+      }
+
+      console.log('[AUTH] ✅ Valid user.id:', authUser.id);
+
+      // Fetch profile from database
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', authUser.id)
+        .single();
+
+      if (profileError) {
+        console.warn('[AUTH] Profile fetch failed, using auth user only:', profileError.message);
+      }
+
+      // Merge auth user + profile into single object
+      const mergedUser: MergedUser = {
+        id: authUser.id, // GUARANTEED to be valid UUID
+        email: authUser.email || '',
+        username: profileData?.username,
+        display_name: profileData?.display_name,
+        avatar_url: profileData?.avatar_url,
+      };
+
+      console.log('[AUTH] Merged user ready:', { id: mergedUser.id, email: mergedUser.email, username: mergedUser.username });
+      return mergedUser;
+    } catch (error) {
+      console.error('[AUTH] getAuthenticatedUser exception:', error);
+      return null;
+    }
+  };
+
+  // Fetch profile only (internal helper)
+  const fetchProfile = async (userId: string): Promise<Profile | null> => {
+    try {
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -25,47 +85,62 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         .single();
 
       if (error) {
-        console.error('[AUTH] Error fetching profile:', error);
+        console.error('[AUTH] Profile fetch error:', error.message);
         return null;
       }
 
-      console.log('[AUTH] Profile data:', data);
       return data as Profile;
     } catch (error) {
-      console.error('[AUTH] Error in fetchProfile:', error);
+      console.error('[AUTH] fetchProfile exception:', error);
       return null;
     }
   };
 
-  // Initialize auth state
+  // Initialize auth state on mount
   useEffect(() => {
     let mounted = true;
-    console.log('[AUTH] AuthProvider initializing...');
 
     const initializeAuth = async () => {
       try {
-        console.log('[AUTH] Getting session...');
-        // Get initial session
-        const { data: { session: initialSession } } = await supabase.auth.getSession();
-        console.log('[AUTH] Session retrieved:', initialSession?.user?.email || 'No user');
+        console.log('[AUTH] Initializing...');
+        
+        // CRITICAL: Use getUser() NOT getSession() for user data
+        const { data: { user: authUser }, error } = await supabase.auth.getUser();
+
+        if (error) {
+          console.error('[AUTH] Init error:', error.message);
+          if (mounted) {
+            setIsLoading(false);
+          }
+          return;
+        }
 
         if (mounted) {
-          setSession(initialSession);
-          setUser(initialSession?.user ?? null);
+          setUser(authUser);
 
-          if (initialSession?.user) {
-            console.log('[AUTH] Fetching profile for user:', initialSession.user.id);
-            const userProfile = await fetchProfile(initialSession.user.id);
-            console.log('[AUTH] Profile fetched:', userProfile?.username || 'No profile');
-            setProfile(userProfile);
+          if (authUser) {
+            // CRITICAL: Validate user.id before using it
+            if (!authUser.id || typeof authUser.id !== 'string') {
+              console.error('[AUTH] ❌ CRITICAL: Invalid user.id on init:', authUser.id);
+              setUser(null);
+              setProfile(null);
+              setIsLoading(false);
+              return;
+            }
+
+            console.log('[AUTH] User authenticated:', authUser.id);
+
+            // Fetch profile
+            const profileData = await fetchProfile(authUser.id);
+            if (mounted) {
+              setProfile(profileData);
+            }
           }
 
           setIsLoading(false);
-          console.log('[AUTH] Initialization complete, isLoading set to false');
         }
       } catch (error) {
-        console.error('[AUTH] Error initializing auth:', error);
-        console.warn('[AUTH] Auth features will be disabled due to initialization error');
+        console.error('[AUTH] Init exception:', error);
         if (mounted) {
           setIsLoading(false);
         }
@@ -74,24 +149,34 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
     initializeAuth();
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, currentSession) => {
-      console.log('[AUTH] State change:', _event, currentSession?.user?.email);
+    // Listen for auth changes (login, logout, token refresh)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
+      console.log('[AUTH] State change:', event);
 
       if (mounted) {
         setSession(currentSession);
-        setUser(currentSession?.user ?? null);
         
-        // Set loading to false immediately - don't wait for profile fetch
+        // CRITICAL: ALWAYS re-fetch user using getUser() to ensure fresh, valid data
+        // DO NOT use session.user - it may be stale
+        const { data: { user: freshUser } } = await supabase.auth.getUser();
+        
+        // Validate before setting
+        if (freshUser && (!freshUser.id || typeof freshUser.id !== 'string')) {
+          console.error('[AUTH] ❌ CRITICAL: Invalid user.id from auth state change:', freshUser.id);
+          setUser(null);
+          setProfile(null);
+          setIsLoading(false);
+          return;
+        }
+
+        setUser(freshUser);
         setIsLoading(false);
 
-        // Fetch profile in background if user exists
-        if (currentSession?.user) {
-          console.log('[AUTH] Fetching profile in background...');
-          const userProfile = await fetchProfile(currentSession.user.id);
-          console.log('[AUTH] Background profile fetch complete:', userProfile?.username);
+        // Fetch profile in background
+        if (freshUser?.id) {
+          const profileData = await fetchProfile(freshUser.id);
           if (mounted) {
-            setProfile(userProfile);
+            setProfile(profileData);
           }
         } else {
           setProfile(null);
@@ -114,14 +199,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       });
 
       if (error) {
-        console.error('Signup error:', error);
+        console.error('[AUTH] Signup error:', error.message);
         return { error };
       }
 
-      console.log('[AUTH] Signup successful:', data.user?.email);
       return { error: null };
     } catch (error) {
-      console.error('Signup exception:', error);
+      console.error('[AUTH] Signup exception:', error);
       return { error: error as Error };
     }
   };
@@ -135,14 +219,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       });
 
       if (error) {
-        console.error('Signin error:', error);
+        console.error('[AUTH] Signin error:', error.message);
         return { error };
       }
 
-      console.log('[AUTH] Signin successful:', data.user?.email);
       return { error: null };
     } catch (error) {
-      console.error('Signin exception:', error);
+      console.error('[AUTH] Signin exception:', error);
       return { error: error as Error };
     }
   };
@@ -153,19 +236,18 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}`,
+          redirectTo: window.location.origin,
         },
       });
 
       if (error) {
-        console.error('Google signin error:', error);
+        console.error('[AUTH] Google signin error:', error.message);
         return { error };
       }
 
-      console.log('[AUTH] Google signin initiated');
       return { error: null };
     } catch (error) {
-      console.error('Google signin exception:', error);
+      console.error('[AUTH] Google signin exception:', error);
       return { error: error as Error };
     }
   };
@@ -176,16 +258,15 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       const { error } = await supabase.auth.signOut();
       
       if (error) {
-        console.error('Signout error:', error);
+        console.error('[AUTH] Signout error:', error.message);
         throw error;
       }
 
-      console.log('[AUTH] Signout successful');
       setUser(null);
       setSession(null);
       setProfile(null);
     } catch (error) {
-      console.error('Signout exception:', error);
+      console.error('[AUTH] Signout exception:', error);
       throw error;
     }
   };
@@ -193,28 +274,26 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   // Update user profile
   const updateProfile = async (updates: Partial<Profile>) => {
     try {
-      if (!user) {
-        return { error: new Error('No user logged in') };
+      if (!user?.id) {
+        throw new Error('No user logged in');
       }
 
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('profiles')
         .update(updates)
-        .eq('id', user.id)
-        .select()
-        .single();
+        .eq('id', user.id);
 
       if (error) {
-        console.error('Update profile error:', error);
-        return { error };
+        console.error('[AUTH] Profile update error:', error.message);
+        throw error;
       }
 
-      setProfile(data as Profile);
-      console.log('[AUTH] Profile updated:', data);
-      return { error: null };
+      // Refresh profile
+      const updatedProfile = await fetchProfile(user.id);
+      setProfile(updatedProfile);
     } catch (error) {
-      console.error('Update profile exception:', error);
-      return { error: error as Error };
+      console.error('[AUTH] Profile update exception:', error);
+      throw error;
     }
   };
 
@@ -228,11 +307,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     signInWithGoogle,
     signOut,
     updateProfile,
+    getAuthenticatedUser, // CRITICAL: Export this function
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

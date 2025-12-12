@@ -10,6 +10,15 @@ export interface Profile {
   updated_at: string;
 }
 
+// Merged user type combining auth user and profile
+export interface MergedUser {
+  id: string; // ALWAYS a valid UUID
+  email: string;
+  username?: string;
+  display_name?: string;
+  avatar_url?: string;
+}
+
 // Auth context types
 export interface AuthContextType {
   user: User | null;
@@ -21,6 +30,7 @@ export interface AuthContextType {
   signInWithGoogle: () => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   updateProfile: (updates: Partial<Profile>) => Promise<{ error: Error | null }>;
+  getAuthenticatedUser: () => Promise<MergedUser | null>; // CRITICAL: Add this
 }
 
 // Database types (for reference, not enforced by Supabase client)
