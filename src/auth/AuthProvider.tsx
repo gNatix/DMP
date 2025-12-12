@@ -131,93 +131,37 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   // Initialize auth state on mount
   useEffect(() => {
     let mounted = true;
-    let initialized = false;
 
-    const initializeAuth = async () => {
-      try {
-        console.log('[AUTH] Initializing...');
-        
-        // Wrap getSession in a timeout to prevent hanging
-        const sessionPromise = supabase.auth.getSession();
-        const timeoutPromise = new Promise<never>((_, reject) => 
-          setTimeout(() => reject(new Error('getSession timeout')), 2000)
-        );
-        
-        let session = null;
-        try {
-          const result = await Promise.race([sessionPromise, timeoutPromise]);
-          session = result.data?.session;
-          console.log('[AUTH] getSession returned:', session ? 'session exists' : 'no session');
-        } catch (timeoutError) {
-          console.warn('[AUTH] getSession timed out - treating as not logged in');
-          if (mounted) {
-            setIsLoading(false);
-            initialized = true;
-          }
-          return;
-        }
+    console.log('[AUTH] Setting up auth listener...');
+    
+    // Don't wait for getSession - just show UI immediately
+    // onAuthStateChange will fire with INITIAL_SESSION if user is logged in
+    setIsLoading(false);
 
-        // If no session, user is not logged in
-        if (!session || !session.user) {
-          console.log('[AUTH] No session - showing login form');
-          if (mounted) {
-            setIsLoading(false);
-            initialized = true;
-          }
-          return;
-        }
-
-        console.log('[AUTH] Session found, user:', session.user.id);
-        
-        if (mounted) {
-          await updateUserState(session.user);
-          setSession(session);
-          setIsLoading(false);
-          initialized = true;
-        }
-      } catch (error) {
-        console.error('[AUTH] Init exception:', error);
-        if (mounted) {
-          setIsLoading(false);
-          initialized = true;
-        }
-      }
-    };
-
-    // Safety timeout - never stay loading more than 3 seconds
-    const timeout = setTimeout(() => {
-      if (mounted && !initialized) {
-        console.warn('[AUTH] Init timeout - forcing ready state');
-        setIsLoading(false);
-      }
-    }, 3000);
-
-    initializeAuth();
-
-    // Listen for auth changes
+    // Listen for auth changes - this handles EVERYTHING including initial session
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
       console.log('[AUTH] State change event:', event, 'session:', currentSession ? 'exists' : 'null');
 
       if (!mounted) {
-        console.log('[AUTH] Not mounted, ignoring state change');
+        console.log('[AUTH] Not mounted, ignoring');
         return;
       }
 
       setSession(currentSession);
 
-      // Use session.user directly - it's provided by Supabase
-      const sessionUser = currentSession?.user || null;
-      console.log('[AUTH] Session user:', sessionUser?.id || 'null');
-      
-      await updateUserState(sessionUser);
-      setIsLoading(false);
-      
-      console.log('[AUTH] State change handling complete');
+      if (currentSession?.user) {
+        console.log('[AUTH] User found:', currentSession.user.id);
+        await updateUserState(currentSession.user);
+      } else {
+        console.log('[AUTH] No user in session');
+        setUser(null);
+        setProfile(null);
+        setMergedUser(null);
+      }
     });
 
     return () => {
       mounted = false;
-      clearTimeout(timeout);
       subscription.unsubscribe();
     };
   }, [updateUserState]);
