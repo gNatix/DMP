@@ -31,6 +31,14 @@ export const saveSceneToSupabase = async (scene: Scene, userId: string): Promise
       terrain_tiles: scene.terrainTiles || {},
     };
 
+    console.log('[Supabase] 🔵 Data to upsert:', JSON.stringify({
+      id: sceneData.id,
+      user_id: sceneData.user_id,
+      name: sceneData.name,
+      elements_count: sceneData.elements.length,
+      has_terrain_tiles: Object.keys(sceneData.terrain_tiles).length > 0
+    }));
+
     console.log('[Supabase] 🔵 Calling upsert...');
 
     const { data, error } = await supabase
