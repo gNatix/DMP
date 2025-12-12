@@ -23,19 +23,26 @@ export const supabase = createClient(
   }
 );
 
-// Quick connectivity test
+// Raw fetch test to check if Supabase is reachable at all
 (async () => {
+  if (!supabaseUrl) return;
+  
   try {
-    console.log('[SUPABASE] Testing connection...');
+    console.log('[SUPABASE] Raw fetch test to:', supabaseUrl);
     const start = Date.now();
-    const { error } = await supabase.from('profiles').select('count').limit(1).maybeSingle();
+    const response = await fetch(`${supabaseUrl}/rest/v1/`, {
+      method: 'HEAD',
+      headers: {
+        'apikey': supabaseAnonKey || '',
+      },
+    });
     const elapsed = Date.now() - start;
-    if (error) {
-      console.error('[SUPABASE] Connection test failed:', error.message, `(${elapsed}ms)`);
-    } else {
-      console.log('[SUPABASE] Connection OK:', `${elapsed}ms`);
+    console.log('[SUPABASE] Raw fetch result:', response.status, response.statusText, `(${elapsed}ms)`);
+    
+    if (response.status === 503) {
+      console.error('[SUPABASE] ⚠️ PROJECT IS PAUSED! Go to Supabase dashboard and resume it.');
     }
   } catch (e) {
-    console.error('[SUPABASE] Connection test exception:', e);
+    console.error('[SUPABASE] Raw fetch FAILED:', e);
   }
 })();
