@@ -1,6 +1,7 @@
 import { User, LogOut, Mail, Lock } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../../auth/AuthContext';
+import { supabase } from '../../auth/supabaseClient';
 
 interface SettingsTabProps {
   // Future props for user data, logout, etc.
@@ -14,6 +15,29 @@ const SettingsTab = ({}: SettingsTabProps) => {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Test Supabase connection on mount
+  useEffect(() => {
+    const testConnection = async () => {
+      try {
+        console.log('[SettingsTab] Testing Supabase connection...');
+        const startTime = Date.now();
+        
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('count')
+          .limit(1)
+          .single();
+        
+        const elapsed = Date.now() - startTime;
+        console.log(`[SettingsTab] Supabase test completed in ${elapsed}ms`, { data, error });
+      } catch (err) {
+        console.error('[SettingsTab] Supabase test failed:', err);
+      }
+    };
+    
+    testConnection();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
