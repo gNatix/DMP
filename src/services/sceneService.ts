@@ -32,16 +32,22 @@ export const saveSceneToSupabase = async (scene: Scene, userId: string): Promise
 
     console.log('[Supabase] Saving scene:', scene.id, scene.name);
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('scenes')
       .upsert(sceneData, { onConflict: 'id' });
 
     if (error) {
       console.error('[Supabase] Save error:', error);
+      console.error('[Supabase] Error details:', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code
+      });
       return { error };
     }
 
-    console.log('[Supabase] Scene saved successfully');
+    console.log('[Supabase] Scene saved successfully:', data);
     return { error: null };
   } catch (error) {
     console.error('[Supabase] Save exception:', error);
@@ -64,8 +70,16 @@ export const loadScenesFromSupabase = async (userId: string): Promise<{ scenes: 
 
     if (error) {
       console.error('[Supabase] Load error:', error);
+      console.error('[Supabase] Load error details:', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code
+      });
       return { scenes: null, error };
     }
+
+    console.log('[Supabase] Loaded scenes:', data?.length || 0, 'scenes');
 
     const scenes: Scene[] = (data || []).map((row: SupabaseScene) => ({
       id: row.id,
