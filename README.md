@@ -47,19 +47,76 @@ A powerful web-based tool for Dungeon Masters to manage interactive dungeon maps
 
 ## Getting Started
 
+### Prerequisites
+- Node.js (v16 or higher)
+- npm or yarn
+- Supabase account (for authentication)
+
 ### Installation
 
-1. Install dependencies:
+1. Clone the repository:
+```bash
+git clone https://github.com/gNatix/DMP.git
+cd DMP
+```
+
+2. Install dependencies:
 ```bash
 npm install
 ```
 
-2. Start the development server:
+3. **Setup Environment Variables:**
+
+   Create a `.env` file in the root directory:
+   ```bash
+   cp .env.example .env
+   ```
+
+   Then add your Supabase credentials to `.env`:
+   ```env
+   VITE_SUPABASE_URL=your-project-url
+   VITE_SUPABASE_ANON_KEY=your-anon-key
+   ```
+
+   **Get your Supabase credentials:**
+   - Go to [supabase.com](https://supabase.com)
+   - Create a project (or use existing)
+   - Go to Settings → API
+   - Copy `Project URL` and `anon public` key
+
+4. **Setup Supabase Database:**
+
+   Run the SQL from `documentation/` in your Supabase SQL Editor to create:
+   - `profiles` table
+   - `scenes` table
+   - Row Level Security policies
+   - Auto-profile creation trigger
+
+5. Start the development server:
 ```bash
 npm run dev
 ```
 
-3. Open your browser to the URL shown (typically http://localhost:5173)
+6. Open your browser to http://localhost:5173
+
+### Production Deployment
+
+**Environment Variables in Hosting:**
+
+- **Netlify**: Settings → Environment Variables
+- **Vercel**: Project Settings → Environment Variables
+- **GitHub Pages**: Repository → Settings → Secrets → Actions
+
+Add these variables:
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+
+**Build command:**
+```bash
+npm run build
+```
+
+**Output directory:** `dist/`
 
 ### Quick Start Guide
 
