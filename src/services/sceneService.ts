@@ -38,6 +38,8 @@ export const saveSceneToSupabase = async (scene: Scene, userId: string): Promise
     };
 
     console.log('[Supabase] Saving scene:', scene.name, 'with user_id:', userId);
+    console.log("[DEBUG RAW SCENE OBJECT]", scene);
+    console.log("[DEBUG PAYLOAD]", sceneData);
 
     const { data, error } = await supabase
       .from('scenes')
