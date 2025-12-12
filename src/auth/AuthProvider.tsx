@@ -81,16 +81,21 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       if (mounted) {
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
+        
+        // Set loading to false immediately - don't wait for profile fetch
+        setIsLoading(false);
 
+        // Fetch profile in background if user exists
         if (currentSession?.user) {
+          console.log('[AUTH] Fetching profile in background...');
           const userProfile = await fetchProfile(currentSession.user.id);
-          setProfile(userProfile);
+          console.log('[AUTH] Background profile fetch complete:', userProfile?.username);
+          if (mounted) {
+            setProfile(userProfile);
+          }
         } else {
           setProfile(null);
         }
-        
-        // Always set loading to false after handling auth state change
-        setIsLoading(false);
       }
     });
 
