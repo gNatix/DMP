@@ -135,29 +135,40 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
     const initializeAuth = async () => {
       try {
-        console.log('[AUTH] Initializing with getSession()...');
+        console.log('[AUTH] Initializing...');
         
-        // Use getSession() first - it's fast (from localStorage)
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        // Wrap getSession in a timeout to prevent hanging
+        const sessionPromise = supabase.auth.getSession();
+        const timeoutPromise = new Promise<never>((_, reject) => 
+          setTimeout(() => reject(new Error('getSession timeout')), 2000)
+        );
         
-        if (sessionError) {
-          console.log('[AUTH] Session error:', sessionError.message);
-          if (mounted) setIsLoading(false);
-          initialized = true;
+        let session = null;
+        try {
+          const result = await Promise.race([sessionPromise, timeoutPromise]);
+          session = result.data?.session;
+          console.log('[AUTH] getSession returned:', session ? 'session exists' : 'no session');
+        } catch (timeoutError) {
+          console.warn('[AUTH] getSession timed out - treating as not logged in');
+          if (mounted) {
+            setIsLoading(false);
+            initialized = true;
+          }
           return;
         }
 
         // If no session, user is not logged in
         if (!session || !session.user) {
-          console.log('[AUTH] No session - not logged in');
-          if (mounted) setIsLoading(false);
-          initialized = true;
+          console.log('[AUTH] No session - showing login form');
+          if (mounted) {
+            setIsLoading(false);
+            initialized = true;
+          }
           return;
         }
 
         console.log('[AUTH] Session found, user:', session.user.id);
         
-        // Use session.user directly for faster init
         if (mounted) {
           await updateUserState(session.user);
           setSession(session);

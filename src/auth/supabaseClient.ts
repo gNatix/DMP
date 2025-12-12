@@ -9,7 +9,6 @@ console.log('[SUPABASE] Key configured:', !!supabaseAnonKey, supabaseAnonKey ? '
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.error('[SUPABASE] CRITICAL: Missing environment variables!');
-  console.error('[SUPABASE] Make sure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set in Vercel');
 }
 
 export const supabase = createClient(
@@ -23,3 +22,20 @@ export const supabase = createClient(
     },
   }
 );
+
+// Quick connectivity test
+(async () => {
+  try {
+    console.log('[SUPABASE] Testing connection...');
+    const start = Date.now();
+    const { error } = await supabase.from('profiles').select('count').limit(1).maybeSingle();
+    const elapsed = Date.now() - start;
+    if (error) {
+      console.error('[SUPABASE] Connection test failed:', error.message, `(${elapsed}ms)`);
+    } else {
+      console.log('[SUPABASE] Connection OK:', `${elapsed}ms`);
+    }
+  } catch (e) {
+    console.error('[SUPABASE] Connection test exception:', e);
+  }
+})();
