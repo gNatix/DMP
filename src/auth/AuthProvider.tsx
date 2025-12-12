@@ -80,6 +80,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         } else {
           setProfile(null);
         }
+        
+        // Always set loading to false after handling auth state change
+        setIsLoading(false);
       }
     });
 
