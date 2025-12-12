@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
+import { Settings } from 'lucide-react';
 import { Scene, MapElement, TokenTemplate, ToolType, Collection, CollectionAppearance, RoomSubTool, TerrainShapeMode } from '../../types';
 import ScenesTab from './ScenesTab';
 import TokensTab from './TokensTab';
 import RoomBuilderPanel from './RoomBuilderPanel';
 import XLabPanel from './XLabPanel';
+import SettingsTab from './SettingsTab';
 
 interface RightPanelProps {
   scenes: Scene[];
@@ -53,13 +55,13 @@ interface RightPanelProps {
   onSelectTerrainBrush: (url: string) => void;
   backgroundBrushSize: number;
   onBackgroundBrushSizeChange: (size: number) => void;
-  activeTab?: 'scenes' | 'tokens' | 'draw' | 'xlab';
-  onActiveTabChange?: (tab: 'scenes' | 'tokens' | 'draw' | 'xlab') => void;
+  activeTab?: 'scenes' | 'tokens' | 'draw' | 'xlab' | 'settings';
+  onActiveTabChange?: (tab: 'scenes' | 'tokens' | 'draw' | 'xlab' | 'settings') => void;
   xlabShapeMode: TerrainShapeMode;
   onXlabShapeModeChange: (mode: TerrainShapeMode) => void;
 }
 
-type TabType = 'scenes' | 'tokens' | 'draw' | 'xlab';
+type TabType = 'scenes' | 'tokens' | 'draw' | 'xlab' | 'settings';
 
 const RightPanel = ({
   scenes,
@@ -173,6 +175,17 @@ const RightPanel = ({
         >
           Draw
         </button>
+        <button
+          onClick={() => setActiveTab('settings')}
+          className={`flex-1 py-3 text-sm font-medium transition-colors flex items-center justify-center gap-1 ${
+            activeTab === 'settings'
+              ? 'bg-dm-dark text-dm-highlight border-b-2 border-dm-highlight'
+              : 'text-gray-400 hover:text-gray-200'
+          }`}
+          title="Settings"
+        >
+          <Settings className="w-4 h-4" />
+        </button>
       </div>
 
       {/* Tab Content */}
@@ -247,6 +260,9 @@ const RightPanel = ({
             xlabShapeMode={xlabShapeMode}
             onXlabShapeModeChange={onXlabShapeModeChange}
           />
+        )}
+        {activeTab === 'settings' && (
+          <SettingsTab />
         )}
       </div>
     </div>

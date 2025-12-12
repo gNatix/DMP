@@ -82,7 +82,7 @@ export function useSubmenuController(): UseSubmenuControllerResult {
   });
 
   // Hover timeout refs for each submenu
-  const hoverTimeoutRef = useRef<Record<SubmenuId, number | null>>({
+  const hoverTimeoutRef = useRef<Record<SubmenuId, ReturnType<typeof setTimeout> | null>>({
     tokenpicker: null,
     terrainpicker: null,
     roomtool: null,
