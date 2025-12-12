@@ -51,9 +51,12 @@ const SettingsTab = ({}: SettingsTabProps) => {
 
   const handleSignOut = async () => {
     try {
+      console.log('[SettingsTab] Sign out clicked');
       await signOut();
+      console.log('[SettingsTab] Sign out successful');
       setSuccessMessage('Successfully logged out');
     } catch (err) {
+      console.error('[SettingsTab] Sign out failed:', err);
       setError('Failed to log out');
       console.error(err);
     }
