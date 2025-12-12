@@ -18,6 +18,7 @@ export interface SupabaseScene {
  * Save a scene to Supabase
  */
 export const saveSceneToSupabase = async (scene: Scene, userId: string): Promise<{ error: Error | null }> => {
+  console.log('[Supabase] 🔵 saveSceneToSupabase START:', scene.id, scene.name);
   try {
     const sceneData = {
       id: scene.id,
@@ -30,27 +31,27 @@ export const saveSceneToSupabase = async (scene: Scene, userId: string): Promise
       terrain_tiles: scene.terrainTiles || {},
     };
 
-    console.log('[Supabase] Saving scene:', scene.id, scene.name);
+    console.log('[Supabase] 🔵 Calling upsert...');
 
     const { data, error } = await supabase
       .from('scenes')
       .upsert(sceneData, { onConflict: 'id' });
 
+    console.log('[Supabase] 🔵 Upsert completed. Error?', !!error, 'Data?', !!data);
+
     if (error) {
-      console.error('[Supabase] Save error:', error);
-      console.error('[Supabase] Error details:', {
-        message: error.message,
-        details: error.details,
-        hint: error.hint,
-        code: error.code
-      });
+      console.error('[Supabase] ❌ Save FAILED:', error);
+      console.error('[Supabase] ❌ Error message:', error.message);
+      console.error('[Supabase] ❌ Error code:', error.code);
+      console.error('[Supabase] ❌ Error details:', error.details);
+      console.error('[Supabase] ❌ Error hint:', error.hint);
       return { error };
     }
 
-    console.log('[Supabase] Scene saved successfully:', data);
+    console.log('[Supabase] ✅ Scene saved successfully!');
     return { error: null };
   } catch (error) {
-    console.error('[Supabase] Save exception:', error);
+    console.error('[Supabase] 💥 EXCEPTION in saveSceneToSupabase:', error);
     return { error: error as Error };
   }
 };
