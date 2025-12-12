@@ -96,9 +96,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
    * Update local state with user data
    */
   const updateUserState = useCallback(async (authUser: User | null) => {
+    console.log('[AUTH] updateUserState called with:', authUser?.id || 'null');
     setUser(authUser);
     
     if (!authUser) {
+      console.log('[AUTH] No authUser - clearing state');
       setProfile(null);
       setMergedUser(null);
       return;
@@ -113,6 +115,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       return;
     }
 
+    console.log('[AUTH] Valid user, fetching profile...');
+    
     // Fetch profile (best effort)
     const profileData = await fetchProfile(authUser.id);
     setProfile(profileData);
@@ -121,7 +125,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     const merged = buildMergedUser(authUser, profileData);
     setMergedUser(merged);
     
-    console.log('[AUTH] State updated:', { userId: merged.id, hasProfile: !!profileData });
+    console.log('[AUTH] State updated - mergedUser set:', { id: merged.id, email: merged.email });
   }, [fetchProfile, buildMergedUser]);
 
   // Initialize auth state on mount
@@ -171,17 +175,29 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
-      console.log('[AUTH] State change:', event);
+      console.log('[AUTH] State change event:', event, 'session:', currentSession ? 'exists' : 'null');
 
-      if (!mounted) return;
+      if (!mounted) {
+        console.log('[AUTH] Not mounted, ignoring state change');
+        return;
+      }
 
       setSession(currentSession);
 
       // ALWAYS re-fetch fresh user - DO NOT use session.user (may be stale)
-      const { data: { user: freshUser } } = await supabase.auth.getUser();
+      console.log('[AUTH] Fetching fresh user after state change...');
+      const { data: { user: freshUser }, error } = await supabase.auth.getUser();
+      
+      if (error) {
+        console.error('[AUTH] Error getting user after state change:', error.message);
+      }
+      
+      console.log('[AUTH] Fresh user after state change:', freshUser?.id || 'null');
       
       await updateUserState(freshUser);
       setIsLoading(false);
+      
+      console.log('[AUTH] State change handling complete');
     });
 
     return () => {

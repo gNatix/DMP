@@ -17,6 +17,9 @@ const SettingsTab = ({}: SettingsTabProps) => {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Debug: Log auth state on every render
+  console.log('[SettingsTab] Render - isLoading:', isLoading, 'mergedUser:', mergedUser?.id || 'null');
+
   // Test Supabase connection on mount
   useEffect(() => {
     const testConnection = async () => {
