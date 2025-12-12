@@ -132,13 +132,14 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   useEffect(() => {
     let mounted = true;
 
-    console.log('[AUTH] Setting up auth listener...');
+    console.log('[AUTH] Setting up auth...');
     
-    // Don't wait for getSession - just show UI immediately
-    // onAuthStateChange will fire with INITIAL_SESSION if user is logged in
-    setIsLoading(false);
+    // Check if this is an OAuth redirect (has access_token in URL hash)
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+    const hasOAuthTokens = hashParams.has('access_token') || hashParams.has('refresh_token');
+    console.log('[AUTH] OAuth redirect detected:', hasOAuthTokens);
 
-    // Listen for auth changes - this handles EVERYTHING including initial session
+    // Set up the auth state change listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
       console.log('[AUTH] State change event:', event, 'session:', currentSession ? 'exists' : 'null');
 
@@ -148,6 +149,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       }
 
       setSession(currentSession);
+      setIsLoading(false);
 
       if (currentSession?.user) {
         console.log('[AUTH] User found:', currentSession.user.id);
@@ -160,8 +162,39 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       }
     });
 
+    // Manually trigger session check - this kickstarts the auth flow
+    // and makes onAuthStateChange fire
+    const checkSession = async () => {
+      console.log('[AUTH] Checking session...');
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        console.log('[AUTH] getSession result:', data?.session ? 'session exists' : 'no session', error?.message || '');
+        
+        // If no session and no pending OAuth, show login form immediately
+        if (!data?.session && !hasOAuthTokens && mounted) {
+          console.log('[AUTH] No session, showing login form');
+          setIsLoading(false);
+        }
+      } catch (e) {
+        console.error('[AUTH] getSession error:', e);
+        if (mounted) setIsLoading(false);
+      }
+    };
+
+    // Start session check but don't block
+    checkSession();
+
+    // Safety timeout
+    const timeout = setTimeout(() => {
+      if (mounted) {
+        console.log('[AUTH] Safety timeout - showing UI');
+        setIsLoading(false);
+      }
+    }, 3000);
+
     return () => {
       mounted = false;
+      clearTimeout(timeout);
       subscription.unsubscribe();
     };
   }, [updateUserState]);
