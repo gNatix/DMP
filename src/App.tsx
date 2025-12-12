@@ -8,6 +8,11 @@ import PlaylistPanel from './components/gameMode/PlaylistPanel';
 import InfoBox from './components/gameMode/InfoBox';
 import InfoBoxConnector from './components/gameMode/InfoBoxConnector';
 import { useAuth } from './auth/AuthContext';
+
+// Generate UUID v4
+const generateUUID = (): string => {
+  return crypto.randomUUID();
+};
 import { saveSceneToSupabase, loadScenesFromSupabase, deleteSceneFromSupabase, syncLocalScenesToSupabase } from './services/sceneService';
 
 function App() {
@@ -296,7 +301,7 @@ function App() {
       
       // Use same canvas2-mode setup as +Canvas button
       const defaultCanvas: Scene = {
-        id: `scene-${Date.now()}`,
+        id: generateUUID(),
         name: DEFAULT_CANVAS_NAME,
         backgroundMapUrl: 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2250000%22 height=%2250000%22%3E%3Crect width=%2250000%22 height=%2250000%22 fill=%22transparent%22/%3E%3C/svg%3E',
         backgroundMapName: DEFAULT_CANVAS_NAME,
@@ -332,7 +337,7 @@ function App() {
       console.log('[APP] First terrain paint on auto-created canvas - converting to real scene');
       
       // Create a new real scene to replace the auto-created one
-      const newSceneId = `scene-${Date.now()}`;
+      const newSceneId = generateUUID();
       const newSceneName = 'New Map';
       
       const newScene: Scene = {
@@ -383,7 +388,7 @@ function App() {
     if (currentScene?.isAutoCreated && currentScene.elements.length === 0) {
       // This is the first element being added to the auto-created canvas
       // Create a new scene to replace it
-      const newSceneId = `scene-${Date.now()}`;
+      const newSceneId = generateUUID();
       const newSceneName = element.type === 'room' ? 'New Map' : 'New Scene';
       
       const newScene: Scene = {
@@ -448,7 +453,7 @@ function App() {
     if (currentScene?.isAutoCreated && currentScene.elements.length === 0) {
       // This is the first action on the auto-created canvas
       // Create a new scene to replace it
-      const newSceneId = `scene-${Date.now()}`;
+      const newSceneId = generateUUID();
       const newSceneName = 'New Map';
       
       const newScene: Scene = {
@@ -537,7 +542,7 @@ function App() {
     const isTransparentCanvas = backgroundMapUrl.includes('fill="transparent"');
     
     const newScene: Scene = {
-      id: `scene-${Date.now()}`,
+      id: generateUUID(),
       name,
       backgroundMapUrl,
       backgroundMapName,
@@ -588,7 +593,7 @@ function App() {
     const canvasUrl = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2250000%22 height=%2250000%22%3E%3Crect width=%2250000%22 height=%2250000%22 fill=%22transparent%22/%3E%3C/svg%3E';
     
     const newScene: Scene = {
-      id: `scene-${Date.now()}`,
+      id: generateUUID(),
       name: canvasName,
       backgroundMapUrl: canvasUrl,
       backgroundMapName: canvasName,
@@ -700,7 +705,7 @@ function App() {
 
     const newScene: Scene = {
       ...sceneToDuplicate,
-      id: `scene-${Date.now()}`,
+      id: generateUUID(),
       name: `${sceneToDuplicate.name} (Copy)`,
       // Deep copy elements array to avoid reference issues
       elements: sceneToDuplicate.elements.map(el => ({ ...el, id: `${el.type}-${Date.now()}-${Math.random()}` }))
