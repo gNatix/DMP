@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Logging in...</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body {
+      background: #1a1a2e;
+      color: white;
+      font-family: system-ui, -apple-system, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+    }
+    .container {
+      text-align: center;
+    }
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid #333;
+      border-top-color: #7c3aed;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 16px;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="spinner"></div>
+    <p id="status">Completing login...</p>
+  </div>
+  <script>
+    // Process OAuth callback - this stores the session in localStorage
+    // which is shared with the main window
+    const supabaseUrl = 'https://mbjrmynikxbnijpcsiaz.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1ianJteW5pa3hibmlqcGNzaWF6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzI5NzEyNTQsImV4cCI6MjA0ODU0NzI1NH0.lrlBJpcNOfNzBU4Y8_3FqNKxoCqLAls5ddsDdYKNfJI';
+    
+    const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+    
+    async function handleCallback() {
+      try {
+        // Supabase automatically processes the hash and stores session
+        const { data, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          document.getElementById('status').textContent = 'Error: ' + error.message;
+          setTimeout(() => window.close(), 3000);
+          return;
+        }
+        
+        if (data.session) {
+          // Session is now stored in localStorage
+          // Set a flag to tell main window to refresh
+          localStorage.setItem('auth-popup-complete', Date.now().toString());
+          
+          document.getElementById('status').textContent = 'Success! Closing...';
+          setTimeout(() => window.close(), 500);
+        } else {
+          document.getElementById('status').textContent = 'No session found';
+          setTimeout(() => window.close(), 2000);
+        }
+      } catch (err) {
+        console.error(err);
+        document.getElementById('status').textContent = 'Error occurred';
+        setTimeout(() => window.close(), 2000);
+      }
+    }
+    
+    handleCallback();
+  </script>
+</body>
+</html>

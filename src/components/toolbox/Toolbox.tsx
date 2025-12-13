@@ -563,9 +563,21 @@ const Toolbox = (props: ToolboxProps) => {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Skip if typing in input/textarea
-      const target = e.target as HTMLElement;
-      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+      // Skip if typing in input/textarea/contenteditable
+      const activeEl = document.activeElement as HTMLElement;
+      if (activeEl) {
+        const tagName = activeEl.tagName.toLowerCase();
+        if (
+          tagName === 'input' ||
+          tagName === 'textarea' ||
+          activeEl.hasAttribute('contenteditable') ||
+          activeEl.getAttribute('contenteditable') === 'true' ||
+          activeEl.getAttribute('role') === 'textbox' ||
+          activeEl.classList.contains('ProseMirror')
+        ) {
+          return;
+        }
+      }
 
       // ESC closes any open submenu
       if (e.key === 'Escape' && openSubmenuId !== null) {

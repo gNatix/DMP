@@ -3,7 +3,6 @@ import { Scene, MapElement, AnnotationElement, TokenElement, RoomElement, WallEl
 import { Circle, Square, Triangle, Star, Diamond, Heart, Skull, MapPin, Search, Eye, DoorOpen, Landmark, Footprints, Info, Gamepad2, StopCircle } from 'lucide-react';
 import Toolbox from './toolbox/Toolbox';
 import polygonClipping from 'polygon-clipping';
-import { useTextInput } from '../contexts/TextInputContext';
 
 interface CanvasProps {
   scene: Scene | null;
@@ -137,9 +136,6 @@ const Canvas = ({
 }: CanvasProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
-  
-  // Global text input state to disable shortcuts when typing
-  const { isUserTyping } = useTextInput();
   
   // Tile-based terrain system
   const TILE_SIZE = 2000; // Each tile is 2000×2000 px
@@ -671,9 +667,20 @@ const Canvas = ({
   }, [terrainTiles, viewport.x, viewport.y, viewport.zoom]);
 
   // Helper to check if text input is focused
-  // Helper to check if user is typing (uses global context)
+  // Check DOM directly for immediate response
   const isTextInputFocused = (): boolean => {
-    return isUserTyping;
+    const activeEl = document.activeElement;
+    if (!activeEl) return false;
+    
+    const tagName = activeEl.tagName.toLowerCase();
+    return (
+      tagName === 'input' ||
+      tagName === 'textarea' ||
+      activeEl.hasAttribute('contenteditable') ||
+      activeEl.getAttribute('contenteditable') === 'true' ||
+      activeEl.getAttribute('role') === 'textbox' ||
+      activeEl.classList.contains('ProseMirror')
+    );
   };
 
   // Helper to get all elements in order
@@ -5635,6 +5642,47 @@ const Canvas = ({
                 ))}
             </div>
             
+            {/* Layer 4: GRID - Fixed size grid overlay (WORLD SPACE - inside transform container) */}
+            {showGrid && (
+              <svg
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  top: 0,
+                  width: '100%',
+                  height: '100%',
+                  pointerEvents: 'none',
+                  opacity: 0.3,
+                  zIndex: Z_GRID
+                }}
+              >
+                <defs>
+                  <pattern
+                    id="map-grid-pattern-inline"
+                    x={mapDimensions.padding}
+                    y={mapDimensions.padding}
+                    width={gridSize}
+                    height={gridSize}
+                    patternUnits="userSpaceOnUse"
+                  >
+                    <path
+                      d={`M ${gridSize} 0 L 0 0 0 ${gridSize}`}
+                      fill="none"
+                      stroke="rgba(255, 128, 0, 1)"
+                      strokeWidth="2"
+                    />
+                  </pattern>
+                </defs>
+                <rect
+                  x={0}
+                  y={0}
+                  width="100%"
+                  height="100%"
+                  fill="url(#map-grid-pattern-inline)"
+                />
+              </svg>
+            )}
+
             {/* Layer 5: WALLS & SELECTION - Room walls, selection, labels (ABOVE grid) */}
             <div style={{ position: 'relative', zIndex: Z_WALL }}>
               {/* Room walls, selection, and labels rendered above grid */}
@@ -5690,75 +5738,6 @@ const Canvas = ({
               )}
             </div>
           </div>
-
-          {/* Layer 4: GRID - Infinite scrolling grid overlay (OUTSIDE transformed container) */}
-          {showGrid && (() => {
-            // Helper: modulo that handles negative values correctly
-            const mod = (n: number, m: number) => ((n % m) + m) % m;
-            
-            // Grid is OUTSIDE the transform: scale(viewport.zoom) container
-            // So it's in SCREEN SPACE, must convert world coords to screen coords
-            // Screen coord = viewport.x/y + world_coord * viewport.zoom
-            
-            // Grid size in screen pixels (world size scaled by zoom)
-            const scaledGridSize = gridSize * viewport.zoom;
-            
-            // Pattern offset: we want cell center at world (0,0)
-            // World (0,0) maps to screen (viewport.x + 0 * zoom, viewport.y + 0 * zoom) = (viewport.x, viewport.y)
-            // We want that point to be at center of a cell, so offset by -gridSize/2 in world coords
-            // In screen space: viewport.x/y + (-gridSize/2) * viewport.zoom
-            const patternOffsetX = mod(viewport.x - (gridSize / 2) * viewport.zoom, scaledGridSize);
-            const patternOffsetY = mod(viewport.y - (gridSize / 2) * viewport.zoom, scaledGridSize);
-            
-            console.log('[🟠 MAP GRID RENDERING]', {
-              mode: 'REGULAR MAP (SCREEN SPACE)',
-              viewport,
-              gridSize,
-              scaledGridSize,
-              patternOffset: { x: patternOffsetX, y: patternOffsetY },
-              note: 'Grid outside transform - world(0,0) at screen(' + viewport.x + ',' + viewport.y + ')'
-            });
-            
-            return (
-              <svg
-                style={{
-                  position: 'absolute',
-                  left: 0,
-                  top: 0,
-                  width: '100%',
-                  height: '100%',
-                  pointerEvents: 'none',
-                  opacity: 0.3,
-                  zIndex: Z_GRID
-                }}
-              >
-                <defs>
-                  <pattern
-                    id="map-grid-pattern"
-                    x={patternOffsetX}
-                    y={patternOffsetY}
-                    width={scaledGridSize}
-                    height={scaledGridSize}
-                    patternUnits="userSpaceOnUse"
-                  >
-                    <path
-                      d={`M ${scaledGridSize} 0 L 0 0 0 ${scaledGridSize}`}
-                      fill="none"
-                      stroke="rgba(255, 128, 0, 1)"
-                      strokeWidth="2"
-                    />
-                  </pattern>
-                </defs>
-                <rect
-                  x={0}
-                  y={0}
-                  width="100%"
-                  height="100%"
-                  fill="url(#map-grid-pattern)"
-                />
-              </svg>
-            );
-          })()}
           </>
           );
         })()}

@@ -127,6 +127,20 @@ const PlaylistPanel = ({
   // Arrow key navigation for playlist items
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Skip if typing in text field
+      const activeEl = document.activeElement as HTMLElement;
+      if (activeEl) {
+        const tagName = activeEl.tagName.toLowerCase();
+        if (
+          tagName === 'input' ||
+          tagName === 'textarea' ||
+          activeEl.hasAttribute('contenteditable') ||
+          activeEl.getAttribute('role') === 'textbox'
+        ) {
+          return;
+        }
+      }
+      
       // Only handle if there are playlist elements
       if (playlistElements.length === 0) return;
 

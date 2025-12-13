@@ -1,47 +1,41 @@
-import type { User, Session } from '@supabase/supabase-js';
+/**
+ * Simple Auth Types - Clean Reset
+ * 
+ * DESIGN PRINCIPLES:
+ * 1. ONE user type (AuthUser) - no confusion
+ * 2. Minimal state - just what we need
+ * 3. Simple API - easy to understand
+ */
 
-// Profile type (simplified)
-export interface Profile {
-  id: string;
-  username: string;
-  display_name: string | null;
-  avatar_url: string | null;
-  created_at: string;
-  updated_at: string;
+export type AuthProvider = 'google' | 'discord' | 'email';
+
+/**
+ * The user object - combines auth data with profile data
+ * This is the ONLY user type you need to use
+ */
+export interface AuthUser {
+  id: string;              // UUID from Supabase auth
+  email: string;           // Email from auth (may be empty for Discord)
+  displayName?: string;    // From profile or OAuth
+  avatarUrl?: string;      // From profile or OAuth
+  authProvider: AuthProvider; // Which login method was used
+  handle: string;          // Best identifier: email for google/email, username for discord
 }
 
-// Merged user type combining auth user and profile
-// This is the PRIMARY type to use in UI components
-export interface MergedUser {
-  id: string; // ALWAYS a valid UUID - guaranteed by getAuthenticatedUser()
-  email: string;
-  username?: string;
-  display_name?: string;
-  avatar_url?: string;
-}
-
-// Auth context types
+/**
+ * Auth context - what's available to components
+ */
 export interface AuthContextType {
-  // Raw Supabase user - avoid using directly in UI
-  user: User | null;
-  session: Session | null;
+  // The current user (null = not logged in)
+  user: AuthUser | null;
   
-  // Profile data from profiles table
-  profile: Profile | null;
+  // True while checking auth on app start
+  loading: boolean;
   
-  // MERGED USER - use this in UI components for display
-  mergedUser: MergedUser | null;
-  
-  // Loading state
-  isLoading: boolean;
-  
-  // Auth methods
-  signUp: (email: string, password: string) => Promise<{ error: Error | null }>;
+  // Auth actions
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signUp: (email: string, password: string) => Promise<{ error: Error | null }>;
   signInWithGoogle: () => Promise<{ error: Error | null }>;
+  signInWithDiscord: () => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
-  updateProfile: (updates: Partial<Profile>) => Promise<{ error: Error | null }>;
-  
-  // Get fresh authenticated user with profile - for save/load operations
-  getAuthenticatedUser: () => Promise<MergedUser | null>;
 }

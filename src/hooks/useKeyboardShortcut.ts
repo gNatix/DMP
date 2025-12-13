@@ -1,5 +1,22 @@
 import { useEffect } from 'react';
-import { useTextInput } from '../contexts/TextInputContext';
+
+/**
+ * Check if user is focused on a text input field
+ */
+const isTextInputFocused = (): boolean => {
+  const activeEl = document.activeElement;
+  if (!activeEl) return false;
+  
+  const tagName = activeEl.tagName.toLowerCase();
+  return (
+    tagName === 'input' ||
+    tagName === 'textarea' ||
+    activeEl.hasAttribute('contenteditable') ||
+    activeEl.getAttribute('contenteditable') === 'true' ||
+    activeEl.getAttribute('role') === 'textbox' ||
+    activeEl.classList.contains('ProseMirror')
+  );
+};
 
 /**
  * Hook for registering keyboard shortcuts that automatically respects text input state
@@ -17,12 +34,10 @@ export const useKeyboardShortcut = (
     preventDefault?: boolean;
   }
 ) => {
-  const { isUserTyping } = useTextInput();
-
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
       // Skip if user is typing in a text field
-      if (isUserTyping) return;
+      if (isTextInputFocused()) return;
 
       // Check if key matches
       if (e.key.toLowerCase() !== key.toLowerCase()) return;
@@ -42,5 +57,5 @@ export const useKeyboardShortcut = (
 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [key, callback, isUserTyping, options]);
+  }, [key, callback, options]);
 };

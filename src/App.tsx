@@ -7,17 +7,19 @@ import LeftPanel from './components/leftPanel/LeftPanel';
 import PlaylistPanel from './components/gameMode/PlaylistPanel';
 import InfoBox from './components/gameMode/InfoBox';
 import InfoBoxConnector from './components/gameMode/InfoBoxConnector';
+import LoginDialog from './components/LoginDialog';
 import { useAuth } from './auth/AuthContext';
+import { saveSceneToSupabase, loadScenesFromSupabase, deleteSceneFromSupabase } from './services/sceneService';
+import { saveUserSettings, loadUserSettings } from './services/userSettingsService';
 
 // Generate UUID v4
 const generateUUID = (): string => {
   return crypto.randomUUID();
 };
-import { saveSceneToSupabase, loadScenesFromSupabase, deleteSceneFromSupabase, syncLocalScenesToSupabase } from './services/sceneService';
 
 function App() {
-  // Auth state - use mergedUser for all operations
-  const { mergedUser, isLoading: authLoading, getAuthenticatedUser } = useAuth();
+  // Auth state - simple user object
+  const { user, loading: authLoading } = useAuth();
   
   // View mode state
   const [viewMode, setViewMode] = useState<ViewMode>('planning');
@@ -32,6 +34,7 @@ function App() {
   // Scene state
   const [scenes, setScenes] = useState<Scene[]>([]);
   const [activeSceneId, setActiveSceneId] = useState<string | null>(null);
+  const [hasLoadedFromCloud, setHasLoadedFromCloud] = useState(false);
   
   // Collection state
   const [collections, setCollections] = useState<Collection[]>([]);
@@ -145,76 +148,108 @@ function App() {
   // X-Lab experimental features
   const [xlabShapeMode, setXlabShapeMode] = useState<TerrainShapeMode>(null);
 
-  // Sync scenes to Supabase when user logs in
+  // Reset cloud load state when user logs out
   useEffect(() => {
-    if (!mergedUser || authLoading) return;
+    if (!user && hasLoadedFromCloud) {
+      setHasLoadedFromCloud(false);
+      setScenes([]);
+      setActiveSceneId(null);
+      setCollections([]);
+    }
+  }, [user, hasLoadedFromCloud]);
 
-    const syncScenes = async () => {
-      console.log('[APP] User logged in, syncing scenes...');
+  // Load scenes AND user settings from Supabase when user is available
+  useEffect(() => {
+    // Skip if still loading auth or already loaded from cloud
+    if (authLoading || hasLoadedFromCloud) return;
+    
+    // If no user, we're done (not logged in)
+    if (!user) return;
+
+    const loadUserData = async () => {
+      console.log('[APP] Loading user data from cloud for user:', user.id);
       
-      // CRITICAL: Get fresh authenticated user with valid user.id
-      const authenticatedUser = await getAuthenticatedUser();
+      // Load scenes and settings in parallel
+      const [scenesResult, settingsResult] = await Promise.all([
+        loadScenesFromSupabase(user.id),
+        loadUserSettings(user.id),
+      ]);
       
-      if (!authenticatedUser || !authenticatedUser.id) {
-        console.error('[APP] Cannot sync - no valid user.id');
-        return;
-      }
-      
-      console.log('[APP] Syncing with user.id:', authenticatedUser.id);
-      
-      // Load scenes from Supabase
-      const { scenes: cloudScenes, error: loadError } = await loadScenesFromSupabase(authenticatedUser.id);
-      
-      if (loadError) {
-        console.error('[APP] Failed to load cloud scenes:', loadError);
-        return;
+      // Mark as loaded from cloud (even on error, don't retry)
+      setHasLoadedFromCloud(true);
+
+      // Handle scenes
+      if (scenesResult.error) {
+        console.error('[APP] Failed to load cloud scenes:', scenesResult.error);
+      } else if (scenesResult.scenes && scenesResult.scenes.length > 0) {
+        console.log('[APP] Loaded', scenesResult.scenes.length, 'scenes from cloud');
+        setScenes(scenesResult.scenes);
       }
 
-      // If user has cloud scenes, use those
-      if (cloudScenes && cloudScenes.length > 0) {
-        console.log('[APP] Loading', cloudScenes.length, 'scenes from cloud');
-        setScenes(cloudScenes);
-        if (!activeSceneId && cloudScenes[0]) {
-          setActiveSceneId(cloudScenes[0].id);
+      // Handle settings (collections, active scene, etc.)
+      if (settingsResult.error) {
+        console.error('[APP] Failed to load user settings:', settingsResult.error);
+      } else if (settingsResult.settings) {
+        console.log('[APP] Loaded user settings from cloud');
+        
+        // Restore collections
+        if (settingsResult.settings.collections.length > 0) {
+          setCollections(settingsResult.settings.collections);
         }
-        return;
-      }
-
-      // Otherwise, sync local scenes to cloud
-      if (scenes.length > 0) {
-        console.log('[APP] Syncing local scenes to cloud...');
-        await syncLocalScenesToSupabase(scenes, authenticatedUser.id);
+        
+        // Restore active scene (if it exists in loaded scenes)
+        if (settingsResult.settings.activeSceneId) {
+          const sceneExists = scenesResult.scenes?.some(s => s.id === settingsResult.settings!.activeSceneId);
+          if (sceneExists) {
+            setActiveSceneId(settingsResult.settings.activeSceneId);
+          } else if (scenesResult.scenes && scenesResult.scenes[0]) {
+            setActiveSceneId(scenesResult.scenes[0].id);
+          }
+        } else if (scenesResult.scenes && scenesResult.scenes[0]) {
+          setActiveSceneId(scenesResult.scenes[0].id);
+        }
+      } else {
+        // No settings saved yet - set first scene as active
+        if (scenesResult.scenes && scenesResult.scenes[0]) {
+          setActiveSceneId(scenesResult.scenes[0].id);
+        }
       }
     };
 
-    syncScenes();
-  }, [mergedUser, authLoading]); // Only run when user logs in
+    loadUserData();
+  }, [user, authLoading, hasLoadedFromCloud]);
 
   // Auto-save active scene to Supabase when it changes
   useEffect(() => {
-    if (!mergedUser || !activeSceneId) return;
+    // Only save if logged in and we've already loaded from cloud
+    if (!user || !activeSceneId || !hasLoadedFromCloud) return;
 
     const activeScene = scenes.find(s => s.id === activeSceneId);
     if (!activeScene) return;
 
     // Debounce auto-save (wait 1 second after last change)
     const timeoutId = setTimeout(async () => {
-      console.log('[APP] Auto-saving scene:', activeScene.name);
-      
-      // CRITICAL: ALWAYS fetch fresh user with valid user.id before saving
-      const authenticatedUser = await getAuthenticatedUser();
-      
-      if (!authenticatedUser || !authenticatedUser.id) {
-        console.error('[APP] Cannot save - no valid user.id');
-        return;
-      }
-      
-      console.log('[APP] Saving with user.id:', authenticatedUser.id);
-      await saveSceneToSupabase(activeScene, authenticatedUser.id);
+      await saveSceneToSupabase(activeScene, user.id, user.handle, user.authProvider);
     }, 1000);
 
     return () => clearTimeout(timeoutId);
-  }, [scenes, activeSceneId, mergedUser]);
+  }, [scenes, activeSceneId, user, hasLoadedFromCloud]);
+
+  // Auto-save user settings (collections, activeSceneId) when they change
+  useEffect(() => {
+    // Only save if logged in and we've already loaded from cloud
+    if (!user || !hasLoadedFromCloud) return;
+
+    // Debounce auto-save (wait 1 second after last change)
+    const timeoutId = setTimeout(async () => {
+      await saveUserSettings(user.id, {
+        collections,
+        activeSceneId,
+      }, user.handle, user.authProvider);
+    }, 1000);
+
+    return () => clearTimeout(timeoutId);
+  }, [collections, activeSceneId, user, hasLoadedFromCloud]);
 
   // Load terrain brushes on mount
   useEffect(() => {
@@ -655,12 +690,8 @@ function App() {
     }
     
     // Delete from Supabase if user is logged in
-    if (mergedUser) {
-      // CRITICAL: Get fresh user.id before deleting
-      const authenticatedUser = await getAuthenticatedUser();
-      if (authenticatedUser?.id) {
-        await deleteSceneFromSupabase(sceneId, authenticatedUser.id);
-      }
+    if (user) {
+      await deleteSceneFromSupabase(sceneId, user.id);
     }
   };
 
@@ -885,6 +916,9 @@ function App() {
 
   return (
     <div className="flex h-screen w-screen bg-dm-dark text-gray-200">
+      {/* Login Dialog - Show when not logged in */}
+      {!authLoading && !user && <LoginDialog />}
+
       {/* Left Panel - Properties (Planning Mode Only) */}
       {viewMode === 'planning' && (
         <LeftPanel

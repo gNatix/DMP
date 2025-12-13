@@ -10,6 +10,8 @@ export interface SupabaseScene {
   collection_id: string | null;
   elements: any;
   terrain_tiles: any;
+  width: number | null;
+  height: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -18,7 +20,12 @@ export interface SupabaseScene {
  * Save a scene to Supabase
  * CRITICAL: Requires valid UUID for user_id - RLS policies will block invalid IDs
  */
-export const saveSceneToSupabase = async (scene: Scene, userId: string): Promise<{ error: Error | null }> => {
+export const saveSceneToSupabase = async (
+  scene: Scene, 
+  userId: string, 
+  userHandle?: string,
+  authProvider?: string
+): Promise<{ error: Error | null }> => {
   try {
     // Validate userId is a UUID before attempting save
     if (!userId || typeof userId !== 'string' || userId.length < 36) {
@@ -30,12 +37,16 @@ export const saveSceneToSupabase = async (scene: Scene, userId: string): Promise
     const sceneData = {
       id: scene.id,
       user_id: userId,
+      user_handle: userHandle || null,
+      auth_provider: authProvider || null,
       name: scene.name,
       background_map_url: scene.backgroundMapUrl || null,
       background_map_name: scene.backgroundMapName || null,
       collection_id: scene.collectionId || null,
       elements: scene.elements || [],
       terrain_tiles: scene.terrainTiles || {},
+      width: scene.width || 5000,
+      height: scene.height || 5000,
     };
 
     console.log('[Supabase] Saving scene:', scene.name);
@@ -90,8 +101,8 @@ export const loadScenesFromSupabase = async (userId: string): Promise<{ scenes: 
       collectionId: row.collection_id || undefined,
       elements: row.elements || [],
       terrainTiles: row.terrain_tiles || {},
-      width: 5000,
-      height: 5000,
+      width: row.width || 5000,
+      height: row.height || 5000,
     }));
 
     console.log('[Supabase] Loaded', scenes.length, 'scenes');
