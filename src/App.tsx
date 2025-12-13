@@ -48,7 +48,7 @@ function App() {
   const [tokenTemplates, setTokenTemplates] = useState<TokenTemplate[]>([]);
   const [activeTokenTemplate, setActiveTokenTemplate] = useState<TokenTemplate | null>(null);
 
-  // Load tokens from webhotel on startup
+  // Load tokens from webhotel on startup (with recursive subfolder support)
   useEffect(() => {
     const loadTokens = async () => {
       try {
@@ -58,29 +58,52 @@ function App() {
         const categories = ['monsters', 'npcs', 'items', 'objects', 'other', 'environment'];
         const allTokens: TokenTemplate[] = [];
         
-        for (const category of categories) {
+        // Recursive function to fetch tokens from a path (including subfolders)
+        const fetchTokensRecursive = async (path: string, category: string): Promise<TokenTemplate[]> => {
+          const tokens: TokenTemplate[] = [];
+          
           try {
-            const response = await fetch(`${config.webhotelApiUrl}?path=tokens/${category}`);
-            if (!response.ok) continue;
+            const response = await fetch(`${config.webhotelApiUrl}?path=${path}`);
+            if (!response.ok) return tokens;
             
-            const files = await response.json();
+            const data = await response.json();
             
-            const imageTokens = files
-              .filter((file: any) => 
-                file.type === 'file' && 
-                /\.(jpg|jpeg|png|webp|gif)$/i.test(file.name)
-              )
-              .map((file: any) => ({
-                id: `token-${category}-${file.name.replace(/\.[^/.]+$/, '')}`,
-                name: file.name.replace(/\.[^/.]+$/, '').replace(/-/g, ' '),
-                imageUrl: file.download_url,
-                category: category as 'monsters' | 'npcs' | 'items' | 'objects' | 'other' | 'environment'
-              }));
+            // Handle both old (array) and new ({folders, files}) format
+            const files = data.files || data;
+            const folders = data.folders || [];
             
-            allTokens.push(...imageTokens);
+            // Process files in this directory
+            if (Array.isArray(files)) {
+              const imageTokens = files
+                .filter((file: any) => 
+                  file.type === 'file' && 
+                  /\.(jpg|jpeg|png|webp|gif)$/i.test(file.name)
+                )
+                .map((file: any) => ({
+                  id: `token-${category}-${file.name.replace(/\.[^/.]+$/, '')}`,
+                  name: file.name.replace(/\.[^/.]+$/, '').replace(/-/g, ' '),
+                  imageUrl: file.download_url,
+                  category: category as 'monsters' | 'npcs' | 'items' | 'objects' | 'other' | 'environment'
+                }));
+              tokens.push(...imageTokens);
+            }
+            
+            // Recursively fetch from subfolders
+            for (const folder of folders) {
+              const subTokens = await fetchTokensRecursive(folder.path, category);
+              tokens.push(...subTokens);
+            }
           } catch (err) {
-            console.log(`No files in tokens/${category}`);
+            console.log(`No files in ${path}`);
           }
+          
+          return tokens;
+        };
+        
+        // Fetch tokens from all categories (with recursive subfolder support)
+        for (const category of categories) {
+          const categoryTokens = await fetchTokensRecursive(`tokens/${category}`, category);
+          allTokens.push(...categoryTokens);
         }
         
         // Add shape and POI tokens
@@ -257,10 +280,12 @@ function App() {
       try {
         const response = await fetch('https://dmp.natixlabs.com/list-files.php?path=terrain-brushes');
         const data = await response.json();
-        setTerrainBrushes(data);
+        // Handle new format {folders, files} or old array format
+        const files = data.files || data;
+        setTerrainBrushes(files);
         // Auto-select first brush
-        if (data.length > 0) {
-          setSelectedTerrainBrush(data[0].download_url);
+        if (files.length > 0) {
+          setSelectedTerrainBrush(files[0].download_url);
         }
       } catch (error) {
         console.error('Failed to load terrain brushes:', error);
@@ -275,10 +300,12 @@ function App() {
       try {
         const response = await fetch('https://dmp.natixlabs.com/list-files.php?path=room-elements/walls');
         const data = await response.json();
-        setWallTextures(data);
+        // Handle new format {folders, files} or old array format
+        const files = data.files || data;
+        setWallTextures(files);
         // Auto-select first texture
-        if (data.length > 0 && !selectedWallTexture) {
-          setSelectedWallTexture(data[0].download_url);
+        if (files.length > 0 && !selectedWallTexture) {
+          setSelectedWallTexture(files[0].download_url);
         }
       } catch (error) {
         console.error('Failed to load wall textures:', error);

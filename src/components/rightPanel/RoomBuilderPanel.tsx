@@ -102,7 +102,9 @@ const RoomBuilderPanel = ({
       try {
         const response = await fetch('https://dmp.natixlabs.com/list-files.php?path=room-elements/floors');
         const data = await response.json();
-        setFloorTextures(data);
+        // Handle new format {folders, files} or old array format
+        const files = data.files || data;
+        setFloorTextures(Array.isArray(files) ? files : []);
       } catch (error) {
         console.error('Failed to load floor textures:', error);
       } finally {
@@ -119,7 +121,9 @@ const RoomBuilderPanel = ({
       try {
         const response = await fetch('https://dmp.natixlabs.com/list-files.php?path=terrain-brushes');
         const data = await response.json();
-        setBackgroundTextures(data);
+        // Handle new format {folders, files} or old array format
+        const files = data.files || data;
+        setBackgroundTextures(Array.isArray(files) ? files : []);
       } catch (error) {
         console.error('Failed to load terrain brushes:', error);
       } finally {

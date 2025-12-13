@@ -1,0 +1,96 @@
+{
+  "news": {
+    "title": "News & Updates",
+    "items": [
+      {
+        "date": "2024-12-13",
+        "title": "🚀 Open Beta Phase 1",
+        "content": "Welcome to Phase 1 of the open beta! This initial release has very limited content for testing core features. We're gathering feedback and polishing the experience."
+      },
+      {
+        "date": "2024-12-13",
+        "title": "📦 Beta 2.0 on the Horizon",
+        "content": "Phase 2 is in development and will bring significantly more content - additional maps, tokens, room elements, and new features. Stay tuned!"
+      },
+      {
+        "date": "2024-12-13",
+        "title": "🔐 Discord Login Available!",
+        "content": "You can now sign in with your Discord account for quick access to your campaigns."
+      },
+      {
+        "date": "2024-12-12",
+        "title": "🔑 Google Sign-In Added",
+        "content": "Sign in with your Google account for seamless access. Your campaigns sync automatically across devices."
+      },
+      {
+        "date": "2024-12-11",
+        "title": "☁️ Cloud Sync is Here",
+        "content": "Your maps, tokens, and collections are now automatically saved to the cloud. Never lose your campaign progress again!"
+      },
+      {
+        "date": "2024-12-10",
+        "title": "🏗️ Room Builder Released",
+        "content": "Create custom rooms with floor textures and wall elements. Build dungeons, taverns, and any interior space you can imagine."
+      },
+      {
+        "date": "2024-12-09",
+        "title": "🎨 Terrain Brush Tool",
+        "content": "Paint terrain directly on your maps with the new terrain brush. Perfect for outdoor encounters and wilderness exploration."
+      },
+      {
+        "date": "2024-12-08",
+        "title": "📁 Token Collections",
+        "content": "Organize your tokens into collections for quick access. Create themed sets for different campaigns or encounter types."
+      },
+      {
+        "date": "2024-12-07",
+        "title": "🎉 Welcome to DungeonPlan",
+        "content": "The ultimate tool for planning your RPG campaigns. Create maps, manage encounters, and bring your adventures to life!"
+      }
+    ]
+  },
+  "changelog": {
+    "title": "Changelog",
+    "versions": [
+      {
+        "version": "0.9.1",
+        "date": "2024-12-13",
+        "changes": [
+          "Added 185 creature tokens",
+          "Recursive subfolder loading for tokens",
+          "Dragons category added to monsters"
+        ]
+      },
+      {
+        "version": "0.9.0",
+        "date": "2024-12-13",
+        "changes": [
+          "Added Discord OAuth login",
+          "Added Google OAuth login",
+          "User settings sync to cloud",
+          "Fixed grid rendering z-index"
+        ]
+      },
+      {
+        "version": "0.8.0",
+        "date": "2024-12-01",
+        "changes": [
+          "Room builder with floor and wall textures",
+          "Terrain brush painting",
+          "Token collections",
+          "Scene management"
+        ]
+      },
+      {
+        "version": "0.7.0",
+        "date": "2024-11-15",
+        "changes": [
+          "Initial beta release",
+          "Map import and display",
+          "Basic token placement",
+          "Grid overlay system"
+        ]
+      }
+    ]
+  }
+}

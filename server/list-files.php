@@ -1,7 +1,7 @@
 <?php
 /**
  * DM Planner Assets File Lister
- * Returns JSON list of files in a directory
+ * Returns JSON list of files AND subdirectories in a directory
  */
 
 header('Content-Type: application/json');
@@ -25,6 +25,7 @@ if (!is_dir($fullPath)) {
 }
 
 $files = [];
+$folders = [];
 $items = scandir($fullPath);
 
 foreach ($items as $item) {
@@ -34,7 +35,14 @@ foreach ($items as $item) {
     
     $itemPath = $fullPath . '/' . $item;
     
-    if (is_file($itemPath)) {
+    if (is_dir($itemPath)) {
+        // It's a subdirectory
+        $folders[] = [
+            'name' => $item,
+            'type' => 'folder',
+            'path' => ($path ? $path . '/' : '') . $item
+        ];
+    } elseif (is_file($itemPath)) {
         // Check if it's an image file
         $extension = strtolower(pathinfo($item, PATHINFO_EXTENSION));
         if (in_array($extension, ['jpg', 'jpeg', 'png', 'gif', 'webp'])) {
@@ -47,5 +55,9 @@ foreach ($items as $item) {
     }
 }
 
-echo json_encode($files);
+// Return folders first, then files
+echo json_encode([
+    'folders' => $folders,
+    'files' => $files
+]);
 ?>

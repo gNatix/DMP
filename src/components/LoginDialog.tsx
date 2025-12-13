@@ -1,6 +1,30 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import { Mail, Lock, Scroll, Sparkles, LogIn } from 'lucide-react';
+
+// Types for login content
+interface NewsItem {
+  date: string;
+  title: string;
+  content: string;
+}
+
+interface ChangelogVersion {
+  version: string;
+  date: string;
+  changes: string[];
+}
+
+interface LoginContent {
+  news: {
+    title: string;
+    items: NewsItem[];
+  };
+  changelog: {
+    title: string;
+    versions: ChangelogVersion[];
+  };
+}
 
 const LoginDialog = () => {
   const { signIn, signUp, signInWithGoogle, signInWithDiscord } = useAuth();
@@ -10,6 +34,15 @@ const LoginDialog = () => {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [content, setContent] = useState<LoginContent | null>(null);
+
+  // Load content from JSON file
+  useEffect(() => {
+    fetch('/login-content.json')
+      .then(res => res.json())
+      .then(data => setContent(data))
+      .catch(err => console.error('Failed to load login content:', err));
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -95,31 +128,18 @@ const LoginDialog = () => {
           <div className="p-6">
             <div className="flex items-center gap-2 mb-4">
               <Sparkles className="w-5 h-5 text-yellow-500" />
-              <h2 className="text-lg font-semibold text-white">News</h2>
+              <h2 className="text-lg font-semibold text-white">{content?.news.title || 'News'}</h2>
             </div>
-            <div className="space-y-4">
-              <div className="bg-dm-panel rounded-lg p-4 border border-dm-border">
-                <p className="text-sm text-dm-highlight font-medium mb-1">December 2025</p>
-                <h3 className="text-white font-medium mb-2">🎉 Beta Launch!</h3>
-                <p className="text-gray-400 text-sm">
-                  DungeonPlan is now in open beta! Create maps, manage tokens, 
-                  and plan your campaigns with our intuitive tools.
-                </p>
-              </div>
-              <div className="bg-dm-panel rounded-lg p-4 border border-dm-border">
-                <p className="text-sm text-dm-highlight font-medium mb-1">Coming Soon</p>
-                <h3 className="text-white font-medium mb-2">🗺️ Map Sharing</h3>
-                <p className="text-gray-400 text-sm">
-                  Share your maps with other DMs and collaborate on campaigns together.
-                </p>
-              </div>
-              <div className="bg-dm-panel rounded-lg p-4 border border-dm-border">
-                <p className="text-sm text-dm-highlight font-medium mb-1">Coming Soon</p>
-                <h3 className="text-white font-medium mb-2">🎭 NPC Generator</h3>
-                <p className="text-gray-400 text-sm">
-                  AI-powered NPC generation with personalities, backstories, and stat blocks.
-                </p>
-              </div>
+            <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-dm-border">
+              {content?.news.items.map((item, index) => (
+                <div key={index} className="bg-dm-panel rounded-lg p-4 border border-dm-border">
+                  <p className="text-sm text-dm-highlight font-medium mb-1">{item.date}</p>
+                  <h3 className="text-white font-medium mb-2">{item.title}</h3>
+                  <p className="text-gray-400 text-sm">{item.content}</p>
+                </div>
+              )) || (
+                <div className="text-gray-500 text-sm">Loading...</div>
+              )}
             </div>
           </div>
 
@@ -127,41 +147,21 @@ const LoginDialog = () => {
           <div className="p-6">
             <div className="flex items-center gap-2 mb-4">
               <Scroll className="w-5 h-5 text-green-500" />
-              <h2 className="text-lg font-semibold text-white">Changelog</h2>
+              <h2 className="text-lg font-semibold text-white">{content?.changelog.title || 'Changelog'}</h2>
             </div>
-            <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-dm-border">
-              <div className="border-l-2 border-green-500 pl-3">
-                <p className="text-xs text-gray-500">v1.0.0</p>
-                <p className="text-sm text-gray-300">Initial release with core features</p>
-              </div>
-              <div className="border-l-2 border-dm-highlight pl-3">
-                <p className="text-xs text-gray-500">Features</p>
-                <ul className="text-sm text-gray-400 space-y-1">
-                  <li>• Canvas with pan & zoom</li>
-                  <li>• Token management</li>
-                  <li>• Room builder tools</li>
-                  <li>• Terrain painting</li>
-                  <li>• Scene management</li>
-                  <li>• Cloud sync</li>
-                </ul>
-              </div>
-              <div className="border-l-2 border-blue-500 pl-3">
-                <p className="text-xs text-gray-500">Authentication</p>
-                <ul className="text-sm text-gray-400 space-y-1">
-                  <li>• Google OAuth</li>
-                  <li>• Discord OAuth</li>
-                  <li>• Email/Password</li>
-                </ul>
-              </div>
-              <div className="border-l-2 border-purple-500 pl-3">
-                <p className="text-xs text-gray-500">Tools</p>
-                <ul className="text-sm text-gray-400 space-y-1">
-                  <li>• Annotation system</li>
-                  <li>• Widgets & info boxes</li>
-                  <li>• Stat blocks</li>
-                  <li>• Encounter tables</li>
-                </ul>
-              </div>
+            <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-dm-border">
+              {content?.changelog.versions.map((version, index) => (
+                <div key={index} className="border-l-2 border-green-500 pl-3">
+                  <p className="text-xs text-gray-500">v{version.version} • {version.date}</p>
+                  <ul className="text-sm text-gray-400 space-y-1 mt-1">
+                    {version.changes.map((change, changeIndex) => (
+                      <li key={changeIndex}>• {change}</li>
+                    ))}
+                  </ul>
+                </div>
+              )) || (
+                <div className="text-gray-500 text-sm">Loading...</div>
+              )}
             </div>
           </div>
 

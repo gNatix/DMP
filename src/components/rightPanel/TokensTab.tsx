@@ -54,7 +54,7 @@ const TokensTab = ({
   const [selectedTokenId, setSelectedTokenId] = useState<string | null>(null);
   const [currentTemplate, setCurrentTemplate] = useState<TokenTemplate | null>(null);
 
-  // Load tokens from webhotel
+  // Load tokens from webhotel (recursively fetches from subfolders)
   useEffect(() => {
     const loadTokensFromWebhotel = async () => {
       try {
@@ -64,29 +64,52 @@ const TokensTab = ({
         const categories: TokenCategory[] = ['monsters', 'npcs', 'items', 'objects', 'other', 'environment'];
         const allTokens: TokenTemplate[] = [];
         
-        for (const category of categories) {
+        // Recursive function to fetch tokens from a path (including subfolders)
+        const fetchTokensRecursive = async (path: string, category: TokenCategory): Promise<TokenTemplate[]> => {
+          const tokens: TokenTemplate[] = [];
+          
           try {
-            const response = await fetch(`${config.webhotelApiUrl}?path=tokens/${category}`);
-            if (!response.ok) continue;
+            const response = await fetch(`${config.webhotelApiUrl}?path=${path}`);
+            if (!response.ok) return tokens;
             
-            const files = await response.json();
+            const data = await response.json();
             
-            const imageTokens = files
-              .filter((file: any) => 
-                file.type === 'file' && 
-                /\.(jpg|jpeg|png|webp|gif)$/i.test(file.name)
-              )
-              .map((file: any) => ({
-                id: `token-${category}-${file.name.replace(/\.[^/.]+$/, '')}`,
-                name: file.name.replace(/\.[^/.]+$/, '').replace(/-/g, ' '),
-                imageUrl: file.download_url,
-                category: category
-              }));
+            // Handle new format with folders and files
+            const files = data.files || data; // Support both old (array) and new ({folders, files}) format
+            const folders = data.folders || [];
             
-            allTokens.push(...imageTokens);
+            // Process files in this directory
+            if (Array.isArray(files)) {
+              const imageTokens = files
+                .filter((file: any) => 
+                  file.type === 'file' && 
+                  /\.(jpg|jpeg|png|webp|gif)$/i.test(file.name)
+                )
+                .map((file: any) => ({
+                  id: `token-${category}-${file.name.replace(/\.[^/.]+$/, '')}`,
+                  name: file.name.replace(/\.[^/.]+$/, '').replace(/-/g, ' '),
+                  imageUrl: file.download_url,
+                  category: category
+                }));
+              tokens.push(...imageTokens);
+            }
+            
+            // Recursively fetch from subfolders
+            for (const folder of folders) {
+              const subTokens = await fetchTokensRecursive(folder.path, category);
+              tokens.push(...subTokens);
+            }
           } catch (err) {
-            console.log(`No files in tokens/${category}`);
+            console.log(`No files in ${path}`);
           }
+          
+          return tokens;
+        };
+        
+        // Fetch tokens from all categories (with recursive subfolder support)
+        for (const category of categories) {
+          const categoryTokens = await fetchTokensRecursive(`tokens/${category}`, category);
+          allTokens.push(...categoryTokens);
         }
         
         setDriveTokens(allTokens);

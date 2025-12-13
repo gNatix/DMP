@@ -57,7 +57,9 @@ const MapSelectorModal = ({ isOpen, onClose, onSelectMap }: MapSelectorModalProp
             const response = await fetch(`${config.webhotelApiUrl}?path=maps/${category}`);
             if (!response.ok) continue;
             
-            const files = await response.json();
+            const data = await response.json();
+            // Handle new format {folders, files} or old array format
+            const files = data.files || data;
             
             const imageMaps = files
               .filter((file: any) => 
