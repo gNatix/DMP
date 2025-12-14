@@ -22,22 +22,6 @@ const createRoundedPolygonPath = (vertices: { x: number; y: number }[], cornerRa
     ).join(' ') + ' Z';
   }
   
-  // Detect interior wall spike vertices (where v[i] ≈ v[i+2])
-  // These should NOT get rounded corners as they are intentional spikes
-  const spikeBaseIndices = new Set<number>();
-  const spikeTipIndices = new Set<number>();
-  for (let i = 0; i < validVertices.length; i++) {
-    const v0 = validVertices[i];
-    const v2 = validVertices[(i + 2) % validVertices.length];
-    const dist = Math.sqrt((v0.x - v2.x) ** 2 + (v0.y - v2.y) ** 2);
-    if (dist < 3) { // tolerance for "same point"
-      // v[i] and v[i+2] are base points, v[i+1] is the tip
-      spikeBaseIndices.add(i);
-      spikeBaseIndices.add((i + 2) % validVertices.length);
-      spikeTipIndices.add((i + 1) % validVertices.length);
-    }
-  }
-  
   const n = validVertices.length;
   let path = '';
   
@@ -45,16 +29,6 @@ const createRoundedPolygonPath = (vertices: { x: number; y: number }[], cornerRa
     const prev = validVertices[(i - 1 + n) % n];
     const curr = validVertices[i];
     const next = validVertices[(i + 1) % n];
-    
-    // If this vertex is part of a spike, don't round it - use sharp corner
-    if (spikeBaseIndices.has(i) || spikeTipIndices.has(i)) {
-      if (i === 0) {
-        path = `M ${curr.x},${curr.y}`;
-      } else {
-        path += ` L ${curr.x},${curr.y}`;
-      }
-      continue;
-    }
     
     // Calculate vectors to previous and next vertices
     const toPrev = { x: prev.x - curr.x, y: prev.y - curr.y };
@@ -2882,15 +2856,30 @@ const Canvas = ({
 
   // Wall Cutter Tool: Actually cut and remove wall geometry (rectangle mode)
   const applyWallCutterRectangle = () => {
-    console.log('[WALL CUTTER RECT] Starting rectangle cut operation');
-    if (!scene || !wallCutterToolStart || !wallCutterToolEnd) return;
-    
-    const minX = Math.min(wallCutterToolStart.x, wallCutterToolEnd.x);
-    const maxX = Math.max(wallCutterToolStart.x, wallCutterToolEnd.x);
-    const minY = Math.min(wallCutterToolStart.y, wallCutterToolEnd.y);
-    const maxY = Math.max(wallCutterToolStart.y, wallCutterToolEnd.y);
-    
-    console.log('[WALL CUTTER RECT] Rectangle bounds:', { minX, maxX, minY, maxY });
+    try {
+      console.log('[WALL CUTTER RECT] Starting rectangle cut operation');
+      if (!scene || !wallCutterToolStart || !wallCutterToolEnd) return;
+      
+      const minX = Math.min(wallCutterToolStart.x, wallCutterToolEnd.x);
+      const maxX = Math.max(wallCutterToolStart.x, wallCutterToolEnd.x);
+      const minY = Math.min(wallCutterToolStart.y, wallCutterToolEnd.y);
+      const maxY = Math.max(wallCutterToolStart.y, wallCutterToolEnd.y);
+      
+      // Guard: Validate bounds are finite numbers
+      if (!Number.isFinite(minX) || !Number.isFinite(maxX) || !Number.isFinite(minY) || !Number.isFinite(maxY)) {
+        console.warn('[WALL CUTTER RECT] Invalid bounds detected, aborting');
+        return;
+      }
+      
+      // Guard: Selection must have minimum size
+      const selectionWidth = maxX - minX;
+      const selectionHeight = maxY - minY;
+      if (selectionWidth < 1 || selectionHeight < 1) {
+        console.log('[WALL CUTTER RECT] Selection too small, aborting');
+        return;
+      }
+      
+      console.log('[WALL CUTTER RECT] Rectangle bounds:', { minX, maxX, minY, maxY });
     
     // Helper function to check line-rectangle intersection
     const lineIntersectsRect = (p1: Point, p2: Point): { start: number; end: number } | null => {
@@ -3124,12 +3113,21 @@ const Canvas = ({
         }
         
         // Update room with new vertices and wallOpenings if modified
-        if (modified && newVertices.length >= 3) {
+        // Guard: Validate all vertices are finite numbers
+        const hasValidVertices = newVertices.length >= 3 && 
+          newVertices.every(v => Number.isFinite(v.x) && Number.isFinite(v.y));
+        
+        // Guard: Validate wallOpenings have valid segment indices
+        const hasValidOpenings = newWallOpenings.every(o => 
+          Number.isFinite(o.segmentIndex) && o.segmentIndex >= 0 && o.segmentIndex < newVertices.length
+        );
+        
+        if (modified && hasValidVertices && hasValidOpenings) {
           roomUpdates.push({
             id: room.id,
             updates: {
               vertices: newVertices,
-              wallOpenings: newWallOpenings
+              wallOpenings: newWallOpenings.filter(o => o.segmentIndex >= 0)
             }
           });
         }
@@ -3232,11 +3230,14 @@ const Canvas = ({
               }
             }
             
-            // Only keep hole if it still has at least 3 vertices
-            if (newHoleVertices.length >= 3) {
+            // Only keep hole if it still has at least 3 valid vertices
+            const hasValidHoleVertices = newHoleVertices.length >= 3 && 
+              newHoleVertices.every(v => Number.isFinite(v.x) && Number.isFinite(v.y));
+            
+            if (hasValidHoleVertices) {
               updatedHoles.push(newHoleVertices);
               if (holeModified) holesModified = true;
-            } else {
+            } else if (newHoleVertices.length < 3) {
               holesModified = true; // Hole was removed
             }
           });
@@ -3288,6 +3289,10 @@ const Canvas = ({
       }
       
       console.log('[WALL CUTTER RECT] Atomic update complete - new element count:', newElements.length);
+    }
+    } catch (error) {
+      // Catch any errors to prevent UI crash
+      console.error('[WALL CUTTER RECT] Error during wall cut operation:', error);
     }
   };
 
@@ -5516,30 +5521,42 @@ const Canvas = ({
               try {
                 const polygonClipping = await import('polygon-clipping');
                 
-                // INTERIOR WALL PRESERVATION:
-                // Interior walls are "spikes" - a sequence of 3 vertices where v[i] == v[i+2]
-                // We need to detect these BEFORE merge and re-insert them AFTER merge
+                // SIMPLE APPROACH: Collect ALL vertices from all rooms before merge
+                // Vertices in the overlap area will be lost, vertices outside will be preserved
+                const allOriginalVertices: Point[] = [];
+                for (const room of overlappingRooms) {
+                  const rotatedVertices = getRotatedVertices(room);
+                  allOriginalVertices.push(...rotatedVertices);
+                }
+                // Also include new room vertices
+                allOriginalVertices.push(...newVertices);
                 
-                // Helper: Detect interior wall spikes in vertices
-                // Returns array of { basePoint, tipPoint, baseIndex } 
-                const detectInteriorWallSpikes = (vertices: Point[]): { basePoint: Point; tipPoint: Point }[] => {
-                  const spikes: { basePoint: Point; tipPoint: Point }[] = [];
-                  const tolerance = 2; // pixels tolerance for "same point"
+                // Calculate the intersection (overlap) polygon between all rooms
+                // We'll use this to determine which vertices to discard
+                let overlapPoly: [number, number][][] | null = null;
+                
+                // Find intersection of new room with each existing room
+                for (const room of overlappingRooms) {
+                  const rotatedVertices = getRotatedVertices(room);
+                  const roomPoly: [number, number][][] = [rotatedVertices.map(v => [v.x, v.y])];
+                  const newPoly: [number, number][][] = [newVertices.map(v => [v.x, v.y])];
                   
-                  for (let i = 0; i < vertices.length; i++) {
-                    const v0 = vertices[i];
-                    const v1 = vertices[(i + 1) % vertices.length];
-                    const v2 = vertices[(i + 2) % vertices.length];
-                    
-                    // Check if v0 and v2 are at (nearly) the same position
-                    const dist = Math.sqrt((v0.x - v2.x) ** 2 + (v0.y - v2.y) ** 2);
-                    if (dist < tolerance) {
-                      // Found a spike: v0 is the base, v1 is the tip
-                      spikes.push({ basePoint: { x: v0.x, y: v0.y }, tipPoint: { x: v1.x, y: v1.y } });
+                  const intersection = polygonClipping.default.intersection([newPoly], [roomPoly]);
+                  if (intersection.length > 0 && intersection[0].length > 0) {
+                    if (!overlapPoly) {
+                      overlapPoly = intersection[0];
+                    } else {
+                      // Union the overlap areas
+                      const unionResult = polygonClipping.default.union([overlapPoly], intersection[0]);
+                      if (unionResult.length > 0 && unionResult[0].length > 0) {
+                        overlapPoly = unionResult[0];
+                      }
                     }
                   }
-                  return spikes;
-                };
+                }
+                
+                // Convert overlap polygon to Point array for point-in-polygon check
+                const overlapPoints: Point[] = overlapPoly ? overlapPoly[0].map(([x, y]) => ({ x, y })) : [];
                 
                 // Helper: Check if a point lies on an edge of the polygon
                 const isPointOnPolygonEdge = (point: Point, polygon: Point[], tolerance: number = 5): { edgeIndex: number; t: number } | null => {
@@ -5566,35 +5583,6 @@ const Canvas = ({
                   }
                   return null;
                 };
-                
-                // Collect all interior wall spikes from existing rooms BEFORE merge
-                const allSpikes: { basePoint: Point; tipPoint: Point }[] = [];
-                for (const room of overlappingRooms) {
-                  const rotatedVertices = getRotatedVertices(room);
-                  const spikes = detectInteriorWallSpikes(rotatedVertices);
-                  allSpikes.push(...spikes);
-                }
-                
-                // Calculate the intersection (overlap) polygon between new room and existing rooms
-                let overlapPoly: [number, number][][] | null = null;
-                for (const room of overlappingRooms) {
-                  const rotatedVertices = getRotatedVertices(room);
-                  const roomPoly: [number, number][][] = [rotatedVertices.map(v => [v.x, v.y])];
-                  const newPoly: [number, number][][] = [newVertices.map(v => [v.x, v.y])];
-                  
-                  const intersection = polygonClipping.default.intersection([newPoly], [roomPoly]);
-                  if (intersection.length > 0 && intersection[0].length > 0) {
-                    if (!overlapPoly) {
-                      overlapPoly = intersection[0];
-                    } else {
-                      const unionResult = polygonClipping.default.union([overlapPoly], intersection[0]);
-                      if (unionResult.length > 0 && unionResult[0].length > 0) {
-                        overlapPoly = unionResult[0];
-                      }
-                    }
-                  }
-                }
-                const overlapPoints: Point[] = overlapPoly ? overlapPoly[0].map(([x, y]) => ({ x, y })) : [];
                 
                 // Start with the new room polygon
                 let mergedPoly: [number, number][][] = [newVertices.map(v => [v.x, v.y])];
@@ -5641,44 +5629,46 @@ const Canvas = ({
                   ring.map(([x, y]) => ({ x, y }))
                 );
                 
-                // RE-INSERT INTERIOR WALL SPIKES:
-                // For each spike whose base point is NOT in the overlap area,
-                // re-insert the spike into the merged polygon
-                const spikesToInsert: { edgeIndex: number; t: number; basePoint: Point; tipPoint: Point }[] = [];
+                // RE-INSERT PRESERVED VERTICES:
+                // For each original vertex that was NOT in the overlap area,
+                // check if it should be re-inserted into the merged polygon
+                const verticesToInsert: { edgeIndex: number; t: number; point: Point }[] = [];
                 
-                for (const spike of allSpikes) {
-                  // Skip if the spike's base point is inside the overlap area
-                  // (meaning the wall it was attached to got consumed by the merge)
-                  if (overlapPoints.length >= 3 && pointInPolygon(spike.basePoint, overlapPoints)) {
+                for (const vertex of allOriginalVertices) {
+                  // Skip if vertex is inside the overlap area (it got consumed by the merge)
+                  if (overlapPoints.length >= 3 && pointInPolygon(vertex, overlapPoints)) {
                     continue;
                   }
                   
-                  // Check if the spike's base point is on an edge of the merged polygon
-                  const edgeInfo = isPointOnPolygonEdge(spike.basePoint, outerRing, 15);
+                  // Check if vertex already exists in merged polygon (within tolerance)
+                  const alreadyExists = outerRing.some(v => 
+                    Math.sqrt((v.x - vertex.x) ** 2 + (v.y - vertex.y) ** 2) < 3
+                  );
+                  if (alreadyExists) continue;
+                  
+                  // Check if vertex lies on an edge of the merged polygon
+                  const edgeInfo = isPointOnPolygonEdge(vertex, outerRing, 10);
                   if (edgeInfo) {
-                    spikesToInsert.push({
+                    verticesToInsert.push({
                       edgeIndex: edgeInfo.edgeIndex,
                       t: edgeInfo.t,
-                      basePoint: spike.basePoint,
-                      tipPoint: spike.tipPoint
+                      point: vertex
                     });
                   }
                 }
                 
-                // Sort spikes by edge index and t (reverse order so we insert from end to start)
-                spikesToInsert.sort((a, b) => {
+                // Sort vertices by edge index and t (reverse order so we insert from end to start)
+                verticesToInsert.sort((a, b) => {
                   if (a.edgeIndex !== b.edgeIndex) return b.edgeIndex - a.edgeIndex;
                   return b.t - a.t;
                 });
                 
-                // Insert spikes into the outerRing (each spike is 3 vertices: base, tip, base)
-                for (const spike of spikesToInsert) {
-                  const insertIndex = spike.edgeIndex + 1;
+                // Insert vertices into the outerRing
+                for (const v of verticesToInsert) {
+                  const insertIndex = v.edgeIndex + 1;
                   outerRing = [
                     ...outerRing.slice(0, insertIndex),
-                    spike.basePoint,
-                    spike.tipPoint,
-                    spike.basePoint,
+                    v.point,
                     ...outerRing.slice(insertIndex)
                   ];
                 }
@@ -7182,24 +7172,8 @@ const Canvas = ({
           const room = scene.elements.find(el => el.id === hoveredRoomEdge.roomId) as RoomElement | undefined;
           if (!room || !room.vertices) return null;
           
-          // Get vertices with rotation applied (world space)
-          let vertices = room.vertices;
-          if (room.rotation && room.rotation !== 0) {
-            const xs = room.vertices.map(v => v.x);
-            const ys = room.vertices.map(v => v.y);
-            const centerX = (Math.min(...xs) + Math.max(...xs)) / 2;
-            const centerY = (Math.min(...ys) + Math.max(...ys)) / 2;
-            const radians = (room.rotation * Math.PI) / 180;
-            const cos = Math.cos(radians);
-            const sin = Math.sin(radians);
-            vertices = room.vertices.map(v => ({
-              x: centerX + (v.x - centerX) * cos - (v.y - centerY) * sin,
-              y: centerY + (v.x - centerX) * sin + (v.y - centerY) * cos
-            }));
-          }
-          
-          const v1 = vertices[hoveredRoomEdge.edgeIndex];
-          const v2 = vertices[(hoveredRoomEdge.edgeIndex + 1) % vertices.length];
+          const v1 = room.vertices[hoveredRoomEdge.edgeIndex];
+          const v2 = room.vertices[(hoveredRoomEdge.edgeIndex + 1) % room.vertices.length];
           
           return (
             <svg
