@@ -53,10 +53,23 @@
     "title": "Changelog",
     "versions": [
       {
+        "version": "0.9.2",
+        "date": "2024-12-14",
+        "changes": [
+          "Added interior wall feature - draw wall spikes inside rooms",
+          "Added vertex selection and deletion with Delete key",
+          "Room corner radius now toggleable (default: on)",
+          "Auto-merge toggle redesigned with slim switch",
+          "Fixed undo history for auto-merge operations",
+          "Fixed polygon shape drawing anchor vertex",
+          "Fixed room rotation visual glitches"
+        ]
+      },
+      {
         "version": "0.9.1",
         "date": "2024-12-13",
         "changes": [
-          "Added 185 creature tokens",
+          "Added 185 creature tokens"
         ]
       },
       {
