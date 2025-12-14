@@ -158,6 +158,7 @@ function App() {
   const [wallTileSize, setWallTileSize] = useState<number>(30);
   const [roomSubTool, setRoomSubTool] = useState<RoomSubTool>('rectangle');
   const [autoMergeRooms, setAutoMergeRooms] = useState<boolean>(true); // Default: auto-merge enabled
+  const [defaultCornerRadius, setDefaultCornerRadius] = useState<number>(1); // Default: rounded corners ON (1 = on, 0 = off)
 
   // Wall Cutter tool state
   const [wallCutterToolBrushSize, setWallCutterToolBrushSize] = useState<number>(30);
@@ -1012,6 +1013,7 @@ function App() {
         setRoomSubTool={setRoomSubTool}
         autoMergeRooms={autoMergeRooms}
         setAutoMergeRooms={setAutoMergeRooms}
+        defaultCornerRadius={defaultCornerRadius}
         onMergeRooms={setMergeRoomsHandler}
         onMergeWalls={setMergeWallsHandler}
         onCenterElementReady={setCenterElementHandler}
@@ -1076,6 +1078,8 @@ function App() {
           setRoomSubTool={setRoomSubTool}
           autoMergeRooms={autoMergeRooms}
           setAutoMergeRooms={setAutoMergeRooms}
+          defaultCornerRadius={defaultCornerRadius}
+          setDefaultCornerRadius={setDefaultCornerRadius}
           onMergeRooms={mergeRoomsHandlerRef.current || undefined}
           onMergeWalls={mergeWallsHandlerRef.current || undefined}
           onCenterElement={handleCenterElement}

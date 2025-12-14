@@ -22,6 +22,22 @@ const createRoundedPolygonPath = (vertices: { x: number; y: number }[], cornerRa
     ).join(' ') + ' Z';
   }
   
+  // Detect interior wall spike vertices (where v[i] ≈ v[i+2])
+  // These should NOT get rounded corners as they are intentional spikes
+  const spikeBaseIndices = new Set<number>();
+  const spikeTipIndices = new Set<number>();
+  for (let i = 0; i < validVertices.length; i++) {
+    const v0 = validVertices[i];
+    const v2 = validVertices[(i + 2) % validVertices.length];
+    const dist = Math.sqrt((v0.x - v2.x) ** 2 + (v0.y - v2.y) ** 2);
+    if (dist < 3) { // tolerance for "same point"
+      // v[i] and v[i+2] are base points, v[i+1] is the tip
+      spikeBaseIndices.add(i);
+      spikeBaseIndices.add((i + 2) % validVertices.length);
+      spikeTipIndices.add((i + 1) % validVertices.length);
+    }
+  }
+  
   const n = validVertices.length;
   let path = '';
   
@@ -29,6 +45,16 @@ const createRoundedPolygonPath = (vertices: { x: number; y: number }[], cornerRa
     const prev = validVertices[(i - 1 + n) % n];
     const curr = validVertices[i];
     const next = validVertices[(i + 1) % n];
+    
+    // If this vertex is part of a spike, don't round it - use sharp corner
+    if (spikeBaseIndices.has(i) || spikeTipIndices.has(i)) {
+      if (i === 0) {
+        path = `M ${curr.x},${curr.y}`;
+      } else {
+        path += ` L ${curr.x},${curr.y}`;
+      }
+      continue;
+    }
     
     // Calculate vectors to previous and next vertices
     const toPrev = { x: prev.x - curr.x, y: prev.y - curr.y };
@@ -151,6 +177,7 @@ interface CanvasProps {
   setRoomSubTool: (subTool: RoomSubTool) => void;
   autoMergeRooms?: boolean;
   setAutoMergeRooms?: (value: boolean) => void;
+  defaultCornerRadius?: number;
   onMergeRooms?: (handler: () => void) => void;
   onMergeWalls?: (handler: () => void) => void;
   onCenterElementReady?: (centerFn: (elementId: string) => void) => void;
@@ -228,6 +255,7 @@ const Canvas = ({
   setRoomSubTool,
   autoMergeRooms = false,
   setAutoMergeRooms,
+  defaultCornerRadius = 1,
   onMergeRooms,
   onMergeWalls,
   onCenterElementReady,
@@ -278,6 +306,7 @@ const Canvas = ({
   const [hoveringEdge, setHoveringEdge] = useState<{ id: string; edgeIndex: number } | null>(null);
   const [scalingElement, setScalingElement] = useState<{ id: string; cornerIndex: number; startX: number; startY: number; initialVertices: { x: number; y: number }[]; initialHoles?: { x: number; y: number }[][] } | null>(null);
   const [movingVertex, setMovingVertex] = useState<{ id: string; vertexIndex: number; segmentBased?: boolean; holeIndex?: number } | null>(null);
+  const [selectedVertex, setSelectedVertex] = useState<{ id: string; vertexIndex: number; holeIndex?: number } | null>(null);
   const [isPaintingBackground, setIsPaintingBackground] = useState(false);
   const [isCtrlPressed, setIsCtrlPressed] = useState(false);
   const [isShiftPressed, setIsShiftPressed] = useState(false);
@@ -316,6 +345,12 @@ const Canvas = ({
   const wallCutterToolBrushSize = wallCutterToolBrushSizeProp;
   const [wallCutterToolStart, setWallCutterToolStart] = useState<{ x: number; y: number } | null>(null);
   const [wallCutterToolEnd, setWallCutterToolEnd] = useState<{ x: number; y: number } | null>(null);
+
+  // Interior wall drawing state (ALT + click on room edge)
+  const [interiorWallStart, setInteriorWallStart] = useState<{ x: number; y: number; roomId: string; edgeIndex: number } | null>(null);
+  const [interiorWallPreview, setInteriorWallPreview] = useState<{ x: number; y: number } | null>(null);
+  const interiorWallPreviewRef = useRef<{ x: number; y: number } | null>(null);
+  const [hoveredRoomEdge, setHoveredRoomEdge] = useState<{ roomId: string; edgeIndex: number; point: { x: number; y: number } } | null>(null);
 
   // Undo/Redo state
   const [history, setHistory] = useState<{ elements: MapElement[]; terrainTiles?: { [key: string]: TerrainTile } }[]>([]);
@@ -472,6 +507,13 @@ const Canvas = ({
       applyFitToView();
     }
   }, [leftPanelOpen, fitToViewLocked, mapDimensions.width, mapDimensions.height, shouldRotateMap]);
+
+  // Clear selected vertex when element is deselected or changed
+  useEffect(() => {
+    if (selectedVertex && selectedVertex.id !== selectedElementId) {
+      setSelectedVertex(null);
+    }
+  }, [selectedElementId, selectedVertex]);
 
   // Handle map load and center viewport
   useEffect(() => {
@@ -1334,6 +1376,7 @@ const Canvas = ({
       wallTextureUrl: useWallTexture,
       wallThickness: useWallThickness,
       wallTileSize: useWallTileSize,
+      cornerRadius: defaultCornerRadius,
       name: generateRoomName(),
       notes: '',
       zIndex: -100,
@@ -2280,6 +2323,48 @@ const Canvas = ({
         }
         
         e.preventDefault();
+        
+        // Check if a vertex is selected - delete vertex instead of element
+        if (selectedVertex && scene) {
+          const element = scene.elements.find(el => el.id === selectedVertex.id) as RoomElement | undefined;
+          if (element && element.vertices) {
+            saveToHistory();
+            
+            if (selectedVertex.holeIndex !== undefined) {
+              // Delete vertex from hole
+              const holes = element.holes ? [...element.holes] : [];
+              if (holes[selectedVertex.holeIndex]) {
+                const hole = [...holes[selectedVertex.holeIndex]];
+                if (hole.length > 3) {
+                  hole.splice(selectedVertex.vertexIndex, 1);
+                  holes[selectedVertex.holeIndex] = hole;
+                  updateElement(element.id, { holes });
+                  setSelectedVertex(null);
+                  setMergeNotification('Vertex deleted');
+                  setTimeout(() => setMergeNotification(null), 1500);
+                } else {
+                  setMergeNotification('Cannot delete: minimum 3 vertices required');
+                  setTimeout(() => setMergeNotification(null), 2000);
+                }
+              }
+            } else {
+              // Delete vertex from main polygon
+              if (element.vertices.length > 3) {
+                const newVertices = [...element.vertices];
+                newVertices.splice(selectedVertex.vertexIndex, 1);
+                updateElement(element.id, { vertices: newVertices });
+                setSelectedVertex(null);
+                setMergeNotification('Vertex deleted');
+                setTimeout(() => setMergeNotification(null), 1500);
+              } else {
+                setMergeNotification('Cannot delete: minimum 3 vertices required');
+                setTimeout(() => setMergeNotification(null), 2000);
+              }
+            }
+            return;
+          }
+        }
+        
         if (selectedElementIds.length > 0) {
           saveToHistory();
           deleteElements(selectedElementIds);
@@ -3207,6 +3292,27 @@ const Canvas = ({
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
+    // Clear selected vertex when clicking elsewhere (unless clicking on a vertex)
+    // This will be set again if we click on a vertex
+    const willClickVertex = hoveringVertex !== null;
+    if (!willClickVertex && selectedVertex) {
+      setSelectedVertex(null);
+    }
+
+    // Interior wall drawing - click on room edge when hovering
+    if (hoveredRoomEdge && activeTool === 'room' && !e.ctrlKey) {
+      e.preventDefault();
+      console.log('[INTERIOR WALL] Starting at:', hoveredRoomEdge.point);
+      setInteriorWallStart({
+        x: hoveredRoomEdge.point.x,
+        y: hoveredRoomEdge.point.y,
+        roomId: hoveredRoomEdge.roomId,
+        edgeIndex: hoveredRoomEdge.edgeIndex
+      });
+      setInteriorWallPreview(hoveredRoomEdge.point);
+      return;
+    }
+
     // Handle double-click for custom room completion
     const baseShape = getBaseShape(roomSubTool);
     if (e.detail === 2 && activeTool === 'room' && baseShape === 'custom' && customRoomVertices.length >= 3) {
@@ -3323,18 +3429,23 @@ const Canvas = ({
           const worldY = minY + height / 2 + rotatedY;
           
           // Check direct click on vertex (CTRL + click to move vertex)
+          // Use larger detection radius to prioritize existing vertices over edge detection
           const distToVertex = Math.sqrt(
             Math.pow(x - worldX, 2) + Math.pow(y - worldY, 2)
           );
           
-          if (distToVertex < 6 / viewport.zoom) {
-            if (e.ctrlKey || e.shiftKey) {
-              // CTRL/SHIFT + click on vertex: Move vertex
+          const vertexDetectionRadius = 15 / viewport.zoom; // Larger radius for easier vertex selection
+          if (distToVertex < vertexDetectionRadius) {
+            if (e.ctrlKey) {
+              // CTRL + click on vertex: Move vertex
               saveToHistory(); // Save before moving vertex
               setMovingVertex({ id: element.id, vertexIndex: i });
+              setSelectedVertex({ id: element.id, vertexIndex: i });
               return;
             } else {
-              // Direct click on vertex: Scale from opposite corner
+              // Direct click on vertex: Select vertex (can be deleted with Delete key)
+              // Also start scaling in case user drags
+              setSelectedVertex({ id: element.id, vertexIndex: i });
               saveToHistory(); // Save before scaling
               setScalingElement({
                 id: element.id,
@@ -3349,8 +3460,8 @@ const Canvas = ({
           }
         }
         
-        // Check for CTRL/SHIFT + click on edge to add new vertex and start dragging it
-        if (e.ctrlKey || e.shiftKey) {
+        // Check for CTRL + click on edge to add new vertex and start dragging it
+        if (e.ctrlKey) {
           // Need to transform edges to world space to check distance correctly
           for (let i = 0; i < relativeVertices.length; i++) {
             const v1 = relativeVertices[i];
@@ -3416,18 +3527,24 @@ const Canvas = ({
                 Math.pow(x - worldX, 2) + Math.pow(y - worldY, 2)
               );
               
-              if (distToVertex < 6 / viewport.zoom) {
-                if (e.ctrlKey || e.shiftKey) {
-                  // CTRL/SHIFT + click on hole vertex: Move vertex
+              const vertexDetectionRadius = 15 / viewport.zoom;
+              if (distToVertex < vertexDetectionRadius) {
+                if (e.ctrlKey) {
+                  // CTRL + click on hole vertex: Move vertex
                   saveToHistory(); // Save before moving hole vertex
                   setMovingVertex({ id: element.id, vertexIndex, holeIndex });
+                  setSelectedVertex({ id: element.id, vertexIndex, holeIndex });
+                  return;
+                } else {
+                  // Direct click on hole vertex: Select vertex (can be deleted with Delete key)
+                  setSelectedVertex({ id: element.id, vertexIndex, holeIndex });
                   return;
                 }
               }
             }
             
-            // Check for CTRL/SHIFT + click on hole edge to add new vertex
-            if (e.ctrlKey || e.shiftKey) {
+            // Check for CTRL + click on hole edge to add new vertex
+            if (e.ctrlKey) {
               for (let i = 0; i < relativeHole.length; i++) {
                 const v1 = relativeHole[i];
                 const v2 = relativeHole[(i + 1) % relativeHole.length];
@@ -3527,9 +3644,10 @@ const Canvas = ({
               Math.pow(x - v.x, 2) + Math.pow(y - v.y, 2)
             );
             
-            if (distToVertex < 6 / viewport.zoom) {
-              if (e.ctrlKey || e.shiftKey) {
-                // CTRL/SHIFT + click on vertex: Move vertex
+            const vertexDetectionRadius = 15 / viewport.zoom;
+            if (distToVertex < vertexDetectionRadius) {
+              if (e.ctrlKey) {
+                // CTRL + click on vertex: Move vertex
                 saveToHistory(); // Save before moving wall vertex
                 setMovingVertex({ id: element.id, vertexIndex: i, segmentBased: hasSegments });
                 return;
@@ -3537,8 +3655,8 @@ const Canvas = ({
             }
           }
           
-          // Check for CTRL/SHIFT + click on edge to add new vertex
-          if (e.ctrlKey || e.shiftKey) {
+          // Check for CTRL + click on edge to add new vertex
+          if (e.ctrlKey) {
             const segments = hasSegments ? element.segments! : [element.vertices];
             let globalVertexIndex = 0;
             
@@ -3629,8 +3747,8 @@ const Canvas = ({
 
     if (effectiveTool === 'pointer') {
       if (clickedElement) {
-        // Ctrl or Shift click: Toggle element in multi-selection
-        if (e.ctrlKey || e.shiftKey) {
+        // Ctrl click: Toggle element in multi-selection
+        if (e.ctrlKey) {
           if (selectedElementIds.includes(clickedElement.id)) {
             // Remove from selection
             const newSelection = selectedElementIds.filter(id => id !== clickedElement.id);
@@ -4042,6 +4160,70 @@ const Canvas = ({
 
     const x = (e.clientX - rect.left - viewport.x) / viewport.zoom;
     const y = (e.clientY - rect.top - viewport.y) / viewport.zoom;
+
+    // Interior wall preview - update end point while drawing
+    if (interiorWallStart) {
+      console.log('[INTERIOR WALL] Preview at:', { x, y });
+      interiorWallPreviewRef.current = { x, y };
+      setInteriorWallPreview({ x, y });
+      return; // Don't process other mouse move logic while drawing interior wall
+    }
+
+    // Check for room edge hover (interior wall feature)
+    if (scene && activeTool === 'room' && !interiorWallStart) {
+      console.log('[INTERIOR WALL] SHIFT pressed, checking edges. Tool:', activeTool, 'Elements:', scene.elements.length);
+      const edgeHoverDistance = 8 / viewport.zoom; // Hover detection distance
+      let foundEdge: { roomId: string; edgeIndex: number; point: { x: number; y: number } } | null = null;
+      
+      for (const el of scene.elements) {
+        if (el.type !== 'room' || !el.vertices || el.vertices.length < 3) continue;
+        const room = el as RoomElement;
+        
+        // Get vertices with rotation applied (world space)
+        let vertices = room.vertices;
+        if (room.rotation && room.rotation !== 0) {
+          const xs = room.vertices.map(v => v.x);
+          const ys = room.vertices.map(v => v.y);
+          const centerX = (Math.min(...xs) + Math.max(...xs)) / 2;
+          const centerY = (Math.min(...ys) + Math.max(...ys)) / 2;
+          const radians = (room.rotation * Math.PI) / 180;
+          const cos = Math.cos(radians);
+          const sin = Math.sin(radians);
+          vertices = room.vertices.map(v => ({
+            x: centerX + (v.x - centerX) * cos - (v.y - centerY) * sin,
+            y: centerY + (v.x - centerX) * sin + (v.y - centerY) * cos
+          }));
+        }
+        console.log('[INTERIOR WALL] Checking room:', room.id, 'vertices:', vertices.length);
+        
+        // Check each edge
+        for (let i = 0; i < vertices.length; i++) {
+          const v1 = vertices[i];
+          const v2 = vertices[(i + 1) % vertices.length];
+          
+          // Find closest point on edge to cursor
+          const dx = v2.x - v1.x;
+          const dy = v2.y - v1.y;
+          const lengthSq = dx * dx + dy * dy;
+          if (lengthSq === 0) continue;
+          
+          const t = Math.max(0, Math.min(1, ((x - v1.x) * dx + (y - v1.y) * dy) / lengthSq));
+          const closestX = v1.x + t * dx;
+          const closestY = v1.y + t * dy;
+          const distance = Math.sqrt((x - closestX) ** 2 + (y - closestY) ** 2);
+          
+          if (distance < edgeHoverDistance) {
+            foundEdge = { roomId: room.id, edgeIndex: i, point: { x: closestX, y: closestY } };
+            break;
+          }
+        }
+        if (foundEdge) break;
+      }
+      
+      setHoveredRoomEdge(foundEdge);
+    } else if (hoveredRoomEdge) {
+      setHoveredRoomEdge(null);
+    }
 
     // Update cursor position for custom room preview
     if (activeTool === 'room' && getBaseShape(roomSubTool) === 'custom') {
@@ -4762,6 +4944,101 @@ const Canvas = ({
   };
 
   const handleMouseUp = async () => {
+    // Finalize interior wall drawing (ALT + drag from room edge)
+    if (interiorWallStart && scene) {
+      // Use ref for the most up-to-date preview position
+      const previewPos = interiorWallPreviewRef.current || interiorWallPreview;
+      console.log('[INTERIOR WALL] MouseUp - Start:', interiorWallStart, 'Preview:', previewPos);
+      
+      if (previewPos) {
+        const room = scene.elements.find(el => el.id === interiorWallStart.roomId) as RoomElement | undefined;
+        if (room && room.vertices) {
+          const startPoint = { x: interiorWallStart.x, y: interiorWallStart.y };
+          const endPoint = { x: previewPos.x, y: previewPos.y };
+          const edgeIndex = interiorWallStart.edgeIndex;
+        
+          // Calculate distance to make sure it's worth creating
+          const distance = Math.sqrt((endPoint.x - startPoint.x) ** 2 + (endPoint.y - startPoint.y) ** 2);
+          
+          console.log('[INTERIOR WALL] Distance:', distance, 'from', startPoint, 'to', endPoint);
+          
+          if (distance > 10) {
+            // Direct vertex insertion approach:
+            // Insert 3 new vertices after the edge start vertex:
+            // 1. The start point on the edge (slightly adjusted)
+            // 2. The end point where mouse was released  
+            // 3. The start point again (to close the wall spike)
+            
+            // Get room vertices (apply rotation if needed)
+            let roomVertices = [...room.vertices];
+            if (room.rotation && room.rotation !== 0) {
+              const xs = room.vertices.map(v => v.x);
+              const ys = room.vertices.map(v => v.y);
+              const centerX = (Math.min(...xs) + Math.max(...xs)) / 2;
+              const centerY = (Math.min(...ys) + Math.max(...ys)) / 2;
+              const radians = (room.rotation * Math.PI) / 180;
+              const cos = Math.cos(radians);
+              const sin = Math.sin(radians);
+              roomVertices = room.vertices.map(v => ({
+                x: centerX + (v.x - centerX) * cos - (v.y - centerY) * sin,
+                y: centerY + (v.x - centerX) * sin + (v.y - centerY) * cos
+              }));
+            }
+            
+            // Insert the wall spike vertices
+            // The spike goes: edge -> startPoint -> endPoint -> startPoint -> continue edge
+            const newVertices = [
+              ...roomVertices.slice(0, edgeIndex + 1), // vertices up to and including edge start
+              startPoint,  // First point of wall (on the edge)
+              endPoint,    // Tip of the wall (where mouse released)
+              startPoint,  // Back to the edge (creates the spike)
+              ...roomVertices.slice(edgeIndex + 1)     // remaining vertices
+            ];
+            
+            console.log('[INTERIOR WALL] New vertices:', newVertices);
+            console.log('[INTERIOR WALL] Original count:', roomVertices.length, 'New count:', newVertices.length);
+            
+            // Save to history
+            const updatedElements = scene.elements.map(el => 
+              el.id === room.id 
+                ? { 
+                    ...room, 
+                    vertices: newVertices, 
+                    rotation: 0 // Reset rotation since vertices are now in world space
+                  } 
+                : el
+            );
+            
+            const newHistoryEntry = {
+              elements: updatedElements,
+              terrainTiles: (() => {
+                const tilesObj: { [key: string]: TerrainTile } = {};
+                terrainTiles.forEach((tile, key) => {
+                  tilesObj[key] = tile;
+                });
+                return tilesObj;
+              })()
+            };
+            setHistory(prev => [...prev.slice(0, historyIndex + 1), newHistoryEntry]);
+            setHistoryIndex(prev => prev + 1);
+            
+            if (activeSceneId) {
+              updateScene(activeSceneId, { elements: updatedElements });
+            }
+            
+            setMergeNotification('Interior wall added');
+            setTimeout(() => setMergeNotification(null), 2000);
+          }
+        }
+      }
+      
+      setInteriorWallStart(null);
+      setInteriorWallPreview(null);
+      interiorWallPreviewRef.current = null;
+      setHoveredRoomEdge(null);
+      return;
+    }
+
     // X-Lab: Finalize terrain shape fill (rectangle, circle, polygon)
     if (xlabTerrainShapeStart && xlabTerrainShapeEnd && xlabShapeMode && selectedBackgroundTexture) {
       const minX = Math.min(xlabTerrainShapeStart.x, xlabTerrainShapeEnd.x);
@@ -5164,7 +5441,8 @@ const Canvas = ({
             showWalls, 
             wallTextureUrl: selectedWallTexture || '', 
             wallThickness,
-            wallTileSize
+            wallTileSize,
+            cornerRadius: defaultCornerRadius
           };
           
           // Check if auto-merge is enabled and find overlapping rooms
@@ -5238,6 +5516,86 @@ const Canvas = ({
               try {
                 const polygonClipping = await import('polygon-clipping');
                 
+                // INTERIOR WALL PRESERVATION:
+                // Interior walls are "spikes" - a sequence of 3 vertices where v[i] == v[i+2]
+                // We need to detect these BEFORE merge and re-insert them AFTER merge
+                
+                // Helper: Detect interior wall spikes in vertices
+                // Returns array of { basePoint, tipPoint, baseIndex } 
+                const detectInteriorWallSpikes = (vertices: Point[]): { basePoint: Point; tipPoint: Point }[] => {
+                  const spikes: { basePoint: Point; tipPoint: Point }[] = [];
+                  const tolerance = 2; // pixels tolerance for "same point"
+                  
+                  for (let i = 0; i < vertices.length; i++) {
+                    const v0 = vertices[i];
+                    const v1 = vertices[(i + 1) % vertices.length];
+                    const v2 = vertices[(i + 2) % vertices.length];
+                    
+                    // Check if v0 and v2 are at (nearly) the same position
+                    const dist = Math.sqrt((v0.x - v2.x) ** 2 + (v0.y - v2.y) ** 2);
+                    if (dist < tolerance) {
+                      // Found a spike: v0 is the base, v1 is the tip
+                      spikes.push({ basePoint: { x: v0.x, y: v0.y }, tipPoint: { x: v1.x, y: v1.y } });
+                    }
+                  }
+                  return spikes;
+                };
+                
+                // Helper: Check if a point lies on an edge of the polygon
+                const isPointOnPolygonEdge = (point: Point, polygon: Point[], tolerance: number = 5): { edgeIndex: number; t: number } | null => {
+                  for (let i = 0; i < polygon.length; i++) {
+                    const p1 = polygon[i];
+                    const p2 = polygon[(i + 1) % polygon.length];
+                    
+                    const dx = p2.x - p1.x;
+                    const dy = p2.y - p1.y;
+                    const edgeLen = Math.sqrt(dx * dx + dy * dy);
+                    if (edgeLen < 0.001) continue;
+                    
+                    const t = ((point.x - p1.x) * dx + (point.y - p1.y) * dy) / (edgeLen * edgeLen);
+                    
+                    if (t >= -0.01 && t <= 1.01) {
+                      const projX = p1.x + t * dx;
+                      const projY = p1.y + t * dy;
+                      const dist = Math.sqrt((point.x - projX) ** 2 + (point.y - projY) ** 2);
+                      
+                      if (dist < tolerance) {
+                        return { edgeIndex: i, t: Math.max(0, Math.min(1, t)) };
+                      }
+                    }
+                  }
+                  return null;
+                };
+                
+                // Collect all interior wall spikes from existing rooms BEFORE merge
+                const allSpikes: { basePoint: Point; tipPoint: Point }[] = [];
+                for (const room of overlappingRooms) {
+                  const rotatedVertices = getRotatedVertices(room);
+                  const spikes = detectInteriorWallSpikes(rotatedVertices);
+                  allSpikes.push(...spikes);
+                }
+                
+                // Calculate the intersection (overlap) polygon between new room and existing rooms
+                let overlapPoly: [number, number][][] | null = null;
+                for (const room of overlappingRooms) {
+                  const rotatedVertices = getRotatedVertices(room);
+                  const roomPoly: [number, number][][] = [rotatedVertices.map(v => [v.x, v.y])];
+                  const newPoly: [number, number][][] = [newVertices.map(v => [v.x, v.y])];
+                  
+                  const intersection = polygonClipping.default.intersection([newPoly], [roomPoly]);
+                  if (intersection.length > 0 && intersection[0].length > 0) {
+                    if (!overlapPoly) {
+                      overlapPoly = intersection[0];
+                    } else {
+                      const unionResult = polygonClipping.default.union([overlapPoly], intersection[0]);
+                      if (unionResult.length > 0 && unionResult[0].length > 0) {
+                        overlapPoly = unionResult[0];
+                      }
+                    }
+                  }
+                }
+                const overlapPoints: Point[] = overlapPoly ? overlapPoly[0].map(([x, y]) => ({ x, y })) : [];
+                
                 // Start with the new room polygon
                 let mergedPoly: [number, number][][] = [newVertices.map(v => [v.x, v.y])];
                 
@@ -5245,7 +5603,6 @@ const Canvas = ({
                 for (const room of overlappingRooms) {
                   if (!room.vertices) continue;
                   
-                  // Use rotated vertices for merging
                   const rotatedVertices = getRotatedVertices(room);
                   const roomPoly: [number, number][][] = [rotatedVertices.map(v => [v.x, v.y])];
                   
@@ -5279,10 +5636,52 @@ const Canvas = ({
                 
                 // Create merged room with properties from the first overlapping room (or new room)
                 const baseRoom = overlappingRooms[0] || finalRoom;
-                const outerRing = mergedPoly[0].map(([x, y]) => ({ x, y }));
+                let outerRing = mergedPoly[0].map(([x, y]) => ({ x, y }));
                 const holes = mergedPoly.slice(1).map(ring => 
                   ring.map(([x, y]) => ({ x, y }))
                 );
+                
+                // RE-INSERT INTERIOR WALL SPIKES:
+                // For each spike whose base point is NOT in the overlap area,
+                // re-insert the spike into the merged polygon
+                const spikesToInsert: { edgeIndex: number; t: number; basePoint: Point; tipPoint: Point }[] = [];
+                
+                for (const spike of allSpikes) {
+                  // Skip if the spike's base point is inside the overlap area
+                  // (meaning the wall it was attached to got consumed by the merge)
+                  if (overlapPoints.length >= 3 && pointInPolygon(spike.basePoint, overlapPoints)) {
+                    continue;
+                  }
+                  
+                  // Check if the spike's base point is on an edge of the merged polygon
+                  const edgeInfo = isPointOnPolygonEdge(spike.basePoint, outerRing, 15);
+                  if (edgeInfo) {
+                    spikesToInsert.push({
+                      edgeIndex: edgeInfo.edgeIndex,
+                      t: edgeInfo.t,
+                      basePoint: spike.basePoint,
+                      tipPoint: spike.tipPoint
+                    });
+                  }
+                }
+                
+                // Sort spikes by edge index and t (reverse order so we insert from end to start)
+                spikesToInsert.sort((a, b) => {
+                  if (a.edgeIndex !== b.edgeIndex) return b.edgeIndex - a.edgeIndex;
+                  return b.t - a.t;
+                });
+                
+                // Insert spikes into the outerRing (each spike is 3 vertices: base, tip, base)
+                for (const spike of spikesToInsert) {
+                  const insertIndex = spike.edgeIndex + 1;
+                  outerRing = [
+                    ...outerRing.slice(0, insertIndex),
+                    spike.basePoint,
+                    spike.tipPoint,
+                    spike.basePoint,
+                    ...outerRing.slice(insertIndex)
+                  ];
+                }
                 
                 const mergedRoom: RoomElement = {
                   ...baseRoom,
@@ -5941,6 +6340,7 @@ const Canvas = ({
                         viewport={viewport}
                         showTokenBadges={showTokenBadges}
                         renderLayer="walls"
+                        selectedVertex={selectedVertex}
                       />
                     ))}
                 </div>
@@ -6140,6 +6540,7 @@ const Canvas = ({
                     viewport={viewport}
                     showTokenBadges={showTokenBadges}
                     renderLayer="walls"
+                    selectedVertex={selectedVertex}
                   />
                 ))}
             </div>
@@ -6776,6 +7177,112 @@ const Canvas = ({
           );
         })()}
 
+        {/* Interior wall drawing - hovered edge highlight and preview line */}
+        {scene && hoveredRoomEdge && !interiorWallStart && (() => {
+          const room = scene.elements.find(el => el.id === hoveredRoomEdge.roomId) as RoomElement | undefined;
+          if (!room || !room.vertices) return null;
+          
+          // Get vertices with rotation applied (world space)
+          let vertices = room.vertices;
+          if (room.rotation && room.rotation !== 0) {
+            const xs = room.vertices.map(v => v.x);
+            const ys = room.vertices.map(v => v.y);
+            const centerX = (Math.min(...xs) + Math.max(...xs)) / 2;
+            const centerY = (Math.min(...ys) + Math.max(...ys)) / 2;
+            const radians = (room.rotation * Math.PI) / 180;
+            const cos = Math.cos(radians);
+            const sin = Math.sin(radians);
+            vertices = room.vertices.map(v => ({
+              x: centerX + (v.x - centerX) * cos - (v.y - centerY) * sin,
+              y: centerY + (v.x - centerX) * sin + (v.y - centerY) * cos
+            }));
+          }
+          
+          const v1 = vertices[hoveredRoomEdge.edgeIndex];
+          const v2 = vertices[(hoveredRoomEdge.edgeIndex + 1) % vertices.length];
+          
+          return (
+            <svg
+              style={{
+                position: 'absolute',
+                left: 0,
+                top: 0,
+                width: '100%',
+                height: '100%',
+                pointerEvents: 'none',
+                overflow: 'visible'
+              }}
+            >
+              {/* Highlighted edge */}
+              <line
+                x1={viewport.x + v1.x * viewport.zoom}
+                y1={viewport.y + v1.y * viewport.zoom}
+                x2={viewport.x + v2.x * viewport.zoom}
+                y2={viewport.y + v2.y * viewport.zoom}
+                stroke="#f59e0b"
+                strokeWidth={4}
+                strokeLinecap="round"
+                opacity={0.8}
+              />
+              {/* Hover point indicator */}
+              <circle
+                cx={viewport.x + hoveredRoomEdge.point.x * viewport.zoom}
+                cy={viewport.y + hoveredRoomEdge.point.y * viewport.zoom}
+                r={8}
+                fill="#f59e0b"
+                stroke="#ffffff"
+                strokeWidth={2}
+              />
+            </svg>
+          );
+        })()}
+
+        {/* Interior wall preview line while drawing */}
+        {interiorWallStart && interiorWallPreview && (
+          <svg
+            style={{
+              position: 'absolute',
+              left: 0,
+              top: 0,
+              width: '100%',
+              height: '100%',
+              pointerEvents: 'none',
+              overflow: 'visible'
+            }}
+          >
+            {/* Preview line from start to current mouse position */}
+            <line
+              x1={viewport.x + interiorWallStart.x * viewport.zoom}
+              y1={viewport.y + interiorWallStart.y * viewport.zoom}
+              x2={viewport.x + interiorWallPreview.x * viewport.zoom}
+              y2={viewport.y + interiorWallPreview.y * viewport.zoom}
+              stroke="#f59e0b"
+              strokeWidth={3}
+              strokeDasharray="8,4"
+              opacity={0.9}
+            />
+            {/* Start point */}
+            <circle
+              cx={viewport.x + interiorWallStart.x * viewport.zoom}
+              cy={viewport.y + interiorWallStart.y * viewport.zoom}
+              r={8}
+              fill="#f59e0b"
+              stroke="#ffffff"
+              strokeWidth={2}
+            />
+            {/* End point */}
+            <circle
+              cx={viewport.x + interiorWallPreview.x * viewport.zoom}
+              cy={viewport.y + interiorWallPreview.y * viewport.zoom}
+              r={6}
+              fill="#f59e0b"
+              stroke="#ffffff"
+              strokeWidth={2}
+              opacity={0.7}
+            />
+          </svg>
+        )}
+
         {/* Selection box - works for both canvas and maps */}
         {scene && selectionBox && (
               <div
@@ -7205,9 +7712,10 @@ interface MapElementComponentProps {
   viewport: { x: number; y: number; zoom: number };
   showTokenBadges: boolean;
   renderLayer?: 'floor' | 'walls' | 'full'; // Split room rendering into floor/walls layers
+  selectedVertex?: { id: string; vertexIndex: number; holeIndex?: number } | null;
 }
 
-const MapElementComponent = ({ element, isSelected, viewport, showTokenBadges, renderLayer = 'full' }: MapElementComponentProps) => {
+const MapElementComponent = ({ element, isSelected, viewport, showTokenBadges, renderLayer = 'full', selectedVertex = null }: MapElementComponentProps) => {
   const colorMap: Record<ColorType, string> = {
     red: '#ef4444',
     blue: '#3b82f6',
@@ -7909,18 +8417,23 @@ const MapElementComponent = ({ element, isSelected, viewport, showTokenBadges, r
                 />
               )}
               {/* Vertex handles for polygon */}
-              {relativeVertices.map((v, i) => (
-                <circle
-                  key={`handle-${i}`}
-                  cx={v.x}
-                  cy={v.y}
-                  r={4 / viewport.zoom}
-                  fill="white"
-                  stroke="rgba(34, 197, 94, 0.7)"
-                  strokeWidth={1}
-                  style={{ pointerEvents: 'auto' }}
-                />
-              ))}
+              {relativeVertices.map((v, i) => {
+                const isSelectedVertex = selectedVertex?.id === roomElement.id && 
+                                         selectedVertex?.vertexIndex === i && 
+                                         selectedVertex?.holeIndex === undefined;
+                return (
+                  <circle
+                    key={`handle-${i}`}
+                    cx={v.x}
+                    cy={v.y}
+                    r={(isSelectedVertex ? 6 : 4) / viewport.zoom}
+                    fill={isSelectedVertex ? "#fbbf24" : "white"}
+                    stroke={isSelectedVertex ? "#f59e0b" : "rgba(34, 197, 94, 0.7)"}
+                    strokeWidth={isSelectedVertex ? 2 : 1}
+                    style={{ pointerEvents: 'auto' }}
+                  />
+                );
+              })}
               
               {/* Vertex handles for holes */}
               {roomElement.holes && roomElement.holes.map((hole, holeIndex) => {
@@ -7928,18 +8441,23 @@ const MapElementComponent = ({ element, isSelected, viewport, showTokenBadges, r
                   x: v.x - minX,
                   y: v.y - minY
                 }));
-                return relativeHole.map((v, vertexIndex) => (
-                  <circle
-                    key={`hole-${holeIndex}-handle-${vertexIndex}`}
-                    cx={v.x}
-                    cy={v.y}
-                    r={4 / viewport.zoom}
-                    fill="white"
-                    stroke="#ef4444"
-                    strokeWidth={1}
-                    style={{ pointerEvents: 'auto' }}
-                  />
-                ));
+                return relativeHole.map((v, vertexIndex) => {
+                  const isSelectedVertex = selectedVertex?.id === roomElement.id && 
+                                           selectedVertex?.vertexIndex === vertexIndex && 
+                                           selectedVertex?.holeIndex === holeIndex;
+                  return (
+                    <circle
+                      key={`hole-${holeIndex}-handle-${vertexIndex}`}
+                      cx={v.x}
+                      cy={v.y}
+                      r={(isSelectedVertex ? 6 : 4) / viewport.zoom}
+                      fill={isSelectedVertex ? "#fbbf24" : "white"}
+                      stroke={isSelectedVertex ? "#f59e0b" : "#ef4444"}
+                      strokeWidth={isSelectedVertex ? 2 : 1}
+                      style={{ pointerEvents: 'auto' }}
+                    />
+                  );
+                });
               })}
               
               {/* Rotation handle - center top */}
@@ -8161,18 +8679,23 @@ const MapElementComponent = ({ element, isSelected, viewport, showTokenBadges, r
                 />
               )}
               {/* Vertex handles for polygon */}
-              {relativeVertices.map((v, i) => (
-                <circle
-                  key={`handle-${i}`}
-                  cx={v.x}
-                  cy={v.y}
-                  r={4 / viewport.zoom}
-                  fill="white"
-                  stroke="#22c55e"
-                  strokeWidth={1}
-                  style={{ pointerEvents: 'auto' }}
-                />
-              ))}
+              {relativeVertices.map((v, i) => {
+                const isSelectedVertex = selectedVertex?.id === roomElement.id && 
+                                         selectedVertex?.vertexIndex === i && 
+                                         selectedVertex?.holeIndex === undefined;
+                return (
+                  <circle
+                    key={`handle-${i}`}
+                    cx={v.x}
+                    cy={v.y}
+                    r={(isSelectedVertex ? 6 : 4) / viewport.zoom}
+                    fill={isSelectedVertex ? "#fbbf24" : "white"}
+                    stroke={isSelectedVertex ? "#f59e0b" : "#22c55e"}
+                    strokeWidth={isSelectedVertex ? 2 : 1}
+                    style={{ pointerEvents: 'auto' }}
+                  />
+                );
+              })}
               
               {/* Vertex handles for holes */}
               {roomElement.holes && roomElement.holes.map((hole, holeIndex) => {
@@ -8180,18 +8703,23 @@ const MapElementComponent = ({ element, isSelected, viewport, showTokenBadges, r
                   x: v.x - minX,
                   y: v.y - minY
                 }));
-                return relativeHole.map((v, vertexIndex) => (
-                  <circle
-                    key={`hole-${holeIndex}-handle-${vertexIndex}`}
-                    cx={v.x}
-                    cy={v.y}
-                    r={4 / viewport.zoom}
-                    fill="white"
-                    stroke="#ef4444"
-                    strokeWidth={1}
-                    style={{ pointerEvents: 'auto' }}
-                  />
-                ));
+                return relativeHole.map((v, vertexIndex) => {
+                  const isSelectedVertex = selectedVertex?.id === roomElement.id && 
+                                           selectedVertex?.vertexIndex === vertexIndex && 
+                                           selectedVertex?.holeIndex === holeIndex;
+                  return (
+                    <circle
+                      key={`hole-${holeIndex}-handle-${vertexIndex}`}
+                      cx={v.x}
+                      cy={v.y}
+                      r={(isSelectedVertex ? 6 : 4) / viewport.zoom}
+                      fill={isSelectedVertex ? "#fbbf24" : "white"}
+                      stroke={isSelectedVertex ? "#f59e0b" : "#ef4444"}
+                      strokeWidth={isSelectedVertex ? 2 : 1}
+                      style={{ pointerEvents: 'auto' }}
+                    />
+                  );
+                });
               })}
               
               {/* Rotation handle - center top */}

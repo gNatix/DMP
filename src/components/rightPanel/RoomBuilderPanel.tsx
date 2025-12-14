@@ -25,6 +25,8 @@ interface RoomBuilderPanelProps {
   setRoomSubTool: (subTool: RoomSubTool) => void;
   autoMergeRooms?: boolean;
   setAutoMergeRooms?: (value: boolean) => void;
+  defaultCornerRadius?: number;
+  setDefaultCornerRadius?: (value: number) => void;
   onMergeRooms?: () => void;
   onMergeWalls?: () => void;
   selectedTerrainBrush: string | null;
@@ -68,6 +70,8 @@ const RoomBuilderPanel = ({
   setRoomSubTool,
   autoMergeRooms = false,
   setAutoMergeRooms,
+  defaultCornerRadius = 1,
+  setDefaultCornerRadius,
   // onMergeRooms,
   // onMergeWalls,
   selectedTerrainBrush,
@@ -427,50 +431,56 @@ const RoomBuilderPanel = ({
                 </button>
               </div>
               
-              {/* Disable Auto-merge checkbox - own row */}
-              <label 
-                className="flex items-center gap-2 cursor-pointer text-xs text-gray-400 hover:text-gray-300 mt-2 mb-1"
-                title="When checked, overlapping rooms will NOT automatically merge"
-              >
-                <div 
-                  className={`w-4 h-4 rounded border flex items-center justify-center transition-all cursor-pointer ${
-                    !autoMergeRooms
-                      ? 'bg-amber-500/20 border-amber-500'
-                      : 'bg-dm-dark border-dm-border hover:border-dm-highlight'
-                  }`}
+              {/* Auto-merge toggle - slim style */}
+              <div className="flex items-center justify-between mt-3">
+                <span className="text-xs text-gray-400">Auto-merge rooms</span>
+                <button
                   onClick={() => setAutoMergeRooms?.(!autoMergeRooms)}
+                  className={`relative inline-flex h-4 w-7 items-center rounded-full transition-all duration-200 border ${
+                    autoMergeRooms 
+                      ? 'bg-purple-600/80 border-purple-400/50' 
+                      : 'bg-gray-800 border-gray-600/50'
+                  } cursor-pointer hover:border-gray-400/50`}
+                  title="When enabled, overlapping rooms will automatically merge"
                 >
-                  {!autoMergeRooms && (
-                    <svg className="w-3 h-3 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3">
-                      <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  )}
-                </div>
-                <span>Disable auto-merge</span>
-              </label>
-
-              {/* Corner Radius slider */}
-              <div className="mt-3">
-                <label className="text-xs text-gray-400 mb-2 block">Corner Radius</label>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="range"
-                    min="0"
-                    max="20"
-                    value={selectedRoom?.cornerRadius ?? 8}
-                    onChange={(e) => {
-                      if (selectedRoom) {
-                        updateElement(selectedRoom.id, { cornerRadius: Number(e.target.value) });
-                      }
-                    }}
-                    className="flex-1 h-2 bg-dm-dark rounded-lg appearance-none cursor-pointer slider"
-                    style={{
-                      background: `linear-gradient(to right, #8b5cf6 0%, #8b5cf6 ${((selectedRoom?.cornerRadius ?? 8) / 20) * 100}%, #1f2937 ${((selectedRoom?.cornerRadius ?? 8) / 20) * 100}%, #1f2937 100%)`
-                    }}
-                    disabled={!selectedRoom}
+                  <span
+                    className={`inline-block h-2.5 w-2.5 transform rounded-full transition-all duration-200 shadow-sm ${
+                      autoMergeRooms 
+                        ? 'translate-x-3.5 bg-white' 
+                        : 'translate-x-0.5 bg-gray-400'
+                    }`}
                   />
-                  <span className="text-sm text-gray-400 w-10 text-right">{selectedRoom?.cornerRadius ?? 8}px</span>
-                </div>
+                </button>
+              </div>
+
+              {/* Corner Radius toggle - slim style */}
+              <div className="flex items-center justify-between mt-2">
+                <span className="text-xs text-gray-400">Rounded Corners</span>
+                <button
+                  onClick={() => {
+                    if (selectedRoom) {
+                      // Toggle selected room's corner radius
+                      const currentRadius = selectedRoom.cornerRadius ?? defaultCornerRadius;
+                      updateElement(selectedRoom.id, { cornerRadius: currentRadius > 0 ? 0 : 1 });
+                    } else {
+                      // Toggle default for next drawings
+                      setDefaultCornerRadius?.(defaultCornerRadius > 0 ? 0 : 1);
+                    }
+                  }}
+                  className={`relative inline-flex h-4 w-7 items-center rounded-full transition-all duration-200 border ${
+                    (selectedRoom ? (selectedRoom.cornerRadius ?? defaultCornerRadius) : defaultCornerRadius) > 0 
+                      ? 'bg-purple-600/80 border-purple-400/50' 
+                      : 'bg-gray-800 border-gray-600/50'
+                  } cursor-pointer hover:border-gray-400/50`}
+                >
+                  <span
+                    className={`inline-block h-2.5 w-2.5 transform rounded-full transition-all duration-200 shadow-sm ${
+                      (selectedRoom ? (selectedRoom.cornerRadius ?? defaultCornerRadius) : defaultCornerRadius) > 0 
+                        ? 'translate-x-3.5 bg-white' 
+                        : 'translate-x-0.5 bg-gray-400'
+                    }`}
+                  />
+                </button>
               </div>
             </div>
 

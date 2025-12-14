@@ -50,6 +50,8 @@ interface RightPanelProps {
   setRoomSubTool: (subTool: RoomSubTool) => void;
   autoMergeRooms?: boolean;
   setAutoMergeRooms?: (value: boolean) => void;
+  defaultCornerRadius?: number;
+  setDefaultCornerRadius?: (value: number) => void;
   onMergeRooms?: () => void;
   onMergeWalls?: () => void;
   onCenterElement?: (elementId: string) => void;
@@ -108,6 +110,8 @@ const RightPanel = ({
   setRoomSubTool,
   autoMergeRooms = false,
   setAutoMergeRooms,
+  defaultCornerRadius = 1,
+  setDefaultCornerRadius,
   onMergeRooms,
   onMergeWalls,
   onCenterElement,
@@ -249,6 +253,8 @@ const RightPanel = ({
             setRoomSubTool={setRoomSubTool}
             autoMergeRooms={autoMergeRooms}
             setAutoMergeRooms={setAutoMergeRooms}
+            defaultCornerRadius={defaultCornerRadius}
+            setDefaultCornerRadius={setDefaultCornerRadius}
             onMergeRooms={onMergeRooms}
             onMergeWalls={onMergeWalls}
             selectedTerrainBrush={selectedTerrainBrush}
