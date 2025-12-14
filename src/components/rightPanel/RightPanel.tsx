@@ -48,6 +48,8 @@ interface RightPanelProps {
   onWallTileSizeChange: (size: number) => void;
   roomSubTool: RoomSubTool;
   setRoomSubTool: (subTool: RoomSubTool) => void;
+  autoMergeRooms?: boolean;
+  setAutoMergeRooms?: (value: boolean) => void;
   onMergeRooms?: () => void;
   onMergeWalls?: () => void;
   onCenterElement?: (elementId: string) => void;
@@ -104,6 +106,8 @@ const RightPanel = ({
   onWallTileSizeChange,
   roomSubTool,
   setRoomSubTool,
+  autoMergeRooms = false,
+  setAutoMergeRooms,
   onMergeRooms,
   onMergeWalls,
   onCenterElement,
@@ -243,6 +247,8 @@ const RightPanel = ({
             setActiveTool={setActiveTool}
             roomSubTool={roomSubTool}
             setRoomSubTool={setRoomSubTool}
+            autoMergeRooms={autoMergeRooms}
+            setAutoMergeRooms={setAutoMergeRooms}
             onMergeRooms={onMergeRooms}
             onMergeWalls={onMergeWalls}
             selectedTerrainBrush={selectedTerrainBrush}

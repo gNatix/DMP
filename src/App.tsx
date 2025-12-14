@@ -151,12 +151,13 @@ function App() {
 
   // Room builder state
   const [selectedFloorTexture, setSelectedFloorTexture] = useState<string | null>(null);
-  const [tileSize, setTileSize] = useState<number>(50);
+  const [tileSize, setTileSize] = useState<number>(30);
   const [showWalls, setShowWalls] = useState<boolean>(true);
   const [selectedWallTexture, setSelectedWallTexture] = useState<string | null>(null);
-  const [wallThickness, setWallThickness] = useState<number>(8);
-  const [wallTileSize, setWallTileSize] = useState<number>(50);
+  const [wallThickness, setWallThickness] = useState<number>(12);
+  const [wallTileSize, setWallTileSize] = useState<number>(30);
   const [roomSubTool, setRoomSubTool] = useState<RoomSubTool>('rectangle');
+  const [autoMergeRooms, setAutoMergeRooms] = useState<boolean>(true); // Default: auto-merge enabled
 
   // Wall Cutter tool state
   const [wallCutterToolBrushSize, setWallCutterToolBrushSize] = useState<number>(30);
@@ -1009,6 +1010,8 @@ function App() {
         wallTileSize={wallTileSize}
         roomSubTool={roomSubTool}
         setRoomSubTool={setRoomSubTool}
+        autoMergeRooms={autoMergeRooms}
+        setAutoMergeRooms={setAutoMergeRooms}
         onMergeRooms={setMergeRoomsHandler}
         onMergeWalls={setMergeWallsHandler}
         onCenterElementReady={setCenterElementHandler}
@@ -1071,6 +1074,8 @@ function App() {
           onWallTileSizeChange={setWallTileSize}
           roomSubTool={roomSubTool}
           setRoomSubTool={setRoomSubTool}
+          autoMergeRooms={autoMergeRooms}
+          setAutoMergeRooms={setAutoMergeRooms}
           onMergeRooms={mergeRoomsHandlerRef.current || undefined}
           onMergeWalls={mergeWallsHandlerRef.current || undefined}
           onCenterElement={handleCenterElement}

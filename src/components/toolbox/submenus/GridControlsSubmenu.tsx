@@ -45,14 +45,14 @@ const GridControlsSubmenu = ({
           </div>
           <input
             type="range"
-            min="20"
+            min="5"
             max="500"
-            step="10"
+            step="5"
             value={gridSize}
             onChange={(e) => onGridSizeChange(parseInt(e.target.value))}
             className="w-full h-2 bg-dm-dark rounded-lg appearance-none cursor-pointer slider"
             style={{
-              background: `linear-gradient(to right, #8b5cf6 0%, #8b5cf6 ${((gridSize - 20) / 480) * 100}%, #1f2937 ${((gridSize - 20) / 480) * 100}%, #1f2937 100%)`
+              background: `linear-gradient(to right, #8b5cf6 0%, #8b5cf6 ${((gridSize - 5) / 495) * 100}%, #1f2937 ${((gridSize - 5) / 495) * 100}%, #1f2937 100%)`
             }}
           />
         </div>

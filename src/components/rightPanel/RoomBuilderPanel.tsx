@@ -23,6 +23,8 @@ interface RoomBuilderPanelProps {
   setActiveTool: (tool: ToolType) => void;
   roomSubTool: RoomSubTool;
   setRoomSubTool: (subTool: RoomSubTool) => void;
+  autoMergeRooms?: boolean;
+  setAutoMergeRooms?: (value: boolean) => void;
   onMergeRooms?: () => void;
   onMergeWalls?: () => void;
   selectedTerrainBrush: string | null;
@@ -64,6 +66,8 @@ const RoomBuilderPanel = ({
   setActiveTool,
   roomSubTool,
   setRoomSubTool,
+  autoMergeRooms = false,
+  setAutoMergeRooms,
   // onMergeRooms,
   // onMergeWalls,
   selectedTerrainBrush,
@@ -422,6 +426,52 @@ const RoomBuilderPanel = ({
                   </svg>
                 </button>
               </div>
+              
+              {/* Disable Auto-merge checkbox - own row */}
+              <label 
+                className="flex items-center gap-2 cursor-pointer text-xs text-gray-400 hover:text-gray-300 mt-2 mb-1"
+                title="When checked, overlapping rooms will NOT automatically merge"
+              >
+                <div 
+                  className={`w-4 h-4 rounded border flex items-center justify-center transition-all cursor-pointer ${
+                    !autoMergeRooms
+                      ? 'bg-amber-500/20 border-amber-500'
+                      : 'bg-dm-dark border-dm-border hover:border-dm-highlight'
+                  }`}
+                  onClick={() => setAutoMergeRooms?.(!autoMergeRooms)}
+                >
+                  {!autoMergeRooms && (
+                    <svg className="w-3 h-3 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3">
+                      <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  )}
+                </div>
+                <span>Disable auto-merge</span>
+              </label>
+
+              {/* Corner Radius slider */}
+              <div className="mt-3">
+                <label className="text-xs text-gray-400 mb-2 block">Corner Radius</label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="range"
+                    min="0"
+                    max="20"
+                    value={selectedRoom?.cornerRadius ?? 8}
+                    onChange={(e) => {
+                      if (selectedRoom) {
+                        updateElement(selectedRoom.id, { cornerRadius: Number(e.target.value) });
+                      }
+                    }}
+                    className="flex-1 h-2 bg-dm-dark rounded-lg appearance-none cursor-pointer slider"
+                    style={{
+                      background: `linear-gradient(to right, #8b5cf6 0%, #8b5cf6 ${((selectedRoom?.cornerRadius ?? 8) / 20) * 100}%, #1f2937 ${((selectedRoom?.cornerRadius ?? 8) / 20) * 100}%, #1f2937 100%)`
+                    }}
+                    disabled={!selectedRoom}
+                  />
+                  <span className="text-sm text-gray-400 w-10 text-right">{selectedRoom?.cornerRadius ?? 8}px</span>
+                </div>
+              </div>
             </div>
 
             {/* Wall Texture and Thickness */}
@@ -484,21 +534,14 @@ const RoomBuilderPanel = ({
                     type="range"
                     min="10"
                     max="200"
-                    value={wallTileSize}
-                    onChange={(e) => {
-                      const newSize = Number(e.target.value);
-                      onWallTileSizeChange(newSize);
-                      // Update selected room if one exists
-                      if (selectedRoom) {
-                        updateElement(selectedRoom.id, { wallTileSize: newSize });
-                      }
-                    }}
+                    value={currentWallTileSize}
+                    onChange={(e) => handleWallTileSizeChange(Number(e.target.value))}
                     className="flex-1 h-2 bg-dm-dark rounded-lg appearance-none cursor-pointer slider"
                     style={{
-                      background: `linear-gradient(to right, #8b5cf6 0%, #8b5cf6 ${((wallTileSize - 10) / 190) * 100}%, #1f2937 ${((wallTileSize - 10) / 190) * 100}%, #1f2937 100%)`
+                      background: `linear-gradient(to right, #8b5cf6 0%, #8b5cf6 ${((currentWallTileSize - 10) / 190) * 100}%, #1f2937 ${((currentWallTileSize - 10) / 190) * 100}%, #1f2937 100%)`
                     }}
                   />
-                  <span className="text-sm text-gray-400 w-12 text-right">{wallTileSize}px</span>
+                  <span className="text-sm text-gray-400 w-12 text-right">{currentWallTileSize}px</span>
                 </div>
               </div>
 
@@ -509,12 +552,12 @@ const RoomBuilderPanel = ({
                   <input
                     type="range"
                     min="4"
-                    max="30"
+                    max="100"
                     value={currentWallThickness}
                     onChange={(e) => handleWallThicknessChange(Number(e.target.value))}
                     className="flex-1 h-2 bg-dm-dark rounded-lg appearance-none cursor-pointer slider"
                     style={{
-                      background: `linear-gradient(to right, #8b5cf6 0%, #8b5cf6 ${((currentWallThickness - 4) / 26) * 100}%, #1f2937 ${((currentWallThickness - 4) / 26) * 100}%, #1f2937 100%)`
+                      background: `linear-gradient(to right, #8b5cf6 0%, #8b5cf6 ${((currentWallThickness - 4) / 96) * 100}%, #1f2937 ${((currentWallThickness - 4) / 96) * 100}%, #1f2937 100%)`
                     }}
                   />
                   <span className="text-sm text-gray-400 w-10 text-right">{currentWallThickness}px</span>
@@ -840,41 +883,41 @@ const RoomBuilderPanel = ({
                 </div>
             </div>
 
+            {/* Wall Tile Size Slider */}
+            <div className="mb-4">
+              <label className="block text-xs text-gray-400 mb-2">Wall Tile Size</label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="range"
+                  min="10"
+                  max="200"
+                  value={currentWallTileSize}
+                  onChange={(e) => handleWallTileSizeChange(Number(e.target.value))}
+                  className="flex-1 h-2 bg-dm-dark rounded-lg appearance-none cursor-pointer slider"
+                  style={{
+                    background: `linear-gradient(to right, #8b5cf6 0%, #8b5cf6 ${((currentWallTileSize - 10) / 190) * 100}%, #1f2937 ${((currentWallTileSize - 10) / 190) * 100}%, #1f2937 100%)`
+                  }}
+                />
+                <span className="text-sm text-gray-400 w-12 text-right">{currentWallTileSize}px</span>
+              </div>
+            </div>
+
             {/* Wall Thickness Slider */}
             <div className="mb-4">
               <label className="block text-xs text-gray-400 mb-2">Wall Thickness</label>
               <div className="flex items-center gap-3">
                 <input
                   type="range"
-                  min="10"
+                  min="4"
                   max="100"
                   value={currentWallThickness}
                   onChange={(e) => handleWallThicknessChange(Number(e.target.value))}
                   className="flex-1 h-2 bg-dm-dark rounded-lg appearance-none cursor-pointer slider"
                   style={{
-                    background: `linear-gradient(to right, #8b5cf6 0%, #8b5cf6 ${((currentWallThickness - 10) / 90) * 100}%, #1f2937 ${((currentWallThickness - 10) / 90) * 100}%, #1f2937 100%)`
+                    background: `linear-gradient(to right, #8b5cf6 0%, #8b5cf6 ${((currentWallThickness - 4) / 96) * 100}%, #1f2937 ${((currentWallThickness - 4) / 96) * 100}%, #1f2937 100%)`
                   }}
                 />
                 <span className="text-sm text-gray-400 w-12 text-right">{currentWallThickness}px</span>
-              </div>
-            </div>
-
-            {/* Wall Tile Size Slider */}
-            <div className="mb-4">
-              <label className="block text-xs text-gray-400 mb-2">Texture Tile Size</label>
-              <div className="flex items-center gap-3">
-                <input
-                  type="range"
-                  min="50"
-                  max="300"
-                  value={currentWallTileSize}
-                  onChange={(e) => handleWallTileSizeChange(Number(e.target.value))}
-                  className="flex-1 h-2 bg-dm-dark rounded-lg appearance-none cursor-pointer slider"
-                  style={{
-                    background: `linear-gradient(to right, #8b5cf6 0%, #8b5cf6 ${((currentWallTileSize - 50) / 250) * 100}%, #1f2937 ${((currentWallTileSize - 50) / 250) * 100}%, #1f2937 100%)`
-                  }}
-                />
-                <span className="text-sm text-gray-400 w-12 text-right">{currentWallTileSize}px</span>
               </div>
             </div>
           </div>

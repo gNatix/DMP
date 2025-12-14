@@ -27,6 +27,8 @@ export const roomButtonConfig: ToolButtonConfig = {
 interface RoomButtonPropsExtended extends ToolButtonProps {
   roomSubTool: RoomSubTool;
   setRoomSubTool: (tool: RoomSubTool) => void;
+  autoMergeRooms?: boolean;
+  setAutoMergeRooms?: (value: boolean) => void;
   // Central submenu system props
   openSubmenuId: string | null;
   submenuOpenedBy: 'click' | 'shortcut' | 'hover' | null;
@@ -45,6 +47,8 @@ const RoomButton = ({
   setActiveTool,
   roomSubTool,
   setRoomSubTool,
+  autoMergeRooms = false,
+  setAutoMergeRooms,
   openSubmenuId,
   submenuOpenedBy,
   onOpenSubmenu,
@@ -161,6 +165,8 @@ const RoomButton = ({
             roomSubTool={roomSubTool}
             setRoomSubTool={handleSelectRoom}
             setActiveTool={setActiveTool}
+            autoMergeRooms={autoMergeRooms}
+            setAutoMergeRooms={setAutoMergeRooms}
           />
         </div>
       )}

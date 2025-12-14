@@ -4,6 +4,8 @@ interface RoomSubToolPickerProps {
   roomSubTool: RoomSubTool;
   setRoomSubTool: (tool: RoomSubTool) => void;
   setActiveTool: (tool: 'room') => void;
+  autoMergeRooms?: boolean;
+  setAutoMergeRooms?: (value: boolean) => void;
   onMouseLeave?: () => void;
   onWheel?: (e: React.WheelEvent) => void;
 }
@@ -12,6 +14,8 @@ const RoomSubToolPicker = ({
   roomSubTool, 
   setRoomSubTool,
   setActiveTool,
+  autoMergeRooms = false,
+  setAutoMergeRooms,
   onMouseLeave,
   onWheel
 }: RoomSubToolPickerProps) => {
@@ -187,6 +191,30 @@ const RoomSubToolPicker = ({
               <circle cx="20" cy="12" r="1.5" fill="currentColor"/>
             </svg>
           </button>
+        </div>
+        
+        {/* Disable Auto-merge checkbox */}
+        <div className="flex items-center gap-2 mt-2 pt-2 border-t border-dm-border">
+          <label 
+            className="flex items-center gap-2 cursor-pointer text-xs text-gray-400 hover:text-gray-300"
+            title="When checked, overlapping rooms will NOT automatically merge"
+          >
+            <div 
+              className={`w-4 h-4 rounded border flex items-center justify-center transition-all cursor-pointer ${
+                !autoMergeRooms
+                  ? 'bg-amber-500/20 border-amber-500'
+                  : 'bg-dm-dark border-dm-border hover:border-dm-highlight'
+              }`}
+              onClick={() => setAutoMergeRooms?.(!autoMergeRooms)}
+            >
+              {!autoMergeRooms && (
+                <svg className="w-3 h-3 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3">
+                  <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              )}
+            </div>
+            <span>Disable auto-merge</span>
+          </label>
         </div>
       </div>
     </div>

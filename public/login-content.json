@@ -57,8 +57,6 @@
         "date": "2024-12-13",
         "changes": [
           "Added 185 creature tokens",
-          "Recursive subfolder loading for tokens",
-          "Dragons category added to monsters"
         ]
       },
       {

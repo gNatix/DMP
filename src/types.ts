@@ -104,6 +104,7 @@ export interface RoomElement {
   wallThickness: number; // Thickness of walls in pixels (default 8)
   wallTileSize: number; // Size of the wall texture tiles in pixels (default 50)
   rotation?: number; // Rotation angle in degrees (default 0)
+  cornerRadius?: number; // Corner radius in pixels (default 8, 0 = sharp corners)
   
   // Metadata
   name: string;

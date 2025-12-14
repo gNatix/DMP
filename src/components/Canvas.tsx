@@ -4,6 +4,113 @@ import { Circle, Square, Triangle, Star, Diamond, Heart, Skull, MapPin, Search, 
 import Toolbox from './toolbox/Toolbox';
 import polygonClipping from 'polygon-clipping';
 
+// Helper function to create rounded polygon path (for room shapes)
+// Uses quadratic bezier curves at corners for smooth rounding
+const createRoundedPolygonPath = (vertices: { x: number; y: number }[], cornerRadius: number = 8): string => {
+  if (!vertices || vertices.length < 3) return '';
+  
+  // Filter out any invalid vertices and check for NaN
+  const validVertices = vertices.filter(v => 
+    v && typeof v.x === 'number' && typeof v.y === 'number' && 
+    !isNaN(v.x) && !isNaN(v.y) && isFinite(v.x) && isFinite(v.y)
+  );
+  
+  if (validVertices.length < 3) {
+    // Fallback to simple polygon path if not enough valid vertices
+    return vertices.map((v, i) => 
+      `${i === 0 ? 'M' : 'L'} ${v?.x || 0},${v?.y || 0}`
+    ).join(' ') + ' Z';
+  }
+  
+  const n = validVertices.length;
+  let path = '';
+  
+  for (let i = 0; i < n; i++) {
+    const prev = validVertices[(i - 1 + n) % n];
+    const curr = validVertices[i];
+    const next = validVertices[(i + 1) % n];
+    
+    // Calculate vectors to previous and next vertices
+    const toPrev = { x: prev.x - curr.x, y: prev.y - curr.y };
+    const toNext = { x: next.x - curr.x, y: next.y - curr.y };
+    
+    // Calculate distances
+    const distToPrev = Math.sqrt(toPrev.x * toPrev.x + toPrev.y * toPrev.y);
+    const distToNext = Math.sqrt(toNext.x * toNext.x + toNext.y * toNext.y);
+    
+    // Skip if distances are too small (would cause NaN)
+    if (distToPrev < 0.001 || distToNext < 0.001) {
+      if (i === 0) {
+        path = `M ${curr.x},${curr.y}`;
+      } else {
+        path += ` L ${curr.x},${curr.y}`;
+      }
+      continue;
+    }
+    
+    // Limit radius to half the shortest edge
+    const maxRadius = Math.min(distToPrev, distToNext) / 2;
+    const radius = Math.min(cornerRadius, maxRadius);
+    
+    // Calculate points where the curve starts and ends
+    const startPoint = {
+      x: curr.x + (toPrev.x / distToPrev) * radius,
+      y: curr.y + (toPrev.y / distToPrev) * radius
+    };
+    const endPoint = {
+      x: curr.x + (toNext.x / distToNext) * radius,
+      y: curr.y + (toNext.y / distToNext) * radius
+    };
+    
+    // Validate calculated points
+    if (isNaN(startPoint.x) || isNaN(startPoint.y) || isNaN(endPoint.x) || isNaN(endPoint.y)) {
+      if (i === 0) {
+        path = `M ${curr.x},${curr.y}`;
+      } else {
+        path += ` L ${curr.x},${curr.y}`;
+      }
+      continue;
+    }
+    
+    if (i === 0) {
+      // Move to start point of first corner
+      path = `M ${startPoint.x},${startPoint.y}`;
+    } else {
+      // Line to start of this corner
+      path += ` L ${startPoint.x},${startPoint.y}`;
+    }
+    
+    // Quadratic bezier curve through the corner point
+    path += ` Q ${curr.x},${curr.y} ${endPoint.x},${endPoint.y}`;
+  }
+  
+  // Close the path with a line to the start
+  path += ' Z';
+  
+  return path;
+};
+
+// Helper function to check if two line segments intersect
+const segmentsIntersect = (
+  a1: { x: number; y: number },
+  a2: { x: number; y: number },
+  b1: { x: number; y: number },
+  b2: { x: number; y: number }
+): boolean => {
+  const d1x = a2.x - a1.x;
+  const d1y = a2.y - a1.y;
+  const d2x = b2.x - b1.x;
+  const d2y = b2.y - b1.y;
+  
+  const cross = d1x * d2y - d1y * d2x;
+  if (Math.abs(cross) < 1e-10) return false; // parallel
+  
+  const t = ((b1.x - a1.x) * d2y - (b1.y - a1.y) * d2x) / cross;
+  const u = ((b1.x - a1.x) * d1y - (b1.y - a1.y) * d1x) / cross;
+  
+  return t >= 0 && t <= 1 && u >= 0 && u <= 1;
+};
+
 interface CanvasProps {
   scene: Scene | null;
   viewMode: ViewMode;
@@ -42,6 +149,8 @@ interface CanvasProps {
   wallTileSize: number;
   roomSubTool: RoomSubTool;
   setRoomSubTool: (subTool: RoomSubTool) => void;
+  autoMergeRooms?: boolean;
+  setAutoMergeRooms?: (value: boolean) => void;
   onMergeRooms?: (handler: () => void) => void;
   onMergeWalls?: (handler: () => void) => void;
   onCenterElementReady?: (centerFn: (elementId: string) => void) => void;
@@ -117,6 +226,8 @@ const Canvas = ({
   wallTileSize,
   roomSubTool,
   setRoomSubTool,
+  autoMergeRooms = false,
+  setAutoMergeRooms,
   onMergeRooms,
   onMergeWalls,
   onCenterElementReady,
@@ -188,7 +299,7 @@ const Canvas = ({
   const [wallLineStart, setWallLineStart] = useState<{ x: number; y: number } | null>(null);
   const [wallLinePreview, setWallLinePreview] = useState<{ x: number; y: number } | null>(null);
   const [showGrid, setShowGrid] = useState(false);
-  const [gridSize, setGridSize] = useState(50);
+  const [gridSize, setGridSize] = useState(20);
   const [showTokenSubmenuForShift, setShowTokenSubmenuForShift] = useState(false);
   const [showTerrainSubmenuForT, setShowTerrainSubmenuForT] = useState(false);
   const [showGridSubmenuForG, setShowGridSubmenuForG] = useState(false);
@@ -4458,37 +4569,80 @@ const Canvas = ({
           { x: minX, y: maxY }
         ];
       } else {
-        // For polygons: inscribe inside SQUARE bounding box for regular shapes
-        // Compute drag bounds - roomDrawStart is anchor corner
-        const left = Math.min(roomDrawStart.x, x);
-        const top = Math.min(roomDrawStart.y, y);
-        const right = Math.max(roomDrawStart.x, x);
-        const bottom = Math.max(roomDrawStart.y, y);
-        const boxWidth = right - left;
-        const boxHeight = bottom - top;
-        
-        // Force square: use the smaller dimension for both width and height
-        const size = Math.min(boxWidth, boxHeight);
-        
-        // Adjust box to be square, keeping the anchor corner (roomDrawStart) fixed
-        const squareRight = roomDrawStart.x + (x >= roomDrawStart.x ? size : 0);
-        const squareLeft = roomDrawStart.x + (x >= roomDrawStart.x ? 0 : -size);
-        const squareBottom = roomDrawStart.y + (y >= roomDrawStart.y ? size : 0);
-        const squareTop = roomDrawStart.y + (y >= roomDrawStart.y ? 0 : -size);
-        
-        // Center and radius for inscribed polygon in the SQUARE
-        const centerX = (squareLeft + squareRight) / 2;
-        const centerY = (squareTop + squareBottom) / 2;
-        const radius = size / 2;
+        // For polygons: the left-most (top-left if tied) vertex is locked to roomDrawStart
+        // The polygon expands diagonally from that vertex as you drag
         
         let numSides = 5;
         if (baseShape === 'hexagon') numSides = 6;
         else if (baseShape === 'octagon') numSides = 8;
         
-        // Generate polygon vertices around center - already in world coordinates
-        vertices = [];
+        // Calculate radius based on diagonal distance to mouse
+        const dragDistanceX = Math.abs(x - roomDrawStart.x);
+        const dragDistanceY = Math.abs(y - roomDrawStart.y);
+        const radius = Math.max(dragDistanceX, dragDistanceY) / 2;
+        
+        // Determine expansion direction
+        const expandRight = x >= roomDrawStart.x;
+        const expandDown = y >= roomDrawStart.y;
+        
+        // Generate initial vertices around origin to find the left-top vertex
+        const tempVertices: { x: number; y: number; angle: number }[] = [];
         for (let i = 0; i < numSides; i++) {
           const angle = (i * 2 * Math.PI / numSides) - Math.PI / 2; // Start from top
+          tempVertices.push({
+            x: Math.cos(angle),
+            y: Math.sin(angle),
+            angle
+          });
+        }
+        
+        // Find left-most vertex (smallest x), if tied pick top-most (smallest y)
+        // Special case for octagon: use the vertex to the left of the top vertex
+        let anchorIdx = 0;
+        if (baseShape === 'octagon') {
+          // For octagon: vertex 0 is top, vertex 7 is top-left (first to the left of top)
+          anchorIdx = numSides - 1; // Top-left vertex
+        } else {
+          // For pentagon/hexagon: find left-most (top-most if tied)
+          for (let i = 1; i < tempVertices.length; i++) {
+            const curr = tempVertices[i];
+            const best = tempVertices[anchorIdx];
+            if (curr.x < best.x - 0.001 || (Math.abs(curr.x - best.x) < 0.001 && curr.y < best.y)) {
+              anchorIdx = i;
+            }
+          }
+        }
+        
+        // The anchor vertex offset from center (normalized)
+        const anchorOffsetX = tempVertices[anchorIdx].x;
+        const anchorOffsetY = tempVertices[anchorIdx].y;
+        
+        // Calculate center position so that the anchor vertex lands at roomDrawStart
+        // when expanding right+down, or at the opposite corner when expanding other directions
+        let centerX: number, centerY: number;
+        
+        if (expandRight && expandDown) {
+          // Anchor is top-left corner, polygon expands to bottom-right
+          centerX = roomDrawStart.x - anchorOffsetX * radius;
+          centerY = roomDrawStart.y - anchorOffsetY * radius;
+        } else if (!expandRight && expandDown) {
+          // Anchor is top-right corner, polygon expands to bottom-left
+          centerX = roomDrawStart.x + anchorOffsetX * radius;
+          centerY = roomDrawStart.y - anchorOffsetY * radius;
+        } else if (expandRight && !expandDown) {
+          // Anchor is bottom-left corner, polygon expands to top-right
+          centerX = roomDrawStart.x - anchorOffsetX * radius;
+          centerY = roomDrawStart.y + anchorOffsetY * radius;
+        } else {
+          // Anchor is bottom-right corner, polygon expands to top-left
+          centerX = roomDrawStart.x + anchorOffsetX * radius;
+          centerY = roomDrawStart.y + anchorOffsetY * radius;
+        }
+        
+        // Generate final vertices around the calculated center
+        vertices = [];
+        for (let i = 0; i < numSides; i++) {
+          const angle = (i * 2 * Math.PI / numSides) - Math.PI / 2;
           vertices.push({
             x: centerX + radius * Math.cos(angle),
             y: centerY + radius * Math.sin(angle)
@@ -4496,10 +4650,13 @@ const Canvas = ({
         }
         
         console.log('[POLYGON]', {
-          dragBox: `(${left.toFixed(0)},${top.toFixed(0)}) to (${right.toFixed(0)},${bottom.toFixed(0)})`,
-          squareBox: `(${squareLeft.toFixed(0)},${squareTop.toFixed(0)}) to (${squareRight.toFixed(0)},${squareBottom.toFixed(0)})`,
+          anchor: `(${roomDrawStart.x.toFixed(0)},${roomDrawStart.y.toFixed(0)})`,
+          mouse: `(${x.toFixed(0)},${y.toFixed(0)})`,
           center: `(${centerX.toFixed(0)},${centerY.toFixed(0)})`,
-          radius: radius.toFixed(0)
+          radius: radius.toFixed(0),
+          expandRight,
+          expandDown,
+          anchorIdx
         });
       }
       
@@ -4780,11 +4937,59 @@ const Canvas = ({
 
       const selected = scene.elements.filter(element => {
         if (element.type === 'room' && element.vertices) {
-          const xs = element.vertices.map(v => v.x);
-          const ys = element.vertices.map(v => v.y);
-          const centerX = (Math.min(...xs) + Math.max(...xs)) / 2;
-          const centerY = (Math.min(...ys) + Math.max(...ys)) / 2;
-          return centerX >= minX && centerX <= maxX && centerY >= minY && centerY <= maxY;
+          const room = element as RoomElement;
+          
+          // Get room bounding box (including wall thickness if applicable)
+          const xs = room.vertices.map(v => v.x);
+          const ys = room.vertices.map(v => v.y);
+          const wallOffset = room.showWalls ? (room.wallThickness || 0) / 2 : 0;
+          const roomMinX = Math.min(...xs) - wallOffset;
+          const roomMaxX = Math.max(...xs) + wallOffset;
+          const roomMinY = Math.min(...ys) - wallOffset;
+          const roomMaxY = Math.max(...ys) + wallOffset;
+          
+          // First check: do bounding boxes overlap at all?
+          const boxesOverlap = !(roomMaxX < minX || roomMinX > maxX || roomMaxY < minY || roomMinY > maxY);
+          if (!boxesOverlap) return false;
+          
+          // Check if any corner of selection box is inside the room (but not in a hole)
+          const selectionCorners = [
+            { x: minX, y: minY },
+            { x: maxX, y: minY },
+            { x: maxX, y: maxY },
+            { x: minX, y: maxY }
+          ];
+          const hasCornerInsideRoom = selectionCorners.some(corner => {
+            const inOuter = pointInPolygon(corner, room.vertices!);
+            const inHole = room.holes?.some(hole => pointInPolygon(corner, hole)) ?? false;
+            return inOuter && !inHole;
+          });
+          if (hasCornerInsideRoom) return true;
+          
+          // Check if any vertex of the room is inside selection box
+          const hasVertexInside = room.vertices.some(v => 
+            v.x >= minX && v.x <= maxX && v.y >= minY && v.y <= maxY
+          );
+          if (hasVertexInside) return true;
+          
+          // Check edge intersections between selection box and room polygon
+          const selectionEdges = [
+            [selectionCorners[0], selectionCorners[1]],
+            [selectionCorners[1], selectionCorners[2]],
+            [selectionCorners[2], selectionCorners[3]],
+            [selectionCorners[3], selectionCorners[0]]
+          ];
+          for (let i = 0; i < room.vertices.length; i++) {
+            const v1 = room.vertices[i];
+            const v2 = room.vertices[(i + 1) % room.vertices.length];
+            for (const [s1, s2] of selectionEdges) {
+              if (segmentsIntersect(v1, v2, s1, s2)) {
+                return true;
+              }
+            }
+          }
+          
+          return false;
         } else if (element.type === 'wall' && element.vertices) {
           const xs = element.vertices.map(v => v.x);
           const ys = element.vertices.map(v => v.y);
@@ -4931,13 +5136,209 @@ const Canvas = ({
             if (activeSceneId && (roomsToDelete.size > 0 || newRooms.length > 0)) {
               const updatedElements = scene.elements.filter(el => !roomsToDelete.has(el.id));
               updatedElements.push(...newRooms);
+              
+              // Save to history with the new state
+              const newHistoryEntry = {
+                elements: updatedElements,
+                terrainTiles: (() => {
+                  const tilesObj: { [key: string]: TerrainTile } = {};
+                  terrainTiles.forEach((tile, key) => {
+                    tilesObj[key] = tile;
+                  });
+                  return tilesObj;
+                })()
+              };
+              setHistory(prev => [...prev.slice(0, historyIndex + 1), newHistoryEntry]);
+              setHistoryIndex(prev => prev + 1);
+              
               updateScene(activeSceneId, { elements: updatedElements });
             }
           }
         } else {
-          // Normal room creation
-          const finalRoom = { ...tempRoom, id: `room-${Date.now()}`, tileSize, showWalls, wallTextureUrl: selectedWallTexture || '', wallThickness };
+          // Normal room creation (with optional auto-merge)
+          const finalRoom: RoomElement = { 
+            ...tempRoom, 
+            id: `room-${Date.now()}`, 
+            floorTextureUrl: selectedFloorTexture || tempRoom.floorTextureUrl,
+            tileSize, 
+            showWalls, 
+            wallTextureUrl: selectedWallTexture || '', 
+            wallThickness,
+            wallTileSize
+          };
           
+          // Check if auto-merge is enabled and find overlapping rooms
+          if (autoMergeRooms && scene) {
+            const newVertices = finalRoom.vertices;
+            
+            // Helper function to get rotated vertices for a room
+            const getRotatedVertices = (room: RoomElement): Point[] => {
+              if (!room.rotation || room.rotation === 0) return room.vertices;
+              
+              const xs = room.vertices.map(v => v.x);
+              const ys = room.vertices.map(v => v.y);
+              const centerX = (Math.min(...xs) + Math.max(...xs)) / 2;
+              const centerY = (Math.min(...ys) + Math.max(...ys)) / 2;
+              const radians = (room.rotation * Math.PI) / 180;
+              const cos = Math.cos(radians);
+              const sin = Math.sin(radians);
+              
+              return room.vertices.map(v => ({
+                x: centerX + (v.x - centerX) * cos - (v.y - centerY) * sin,
+                y: centerY + (v.x - centerX) * sin + (v.y - centerY) * cos
+              }));
+            };
+            
+            // Find rooms that overlap with the new room (using rotated vertices)
+            const overlappingRooms = scene.elements.filter(el => {
+              if (el.type !== 'room' || !el.vertices) return false;
+              
+              const roomEl = el as RoomElement;
+              
+              // Get the actual rotated vertices of the existing room
+              const existingVertices = getRotatedVertices(roomEl);
+              
+              // Check if ALL vertices of new room are inside a hole of existing room
+              // If so, this is a new room INSIDE a hole, don't merge
+              if (roomEl.holes && roomEl.holes.length > 0) {
+                for (const hole of roomEl.holes) {
+                  const allInHole = newVertices.every(v => pointInPolygon(v, hole));
+                  if (allInHole) {
+                    return false; // Don't merge - new room is inside this hole
+                  }
+                }
+              }
+              
+              // Check if any vertex of new room is inside existing room (rotated)
+              const hasVertexInside = newVertices.some(v => pointInPolygon(v, existingVertices));
+              
+              // Check if any vertex of existing room (rotated) is inside new room
+              const hasExistingVertexInside = existingVertices.some(v => pointInPolygon(v, newVertices));
+              
+              // Check for edge intersections using rotated vertices
+              let hasEdgeIntersection = false;
+              for (let i = 0; i < newVertices.length && !hasEdgeIntersection; i++) {
+                const a1 = newVertices[i];
+                const a2 = newVertices[(i + 1) % newVertices.length];
+                for (let j = 0; j < existingVertices.length; j++) {
+                  const b1 = existingVertices[j];
+                  const b2 = existingVertices[(j + 1) % existingVertices.length];
+                  if (segmentsIntersect(a1, a2, b1, b2)) {
+                    hasEdgeIntersection = true;
+                    break;
+                  }
+                }
+              }
+              
+              return hasVertexInside || hasExistingVertexInside || hasEdgeIntersection;
+            }) as RoomElement[];
+            
+            if (overlappingRooms.length > 0) {
+              // Use polygon-clipping to merge rooms
+              try {
+                const polygonClipping = await import('polygon-clipping');
+                
+                // Start with the new room polygon
+                let mergedPoly: [number, number][][] = [newVertices.map(v => [v.x, v.y])];
+                
+                // Union with each overlapping room (using rotated vertices)
+                for (const room of overlappingRooms) {
+                  if (!room.vertices) continue;
+                  
+                  // Use rotated vertices for merging
+                  const rotatedVertices = getRotatedVertices(room);
+                  const roomPoly: [number, number][][] = [rotatedVertices.map(v => [v.x, v.y])];
+                  
+                  // Also rotate holes if present
+                  if (room.holes && room.holes.length > 0) {
+                    const rotatedHoles = room.holes.map(hole => {
+                      if (!room.rotation || room.rotation === 0) return hole;
+                      
+                      const xs = room.vertices.map(v => v.x);
+                      const ys = room.vertices.map(v => v.y);
+                      const centerX = (Math.min(...xs) + Math.max(...xs)) / 2;
+                      const centerY = (Math.min(...ys) + Math.max(...ys)) / 2;
+                      const radians = (room.rotation * Math.PI) / 180;
+                      const cos = Math.cos(radians);
+                      const sin = Math.sin(radians);
+                      
+                      return hole.map(v => ({
+                        x: centerX + (v.x - centerX) * cos - (v.y - centerY) * sin,
+                        y: centerY + (v.x - centerX) * sin + (v.y - centerY) * cos
+                      }));
+                    });
+                    roomPoly.push(...rotatedHoles.map(hole => hole.map(v => [v.x, v.y] as [number, number])));
+                  }
+                  
+                  const result = polygonClipping.default.union([mergedPoly], [roomPoly]);
+                  
+                  if (result.length > 0 && result[0].length > 0) {
+                    mergedPoly = result[0];
+                  }
+                }
+                
+                // Create merged room with properties from the first overlapping room (or new room)
+                const baseRoom = overlappingRooms[0] || finalRoom;
+                const outerRing = mergedPoly[0].map(([x, y]) => ({ x, y }));
+                const holes = mergedPoly.slice(1).map(ring => 
+                  ring.map(([x, y]) => ({ x, y }))
+                );
+                
+                const mergedRoom: RoomElement = {
+                  ...baseRoom,
+                  id: overlappingRooms[0]?.id || finalRoom.id,
+                  vertices: outerRing,
+                  holes: holes.length > 0 ? holes : undefined,
+                  rotation: 0, // Reset rotation - merged vertices are already in final position
+                  // Preserve texture properties from the base room, or use new room settings
+                  floorTextureUrl: baseRoom.floorTextureUrl || finalRoom.floorTextureUrl,
+                  tileSize: baseRoom.tileSize || finalRoom.tileSize,
+                  showWalls: baseRoom.showWalls !== undefined ? baseRoom.showWalls : finalRoom.showWalls,
+                  wallTextureUrl: baseRoom.wallTextureUrl || finalRoom.wallTextureUrl,
+                  wallThickness: baseRoom.wallThickness || finalRoom.wallThickness,
+                  wallTileSize: baseRoom.wallTileSize || finalRoom.wallTileSize,
+                  cornerRadius: baseRoom.cornerRadius ?? finalRoom.cornerRadius ?? 8,
+                };
+                
+                // Update scene: remove old overlapping rooms and add merged room
+                const roomIdsToRemove = new Set(overlappingRooms.map(r => r.id));
+                const updatedElements = scene.elements.filter(el => !roomIdsToRemove.has(el.id));
+                updatedElements.push(mergedRoom);
+                
+                // Save to history with the new merged state
+                const newHistoryEntry = {
+                  elements: updatedElements,
+                  terrainTiles: (() => {
+                    const tilesObj: { [key: string]: TerrainTile } = {};
+                    terrainTiles.forEach((tile, key) => {
+                      tilesObj[key] = tile;
+                    });
+                    return tilesObj;
+                  })()
+                };
+                setHistory(prev => [...prev.slice(0, historyIndex + 1), newHistoryEntry]);
+                setHistoryIndex(prev => prev + 1);
+                
+                if (activeSceneId) {
+                  updateScene(activeSceneId, { elements: updatedElements });
+                }
+                
+                setSelectedElementId(mergedRoom.id);
+                setSelectedElementIds([]);
+                setMergeNotification(`Merged ${overlappingRooms.length + 1} rooms`);
+                setTimeout(() => setMergeNotification(null), 2000);
+                
+                setRoomDrawStart(null);
+                setTempRoom(null);
+                return;
+              } catch (error) {
+                console.error('Auto-merge failed:', error);
+                // Fall through to normal room creation
+              }
+            }
+          }
+          
+          // Normal room creation (no merge or merge failed)
           // Save history AFTER adding element
           if (scene) {
             const newElements = [...scene.elements, finalRoom];
@@ -5136,8 +5537,45 @@ const Canvas = ({
       // Handle room elements (polygon-based) - for selection only
       if (element.type === 'room') {
         const room = element as RoomElement;
-        if (room.vertices && pointInPolygon({ x, y }, room.vertices)) {
-          return element;
+        if (room.vertices) {
+          // First check if point is inside the room polygon
+          const isInsideOuter = pointInPolygon({ x, y }, room.vertices);
+          
+          // Check if point is inside any hole (should not select if in hole)
+          const isInsideHole = room.holes?.some(hole => pointInPolygon({ x, y }, hole)) ?? false;
+          
+          if (isInsideOuter && !isInsideHole) {
+            return element;
+          }
+          
+          // Also check if clicking on the wall area (outside polygon but within wall thickness)
+          if (room.showWalls && room.wallThickness > 0) {
+            // Check distance to any edge of the room
+            const threshold = room.wallThickness / 2 + 2;
+            for (let j = 0; j < room.vertices.length; j++) {
+              const v1 = room.vertices[j];
+              const v2 = room.vertices[(j + 1) % room.vertices.length];
+              
+              // Calculate distance from point to line segment
+              const dx = v2.x - v1.x;
+              const dy = v2.y - v1.y;
+              const lengthSquared = dx * dx + dy * dy;
+              
+              if (lengthSquared === 0) continue;
+              
+              const t = Math.max(0, Math.min(1, ((x - v1.x) * dx + (y - v1.y) * dy) / lengthSquared));
+              const projX = v1.x + t * dx;
+              const projY = v1.y + t * dy;
+              
+              const distX = x - projX;
+              const distY = y - projY;
+              const distance = Math.sqrt(distX * distX + distY * distY);
+              
+              if (distance <= threshold) {
+                return element;
+              }
+            }
+          }
         }
       } else if (element.type === 'wall') {
         // Handle wall elements - check if clicking near the wall line(s)
@@ -5642,46 +6080,51 @@ const Canvas = ({
                 ))}
             </div>
             
-            {/* Layer 4: GRID - Fixed size grid overlay (WORLD SPACE - inside transform container) */}
-            {showGrid && (
-              <svg
-                style={{
-                  position: 'absolute',
-                  left: 0,
-                  top: 0,
-                  width: '100%',
-                  height: '100%',
-                  pointerEvents: 'none',
-                  opacity: 0.3,
-                  zIndex: Z_GRID
-                }}
-              >
-                <defs>
-                  <pattern
-                    id="map-grid-pattern-inline"
-                    x={mapDimensions.padding}
-                    y={mapDimensions.padding}
-                    width={gridSize}
-                    height={gridSize}
-                    patternUnits="userSpaceOnUse"
-                  >
-                    <path
-                      d={`M ${gridSize} 0 L 0 0 0 ${gridSize}`}
-                      fill="none"
-                      stroke="rgba(255, 128, 0, 1)"
-                      strokeWidth="2"
-                    />
-                  </pattern>
-                </defs>
-                <rect
-                  x={0}
-                  y={0}
-                  width="100%"
-                  height="100%"
-                  fill="url(#map-grid-pattern-inline)"
-                />
-              </svg>
-            )}
+            {/* Layer 4: GRID - Fixed size grid overlay (WORLD SPACE - 50k x 50k like canvas mode) */}
+            {showGrid && (() => {
+              const gridWorldSize = 50000; // Same as canvas mode
+              const gridOffset = 25000; // Center the grid so map is in middle
+              
+              return (
+                <svg
+                  style={{
+                    position: 'absolute',
+                    left: -gridOffset + mapDimensions.padding,
+                    top: -gridOffset + mapDimensions.padding,
+                    width: gridWorldSize,
+                    height: gridWorldSize,
+                    pointerEvents: 'none',
+                    opacity: 0.3,
+                    zIndex: Z_GRID
+                  }}
+                >
+                  <defs>
+                    <pattern
+                      id="map-grid-pattern-inline"
+                      x={gridOffset}
+                      y={gridOffset}
+                      width={gridSize}
+                      height={gridSize}
+                      patternUnits="userSpaceOnUse"
+                    >
+                      <path
+                        d={`M ${gridSize} 0 L 0 0 0 ${gridSize}`}
+                        fill="none"
+                        stroke="rgba(255, 128, 0, 1)"
+                        strokeWidth="2"
+                      />
+                    </pattern>
+                  </defs>
+                  <rect
+                    x={0}
+                    y={0}
+                    width={gridWorldSize}
+                    height={gridWorldSize}
+                    fill="url(#map-grid-pattern-inline)"
+                  />
+                </svg>
+              );
+            })()}
 
             {/* Layer 5: WALLS & SELECTION - Room walls, selection, labels (ABOVE grid) */}
             <div style={{ position: 'relative', zIndex: Z_WALL }}>
@@ -5768,9 +6211,8 @@ const Canvas = ({
                 y: v.y - minY
               }));
               
-              const polygonPath = relativeVertices.map((v, i) => 
-                `${i === 0 ? 'M' : 'L'}${v.x},${v.y}`
-              ).join(' ') + ' Z';
+              // Use rounded corners for temp room preview
+              const polygonPath = createRoundedPolygonPath(relativeVertices, 8);
               
               // Calculate positioning - same for both canvas and maps
               const leftPos = viewport.x + minX * viewport.zoom;
@@ -6585,6 +7027,8 @@ const Canvas = ({
         onColorChange={onColorChange}
         roomSubTool={roomSubTool}
         setRoomSubTool={setRoomSubTool}
+        autoMergeRooms={autoMergeRooms}
+        setAutoMergeRooms={setAutoMergeRooms}
         selectedElementLocked={
           selectedElementId && scene
             ? (scene.elements.find(e => e.id === selectedElementId) as any)?.locked || false
@@ -7136,11 +7580,10 @@ const MapElementComponent = ({ element, isSelected, viewport, showTokenBadges, r
       y: v.y - minY
     }));
     
-    // Recreate polygon path with relative vertices
-    // Include holes if any - each hole is a separate subpath
-    const outerPath = relativeVertices.map((v, i) => 
-      `${i === 0 ? 'M' : 'L'}${v.x},${v.y}`
-    ).join(' ') + ' Z';
+    // Recreate polygon path with relative vertices and rounded corners
+    // Use room's cornerRadius setting (default 8px if undefined)
+    const cornerRadius = roomElement.cornerRadius ?? 8;
+    const outerPath = createRoundedPolygonPath(relativeVertices, cornerRadius);
     
     let relativePolygonPath = outerPath;
     
@@ -7151,9 +7594,7 @@ const MapElementComponent = ({ element, isSelected, viewport, showTokenBadges, r
           x: v.x - minX,
           y: v.y - minY
         }));
-        return relativeHole.map((v, i) => 
-          `${i === 0 ? 'M' : 'L'}${v.x},${v.y}`
-        ).join(' ') + ' Z';
+        return createRoundedPolygonPath(relativeHole, cornerRadius);
       });
       relativePolygonPath = outerPath + ' ' + holePaths.join(' ');
     }
@@ -7255,123 +7696,162 @@ const MapElementComponent = ({ element, isSelected, viewport, showTokenBadges, r
                 )}
               </defs>
               
-              {/* Walls - render each edge segment individually to support wallOpenings */}
-              {relativeVertices.map((v1, i) => {
-                const v2 = relativeVertices[(i + 1) % relativeVertices.length];
-                const wallOpening = roomElement.wallOpenings?.find(o => o.segmentIndex === i);
+              {/* Walls - use stroked path for rounded corners, with mask for openings */}
+              {(() => {
+                const hasOpenings = roomElement.wallOpenings && roomElement.wallOpenings.length > 0;
+                const strokeColor = element.wallTextureUrl === 'transparent' ? 'none' : (element.wallTextureUrl ? `url(#${wallPatternId})` : "rgba(100, 100, 100, 0.8)");
+                const maskId = `wall-mask-${element.id}`;
                 
-                if (!wallOpening) {
-                  // No opening - render full segment
+                if (!hasOpenings) {
+                  // No openings - simple stroked path with rounded corners
                   return (
-                    <line
-                      key={`wall-${i}`}
-                      x1={v1.x}
-                      y1={v1.y}
-                      x2={v2.x}
-                      y2={v2.y}
-                      stroke={element.wallTextureUrl === 'transparent' ? 'none' : (element.wallTextureUrl ? `url(#${wallPatternId})` : "rgba(100, 100, 100, 0.8)")}
+                    <path
+                      d={outerPath}
+                      fill="none"
+                      stroke={strokeColor}
                       strokeWidth={element.wallThickness}
-                      strokeLinecap="square"
+                      strokeLinejoin={cornerRadius > 0 ? "round" : "miter"}
+                      strokeLinecap={cornerRadius > 0 ? "round" : "butt"}
                     />
                   );
                 }
                 
-                // Has opening - render two segments (before and after opening)
-                const dx = v2.x - v1.x;
-                const dy = v2.y - v1.y;
-                
+                // Has openings - use mask to cut out the opening areas
                 return (
-                  <g key={`wall-${i}`}>
-                    {/* Segment before opening */}
-                    {wallOpening.startRatio > 0 && (
-                      <line
-                        x1={v1.x}
-                        y1={v1.y}
-                        x2={v1.x + dx * wallOpening.startRatio}
-                        y2={v1.y + dy * wallOpening.startRatio}
-                        stroke={element.wallTextureUrl === 'transparent' ? 'none' : (element.wallTextureUrl ? `url(#${wallPatternId})` : "rgba(100, 100, 100, 0.8)")}
-                        strokeWidth={element.wallThickness}
-                        strokeLinecap="square"
-                      />
-                    )}
-                    {/* Segment after opening */}
-                    {wallOpening.endRatio < 1 && (
-                      <line
-                        x1={v1.x + dx * wallOpening.endRatio}
-                        y1={v1.y + dy * wallOpening.endRatio}
-                        x2={v2.x}
-                        y2={v2.y}
-                        stroke={element.wallTextureUrl === 'transparent' ? 'none' : (element.wallTextureUrl ? `url(#${wallPatternId})` : "rgba(100, 100, 100, 0.8)")}
-                        strokeWidth={element.wallThickness}
-                        strokeLinecap="square"
-                      />
-                    )}
-                  </g>
+                  <>
+                    <defs>
+                      <mask id={maskId}>
+                        {/* White = visible, Black = hidden */}
+                        <rect x="-1000" y="-1000" width={width + 2000} height={height + 2000} fill="white" />
+                        {/* Cut out openings */}
+                        {roomElement.wallOpenings?.map((opening, idx) => {
+                          const v1 = relativeVertices[opening.segmentIndex];
+                          const v2 = relativeVertices[(opening.segmentIndex + 1) % relativeVertices.length];
+                          const dx = v2.x - v1.x;
+                          const dy = v2.y - v1.y;
+                          
+                          // Calculate the opening rectangle
+                          const startX = v1.x + dx * opening.startRatio;
+                          const startY = v1.y + dy * opening.startRatio;
+                          const endX = v1.x + dx * opening.endRatio;
+                          const endY = v1.y + dy * opening.endRatio;
+                          
+                          // Create a rectangle perpendicular to the wall segment
+                          const length = Math.sqrt(dx * dx + dy * dy);
+                          const perpX = -dy / length;
+                          const perpY = dx / length;
+                          const halfThickness = (element.wallThickness / 2) + 2; // +2 for safety margin
+                          
+                          // Four corners of the opening mask rectangle
+                          const corners = [
+                            { x: startX + perpX * halfThickness, y: startY + perpY * halfThickness },
+                            { x: endX + perpX * halfThickness, y: endY + perpY * halfThickness },
+                            { x: endX - perpX * halfThickness, y: endY - perpY * halfThickness },
+                            { x: startX - perpX * halfThickness, y: startY - perpY * halfThickness }
+                          ];
+                          
+                          return (
+                            <polygon
+                              key={`opening-mask-${idx}`}
+                              points={corners.map(c => `${c.x},${c.y}`).join(' ')}
+                              fill="black"
+                            />
+                          );
+                        })}
+                      </mask>
+                    </defs>
+                    <path
+                      d={outerPath}
+                      fill="none"
+                      stroke={strokeColor}
+                      strokeWidth={element.wallThickness}
+                      strokeLinejoin={cornerRadius > 0 ? "round" : "miter"}
+                      strokeLinecap={cornerRadius > 0 ? "round" : "butt"}
+                      mask={`url(#${maskId})`}
+                    />
+                  </>
                 );
-              })}
+              })()}
               
-              {/* Hole walls - render wall texture around each hole */}
-              {roomElement.holes?.flatMap((hole, holeIdx) => {
+              {/* Hole walls - render wall texture around each hole with rounded corners */}
+              {roomElement.holes?.map((hole, holeIdx) => {
                 const relativeHole = hole.map(v => ({
                   x: v.x - minX,
                   y: v.y - minY
                 }));
                 
-                return relativeHole.map((v1, i) => {
-                  const v2 = relativeHole[(i + 1) % relativeHole.length];
-                  const holeWallOpening = roomElement.holeWallOpenings?.find(
-                    o => o.holeIndex === holeIdx && o.segmentIndex === i
-                  );
-                  
-                  if (!holeWallOpening) {
-                    // No opening - render full segment
-                    return (
-                      <line
-                        key={`hole-wall-${holeIdx}-${i}`}
-                        x1={v1.x}
-                        y1={v1.y}
-                        x2={v2.x}
-                        y2={v2.y}
-                        stroke={element.wallTextureUrl === 'transparent' ? 'none' : (element.wallTextureUrl ? `url(#${wallPatternId})` : "rgba(100, 100, 100, 0.8)")}
-                        strokeWidth={element.wallThickness}
-                        strokeLinecap="square"
-                      />
-                    );
-                  }
-                  
-                  // Has opening - render two segments (before and after opening)
-                  const dx = v2.x - v1.x;
-                  const dy = v2.y - v1.y;
-                  
+                const holePath = createRoundedPolygonPath(relativeHole, cornerRadius);
+                const hasHoleOpenings = roomElement.holeWallOpenings?.some(o => o.holeIndex === holeIdx);
+                const strokeColor = element.wallTextureUrl === 'transparent' ? 'none' : (element.wallTextureUrl ? `url(#${wallPatternId})` : "rgba(100, 100, 100, 0.8)");
+                const holeMaskId = `hole-wall-mask-${element.id}-${holeIdx}`;
+                
+                if (!hasHoleOpenings) {
+                  // No openings - simple stroked path with rounded corners
                   return (
-                    <g key={`hole-wall-${holeIdx}-${i}`}>
-                      {/* Segment before opening */}
-                      {holeWallOpening.startRatio > 0 && (
-                        <line
-                          x1={v1.x}
-                          y1={v1.y}
-                          x2={v1.x + dx * holeWallOpening.startRatio}
-                          y2={v1.y + dy * holeWallOpening.startRatio}
-                          stroke={element.wallTextureUrl === 'transparent' ? 'none' : (element.wallTextureUrl ? `url(#${wallPatternId})` : "rgba(100, 100, 100, 0.8)")}
-                          strokeWidth={element.wallThickness}
-                          strokeLinecap="square"
-                        />
-                      )}
-                      {/* Segment after opening */}
-                      {holeWallOpening.endRatio < 1 && (
-                        <line
-                          x1={v1.x + dx * holeWallOpening.endRatio}
-                          y1={v1.y + dy * holeWallOpening.endRatio}
-                          x2={v2.x}
-                          y2={v2.y}
-                          stroke={element.wallTextureUrl === 'transparent' ? 'none' : (element.wallTextureUrl ? `url(#${wallPatternId})` : "rgba(100, 100, 100, 0.8)")}
-                          strokeWidth={element.wallThickness}
-                          strokeLinecap="square"
-                        />
-                      )}
-                    </g>
+                    <path
+                      key={`hole-wall-${holeIdx}`}
+                      d={holePath}
+                      fill="none"
+                      stroke={strokeColor}
+                      strokeWidth={element.wallThickness}
+                      strokeLinejoin={cornerRadius > 0 ? "round" : "miter"}
+                      strokeLinecap={cornerRadius > 0 ? "round" : "butt"}
+                    />
                   );
-                });
+                }
+                
+                // Has openings - use mask
+                const holeOpenings = roomElement.holeWallOpenings?.filter(o => o.holeIndex === holeIdx) || [];
+                
+                return (
+                  <g key={`hole-wall-${holeIdx}`}>
+                    <defs>
+                      <mask id={holeMaskId}>
+                        <rect x="-1000" y="-1000" width={width + 2000} height={height + 2000} fill="white" />
+                        {holeOpenings.map((opening, idx) => {
+                          const v1 = relativeHole[opening.segmentIndex];
+                          const v2 = relativeHole[(opening.segmentIndex + 1) % relativeHole.length];
+                          const dx = v2.x - v1.x;
+                          const dy = v2.y - v1.y;
+                          
+                          const startX = v1.x + dx * opening.startRatio;
+                          const startY = v1.y + dy * opening.startRatio;
+                          const endX = v1.x + dx * opening.endRatio;
+                          const endY = v1.y + dy * opening.endRatio;
+                          
+                          const length = Math.sqrt(dx * dx + dy * dy);
+                          const perpX = -dy / length;
+                          const perpY = dx / length;
+                          const halfThickness = (element.wallThickness / 2) + 2;
+                          
+                          const corners = [
+                            { x: startX + perpX * halfThickness, y: startY + perpY * halfThickness },
+                            { x: endX + perpX * halfThickness, y: endY + perpY * halfThickness },
+                            { x: endX - perpX * halfThickness, y: endY - perpY * halfThickness },
+                            { x: startX - perpX * halfThickness, y: startY - perpY * halfThickness }
+                          ];
+                          
+                          return (
+                            <polygon
+                              key={`hole-opening-mask-${idx}`}
+                              points={corners.map(c => `${c.x},${c.y}`).join(' ')}
+                              fill="black"
+                            />
+                          );
+                        })}
+                      </mask>
+                    </defs>
+                    <path
+                      d={holePath}
+                      fill="none"
+                      stroke={strokeColor}
+                      strokeWidth={element.wallThickness}
+                      strokeLinejoin={cornerRadius > 0 ? "round" : "miter"}
+                      strokeLinecap={cornerRadius > 0 ? "round" : "butt"}
+                      mask={`url(#${holeMaskId})`}
+                    />
+                  </g>
+                );
               })}
             </svg>
           )}
@@ -7408,9 +7888,9 @@ const MapElementComponent = ({ element, isSelected, viewport, showTokenBadges, r
                   <path
                     d={relativePolygonPath}
                     fill="none"
-                    stroke="#22c55e"
-                    strokeWidth={2}
-                    strokeDasharray="5,5"
+                    stroke="rgba(34, 197, 94, 0.5)"
+                    strokeWidth={1.5}
+                    strokeDasharray="6,4"
                     strokeLinejoin="miter"
                     strokeLinecap="square"
                     style={{
@@ -7423,9 +7903,9 @@ const MapElementComponent = ({ element, isSelected, viewport, showTokenBadges, r
                 <path
                   d={relativePolygonPath}
                   fill="none"
-                  stroke="#22c55e"
-                  strokeWidth={2}
-                  strokeDasharray="5,5"
+                  stroke="rgba(34, 197, 94, 0.5)"
+                  strokeWidth={1.5}
+                  strokeDasharray="6,4"
                 />
               )}
               {/* Vertex handles for polygon */}
@@ -7436,7 +7916,7 @@ const MapElementComponent = ({ element, isSelected, viewport, showTokenBadges, r
                   cy={v.y}
                   r={4 / viewport.zoom}
                   fill="white"
-                  stroke="#22c55e"
+                  stroke="rgba(34, 197, 94, 0.7)"
                   strokeWidth={1}
                   style={{ pointerEvents: 'auto' }}
                 />

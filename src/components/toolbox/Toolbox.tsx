@@ -93,6 +93,8 @@ interface ToolboxProps {
   onColorChange: (color: ColorType) => void;
   roomSubTool: RoomSubTool;
   setRoomSubTool: (subTool: RoomSubTool) => void;
+  autoMergeRooms?: boolean;
+  setAutoMergeRooms?: (value: boolean) => void;
   selectedElementLocked: boolean;
   onToggleLock: () => void;
   showGrid: boolean;
@@ -169,6 +171,8 @@ const Toolbox = (props: ToolboxProps) => {
     onColorChange,
     roomSubTool,
     setRoomSubTool,
+    autoMergeRooms = false,
+    setAutoMergeRooms,
     selectedElementLocked,
     onToggleLock,
     showGrid,
@@ -657,7 +661,7 @@ const Toolbox = (props: ToolboxProps) => {
   const handleGridScroll = (e: React.WheelEvent) => {
     e.preventDefault();
     const delta = e.deltaY > 0 ? -10 : 10;
-    const newSize = Math.max(20, Math.min(500, gridSize + delta));
+    const newSize = Math.max(5, Math.min(500, gridSize + delta));
     onGridSizeChange(newSize);
   };
 
@@ -847,6 +851,8 @@ const Toolbox = (props: ToolboxProps) => {
                   specificProps = {
                     roomSubTool,
                     setRoomSubTool,
+                    autoMergeRooms,
+                    setAutoMergeRooms,
                     cycleRoomSubTool,
                     selectLastUsedRoomSubTool,
                   };
