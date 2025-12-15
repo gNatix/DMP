@@ -89,6 +89,8 @@ const RoomBuilderPanel = ({
   const wallTextures = externalWallTextures;
   const [backgroundTextures, setBackgroundTextures] = useState<AssetFile[]>([]);
   const [loadingBackgrounds, setLoadingBackgrounds] = useState(true);
+  const [testTextures, setTestTextures] = useState<AssetFile[]>([]);
+  const [loadingTestTextures, setLoadingTestTextures] = useState(true);
   const [isSubtractMode, setIsSubtractMode] = useState(false);
   const [internalActiveTab, setInternalActiveTab] = useState<'room' | 'terrain' | 'walls'>('room');
   
@@ -140,6 +142,25 @@ const RoomBuilderPanel = ({
     };
 
     loadBackgroundTextures();
+  }, []);
+
+  // Load test textures (alpha brush experiment)
+  useEffect(() => {
+    const loadTestTextures = async () => {
+      try {
+        const response = await fetch('https://dmp.natixlabs.com/list-files.php?path=terrain-brushes/test_textures');
+        const data = await response.json();
+        // Handle new format {folders, files} or old array format
+        const files = data.files || data;
+        setTestTextures(Array.isArray(files) ? files : []);
+      } catch (error) {
+        console.error('Failed to load test textures:', error);
+      } finally {
+        setLoadingTestTextures(false);
+      }
+    };
+
+    loadTestTextures();
   }, []);
 
   // Set default floor texture when textures load and none is selected
@@ -800,6 +821,41 @@ const RoomBuilderPanel = ({
                         selectedTerrainBrush === texture.download_url
                           ? 'border-dm-highlight ring-2 ring-dm-highlight/50'
                           : 'border-dm-border hover:border-dm-highlight/50'
+                      }`}
+                      title={texture.name}
+                    >
+                      <img
+                        src={texture.download_url}
+                        alt={texture.name}
+                        className="w-full h-full object-cover"
+                      />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* TEST: Alpha Brush Textures */}
+            <div className="mb-4 border-t border-dm-border pt-4">
+              <label className="block text-xs text-gray-400 mb-2">🧪 Test Textures (Alpha Brush)</label>
+              {loadingTestTextures ? (
+                <div className="text-center py-4 text-sm text-gray-500">Loading test textures...</div>
+              ) : testTextures.length === 0 ? (
+                <div className="text-center py-4 text-sm text-gray-500">No test textures found</div>
+              ) : (
+                <div className="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto pr-2">
+                  {testTextures.map((texture) => (
+                    <button
+                      key={texture.download_url}
+                      onClick={() => {
+                        console.log('[TERRAIN PANEL] Test texture selected:', texture.name, texture.download_url);
+                        onSelectTerrainBrush(texture.download_url);
+                        setActiveTool('background');
+                      }}
+                      className={`aspect-square rounded border-2 overflow-hidden transition-all ${
+                        selectedTerrainBrush === texture.download_url
+                          ? 'border-yellow-500 ring-2 ring-yellow-500/50'
+                          : 'border-dm-border hover:border-yellow-500/50'
                       }`}
                       title={texture.name}
                     >
