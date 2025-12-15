@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Type, Dices, Table, Skull } from 'lucide-react';
+import { Type, Dices, Table, Skull, MessageSquare } from 'lucide-react';
 import { WidgetType } from '../../../types';
 
 interface AddWidgetPopupProps {
@@ -57,6 +57,13 @@ const AddWidgetPopup = ({ onAdd, onClose }: AddWidgetPopupProps) => {
       description: 'D&D monster stat block',
       icon: Skull,
       color: 'amber'
+    },
+    {
+      type: 'dialogue' as WidgetType,
+      name: 'Dialogue',
+      description: 'NPC dialogue entries with copy',
+      icon: MessageSquare,
+      color: 'cyan'
     }
   ];
 

@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { MapElement, Widget, TextWidget, StatBlockWidget, EventRollTableWidget, MonsterCardWidget, ViewMode } from '../../types';
+import { MapElement, Widget, TextWidget, StatBlockWidget, EventRollTableWidget, MonsterCardWidget, DialogueWidget, ViewMode } from '../../types';
 import { X, Lock, Unlock, Pin, PinOff, GripVertical } from 'lucide-react';
 import TextWidgetComponent from '../leftPanel/widgets/TextWidgetComponent';
 import StatBlockWidgetComponent from '../leftPanel/widgets/StatBlockWidget';
 import EncounterTableWidgetComponent from '../leftPanel/widgets/EncounterTableWidget';
 import MonsterCardWidgetComponent from '../leftPanel/widgets/MonsterCardWidget';
+import DialogueWidgetComponent from '../leftPanel/widgets/DialogueWidget';
 
 interface InfoBoxProps {
   element: MapElement;
@@ -231,6 +232,14 @@ const InfoBox = ({ element, position, onClose, isLocked, onToggleLock, isPinned,
         {widget.type === 'monstercard' && (
           <MonsterCardWidgetComponent
             widget={widget as MonsterCardWidget}
+            onUpdate={widgetHandlers.onUpdate}
+            onDelete={widgetHandlers.onDelete}
+            viewMode={viewMode}
+          />
+        )}
+        {widget.type === 'dialogue' && (
+          <DialogueWidgetComponent
+            widget={widget as DialogueWidget}
             onUpdate={widgetHandlers.onUpdate}
             onDelete={widgetHandlers.onDelete}
             viewMode={viewMode}

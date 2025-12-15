@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { MapElement, Widget, TextWidget, StatBlockWidget, EventRollTableWidget, MonsterCardWidget, WidgetType } from '../../types';
+import { MapElement, Widget, TextWidget, StatBlockWidget, EventRollTableWidget, MonsterCardWidget, DialogueWidget, WidgetType } from '../../types';
 import { ChevronRight, ChevronLeft, Plus, GripVertical } from 'lucide-react';
 import TextWidgetComponent from './widgets/TextWidgetComponent';
 import StatBlockWidgetComponent from './widgets/StatBlockWidget';
 import EncounterTableWidgetComponent from './widgets/EncounterTableWidget';
 import MonsterCardWidgetComponent from './widgets/MonsterCardWidget';
+import DialogueWidgetComponent from './widgets/DialogueWidget';
 import AddWidgetPopup from './widgets/AddWidgetPopup';
 import LeftPanelBottomTooltip from './LeftPanelBottomTooltip';
 
@@ -123,6 +124,14 @@ const LeftPanel = ({
         challenge: '1/4',
         special: ''
       } as MonsterCardWidget;
+    } else if (widgetType === 'dialogue') {
+      newWidget = {
+        id: generateWidgetId(),
+        type: 'dialogue',
+        order: newOrder,
+        title: 'NPC Dialogue',
+        entries: []
+      } as DialogueWidget;
     } else {
       return;
     }
@@ -321,6 +330,13 @@ const LeftPanel = ({
           {widget.type === 'monstercard' && (
             <MonsterCardWidgetComponent
               widget={widget as MonsterCardWidget}
+              onUpdate={(updates) => handleUpdateWidget(widget.id, updates)}
+              onDelete={() => handleDeleteWidget(widget.id)}
+            />
+          )}
+          {widget.type === 'dialogue' && (
+            <DialogueWidgetComponent
+              widget={widget as DialogueWidget}
               onUpdate={(updates) => handleUpdateWidget(widget.id, updates)}
               onDelete={() => handleDeleteWidget(widget.id)}
             />

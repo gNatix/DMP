@@ -225,7 +225,7 @@ export interface ViewportState {
 }
 
 // Widget types for properties panel
-export type WidgetType = "text" | "statblock" | "encountertable" | "monstercard";
+export type WidgetType = "text" | "statblock" | "encountertable" | "monstercard" | "dialogue";
 
 export interface BaseWidget {
   id: string;
@@ -282,4 +282,17 @@ export interface MonsterCardWidget extends BaseWidget {
   special: string; // Special abilities text
 }
 
-export type Widget = TextWidget | StatBlockWidget | EventRollTableWidget | MonsterCardWidget;
+export interface DialogueEntry {
+  id: string;
+  speaker: string;
+  text: string;
+  isCollapsed: boolean;
+}
+
+export interface DialogueWidget extends BaseWidget {
+  type: "dialogue";
+  title?: string;
+  entries: DialogueEntry[];
+}
+
+export type Widget = TextWidget | StatBlockWidget | EventRollTableWidget | MonsterCardWidget | DialogueWidget;
