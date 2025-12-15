@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronRight, Plus, Trash2 } from 'lucide-react';
+import { MessageSquare, ChevronDown, ChevronRight, Plus, Trash2 } from 'lucide-react';
 import { DialogueWidget as DialogueWidgetType, DialogueEntry, ViewMode } from '../../../types';
 
 interface DialogueWidgetProps {
@@ -12,32 +12,37 @@ interface DialogueWidgetProps {
 const DialogueWidget = ({ widget, onUpdate, onDelete, viewMode }: DialogueWidgetProps) => {
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  const generateEntryId = () => `entry-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  const generateId = () => `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+  const entries = widget.entries || [];
 
   const handleAddEntry = () => {
     const newEntry: DialogueEntry = {
-      id: generateEntryId(),
+      id: generateId(),
       speaker: '',
       text: '',
       isCollapsed: false
     };
-    onUpdate({ entries: [...widget.entries, newEntry] });
+    onUpdate({ entries: [...entries, newEntry] });
   };
 
   const handleUpdateEntry = (entryId: string, updates: Partial<DialogueEntry>) => {
-    const newEntries = widget.entries.map(entry =>
+    const newEntries = entries.map(entry =>
       entry.id === entryId ? { ...entry, ...updates } : entry
     );
     onUpdate({ entries: newEntries });
   };
 
   const handleDeleteEntry = (entryId: string) => {
-    onUpdate({ entries: widget.entries.filter(entry => entry.id !== entryId) });
+    onUpdate({ entries: entries.filter(entry => entry.id !== entryId) });
   };
 
   const handleToggleCollapse = (entryId: string) => {
-    const newEntries = widget.entries.map(entry =>
-      entry.id === entryId ? { ...entry, isCollapsed: !entry.isCollapsed } : entry
+    // Toggle the clicked row independently
+    const newEntries = entries.map(entry =>
+      entry.id === entryId 
+        ? { ...entry, isCollapsed: !entry.isCollapsed }
+        : entry
     );
     onUpdate({ entries: newEntries });
   };
@@ -54,109 +59,153 @@ const DialogueWidget = ({ widget, onUpdate, onDelete, viewMode }: DialogueWidget
   };
 
   return (
-    <div className="bg-neutral-800/90 border-2 border-neutral-700 rounded-lg p-4 relative group shadow-lg">
-      {/* Delete button - matching MonsterCard style */}
-      {viewMode !== 'game' && (
-        <button
-          onClick={onDelete}
-          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 transition-all z-10 p-1 hover:bg-red-900/20 rounded"
-          title="Remove widget"
-        >
-          <Trash2 size={16} />
-        </button>
-      )}
-
-      {/* Dialogue Entries */}
-      <div className="space-y-2">
-        {widget.entries.map((entry) => (
-          <div
-            key={entry.id}
-            className="bg-dm-dark border border-gray-600 rounded overflow-hidden"
+    <div className="bg-neutral-800/90 border-2 border-neutral-700 rounded-lg p-4 shadow-lg">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2 flex-1">
+          <MessageSquare size={16} className="text-green-400 flex-shrink-0" />
+          <input
+            type="text"
+            value={widget.title || ''}
+            onChange={(e) => onUpdate({ title: e.target.value })}
+            placeholder="Table name..."
+            className="bg-transparent text-sm font-semibold text-gray-200 focus:outline-none focus:bg-gray-700/30 rounded px-1 flex-1 placeholder:text-gray-500"
+          />
+        </div>
+        {viewMode !== 'game' && (
+          <button
+            onClick={onDelete}
+            className="p-1 hover:bg-red-500/20 rounded transition-colors"
+            title="Delete widget"
           >
-            {/* Entry Header Row */}
-            <div className="flex items-center gap-2 px-2 py-1.5 border-b border-gray-600">
-              {/* Collapse Toggle */}
-              <button
-                onClick={() => handleToggleCollapse(entry.id)}
-                className="p-0.5 hover:bg-gray-600 rounded transition-colors flex-shrink-0"
-                title={entry.isCollapsed ? "Expand" : "Collapse"}
-              >
-                {entry.isCollapsed ? (
-                  <ChevronRight size={14} className="text-gray-400" />
-                ) : (
-                  <ChevronDown size={14} className="text-gray-400" />
-                )}
-              </button>
-              
-              {/* Speaker Name - styled like MonsterCard inputs */}
-              <input
-                type="text"
-                value={entry.speaker}
-                onChange={(e) => handleUpdateEntry(entry.id, { speaker: e.target.value })}
-                placeholder="Speaker name..."
-                className="flex-1 bg-transparent text-sm font-bold text-amber-400 focus:outline-none cursor-text placeholder:text-gray-600"
-              />
-              
-              {/* Copy Button - Text style */}
-              <button
-                onClick={() => handleCopyEntry(entry)}
-                className={`px-2 py-0.5 text-xs font-semibold rounded transition-colors flex-shrink-0 ${
-                  copiedId === entry.id 
-                    ? 'bg-green-600 text-white' 
-                    : 'bg-amber-600/80 hover:bg-amber-500 text-white'
-                }`}
-              >
-                {copiedId === entry.id ? 'Copied!' : 'Copy'}
-              </button>
-              
-              {/* Delete Button */}
-              {viewMode !== 'game' && (
+            <Trash2 size={14} className="text-red-400" />
+          </button>
+        )}
+      </div>
+
+      {/* Dialogue Table */}
+      <div className="border border-gray-600 rounded overflow-hidden">
+        {/* Table Rows */}
+        <div>
+          {entries.map((entry, index) => (
+            <div 
+              key={entry.id} 
+              className={`border-b border-gray-700 last:border-b-0 ${
+                index % 2 === 0 ? 'bg-gray-800/40' : 'bg-gray-900/40'
+              } ${!entry.isCollapsed ? 'ring-1 ring-green-500/30' : ''}`}
+            >
+              {/* Row Header */}
+              <div className="flex items-center gap-0">
+                {/* Row Number */}
+                <div className="w-8 text-center text-xs text-gray-400 font-bold py-2 border-r border-gray-700 flex-shrink-0">
+                  {index + 1}
+                </div>
+                
+                {/* Collapse Toggle */}
                 <button
-                  onClick={() => handleDeleteEntry(entry.id)}
-                  className="p-1 text-red-400 hover:text-red-300 hover:bg-red-900/20 rounded transition-colors flex-shrink-0"
-                  title="Delete entry"
+                  onClick={() => handleToggleCollapse(entry.id)}
+                  className="p-1.5 hover:bg-gray-600 transition-colors flex-shrink-0"
+                  title={entry.isCollapsed ? "Expand" : "Collapse"}
                 >
-                  <Trash2 size={12} />
+                  {entry.isCollapsed ? (
+                    <ChevronRight size={12} className="text-gray-400" />
+                  ) : (
+                    <ChevronDown size={12} className="text-gray-400" />
+                  )}
                 </button>
+
+                {/* Dialogue Title */}
+                <input
+                  type="text"
+                  value={entry.speaker}
+                  onChange={(e) => handleUpdateEntry(entry.id, { speaker: e.target.value })}
+                  onClick={(e) => e.stopPropagation()}
+                  onFocus={() => {
+                    // Only expand if collapsed (don't toggle)
+                    if (entry.isCollapsed) {
+                      const newEntries = entries.map(e =>
+                        e.id === entry.id ? { ...e, isCollapsed: false } : e
+                      );
+                      onUpdate({ entries: newEntries });
+                    }
+                  }}
+                  placeholder="Dialogue title..."
+                  className="flex-1 bg-transparent px-2 py-1.5 text-sm font-semibold text-gray-200 focus:outline-none focus:bg-gray-700/30 cursor-text placeholder:text-gray-500"
+                />
+
+                {/* Copy Button */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleCopyEntry(entry);
+                  }}
+                  className={`px-2 py-1 text-xs font-semibold rounded-sm transition-colors mx-1 ${
+                    copiedId === entry.id 
+                      ? 'bg-green-600 text-white' 
+                      : 'bg-green-600/80 hover:bg-green-500 text-white'
+                  }`}
+                >
+                  {copiedId === entry.id ? 'Copied!' : 'Copy'}
+                </button>
+
+                {/* Delete Button */}
+                {viewMode !== 'game' && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteEntry(entry.id);
+                    }}
+                    className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-900/20 transition-colors flex-shrink-0 border-l border-gray-700"
+                    title="Delete entry"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                )}
+              </div>
+
+              {/* Dialogue Text - Collapsible */}
+              {!entry.isCollapsed && (
+                <div className="border-t border-gray-700/50" onClick={(e) => e.stopPropagation()}>
+                  <textarea
+                    value={entry.text}
+                    onChange={(e) => handleUpdateEntry(entry.id, { text: e.target.value })}
+                    placeholder="Enter dialogue text..."
+                    className="w-full bg-transparent px-3 py-2 text-xs text-gray-200 focus:outline-none focus:bg-gray-700/30 resize-none min-h-[50px] cursor-text"
+                    rows={2}
+                    style={{ height: 'auto' }}
+                    onInput={(e) => {
+                      const target = e.target as HTMLTextAreaElement;
+                      target.style.height = 'auto';
+                      target.style.height = Math.max(50, target.scrollHeight) + 'px';
+                    }}
+                  />
+                </div>
+              )}
+
+              {/* Collapsed Preview */}
+              {entry.isCollapsed && entry.text && (
+                <div className="px-3 py-1 text-xs text-gray-500 italic truncate border-t border-gray-700/50">
+                  {entry.text.substring(0, 60)}{entry.text.length > 60 ? '...' : ''}
+                </div>
               )}
             </div>
+          ))}
+        </div>
 
-            {/* Entry Content - Collapsible */}
-            {!entry.isCollapsed && (
-              <div className="p-2">
-                <textarea
-                  value={entry.text}
-                  onChange={(e) => handleUpdateEntry(entry.id, { text: e.target.value })}
-                  placeholder="Enter dialogue text..."
-                  className="w-full bg-neutral-900/50 border border-gray-600 rounded px-2 py-1.5 text-sm text-gray-200 focus:outline-none focus:border-amber-500 resize-none min-h-[60px] cursor-text"
-                  rows={3}
-                />
-              </div>
-            )}
-
-            {/* Collapsed Preview */}
-            {entry.isCollapsed && entry.text && (
-              <div className="px-3 py-1.5 text-xs text-gray-400 italic truncate">
-                "{entry.text.substring(0, 80)}{entry.text.length > 80 ? '...' : ''}"
-              </div>
-            )}
-          </div>
-        ))}
-
-        {/* Add Entry Button */}
+        {/* Add Row Button */}
         {viewMode !== 'game' && (
           <button
             onClick={handleAddEntry}
-            className="w-full py-2 border-2 border-dashed border-gray-600 rounded hover:border-amber-500 hover:bg-amber-500/10 transition-colors flex items-center justify-center gap-2 text-gray-400 hover:text-amber-400"
+            className="w-full py-2 bg-gray-800/60 hover:bg-green-500/10 border-t border-gray-600 transition-colors flex items-center justify-center gap-2 text-gray-400 hover:text-green-400"
           >
-            <Plus size={14} />
-            <span className="text-xs font-semibold">Add Dialogue Entry</span>
+            <Plus size={12} />
+            <span className="text-xs font-semibold">Add Row</span>
           </button>
         )}
       </div>
 
       {/* Empty State */}
-      {widget.entries.length === 0 && viewMode === 'game' && (
+      {entries.length === 0 && viewMode === 'game' && (
         <div className="text-center py-4 text-gray-500 text-xs italic">
           No dialogue entries
         </div>

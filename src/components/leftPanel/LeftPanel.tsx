@@ -129,8 +129,12 @@ const LeftPanel = ({
         id: generateWidgetId(),
         type: 'dialogue',
         order: newOrder,
-        title: 'NPC Dialogue',
-        entries: []
+        entries: [{
+          id: `entry-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          speaker: '',
+          text: '',
+          isCollapsed: false
+        }]
       } as DialogueWidget;
     } else {
       return;

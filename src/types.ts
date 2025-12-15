@@ -289,10 +289,18 @@ export interface DialogueEntry {
   isCollapsed: boolean;
 }
 
+export interface DialogueTab {
+  id: string;
+  name: string;
+  entries: DialogueEntry[];
+}
+
 export interface DialogueWidget extends BaseWidget {
   type: "dialogue";
   title?: string;
-  entries: DialogueEntry[];
+  entries?: DialogueEntry[]; // Legacy support - will be migrated to tabs
+  tabs?: DialogueTab[];
+  activeTabId?: string;
 }
 
 export type Widget = TextWidget | StatBlockWidget | EventRollTableWidget | MonsterCardWidget | DialogueWidget;
