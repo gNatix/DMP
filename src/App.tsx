@@ -334,6 +334,18 @@ function App() {
     centerElementHandlerRef.current = handler;
   };
 
+  // Hide tool preview handler ref (for side panels to hide token/brush cursors)
+  const hideToolPreviewHandlerRef = useRef<(() => void) | null>(null);
+  const setHideToolPreviewHandler = (handler: () => void) => {
+    hideToolPreviewHandlerRef.current = handler;
+  };
+
+  const handleHideToolPreview = () => {
+    if (hideToolPreviewHandlerRef.current) {
+      hideToolPreviewHandlerRef.current();
+    }
+  };
+
   const handleCenterElement = (elementId: string) => {
     if (centerElementHandlerRef.current) {
       centerElementHandlerRef.current(elementId);
@@ -962,6 +974,7 @@ function App() {
             // This will be passed to Canvas, but for now we can leave it as a placeholder
             // The actual implementation needs to be in Canvas
           }}
+          onMouseEnter={handleHideToolPreview}
         />
       )}
 
@@ -1017,6 +1030,7 @@ function App() {
         onMergeRooms={setMergeRoomsHandler}
         onMergeWalls={setMergeWallsHandler}
         onCenterElementReady={setCenterElementHandler}
+        onHideToolPreviewReady={setHideToolPreviewHandler}
         selectedBackgroundTexture={selectedTerrainBrush}
         backgroundBrushSize={backgroundBrushSize}
         terrainBrushes={terrainBrushes}
@@ -1053,45 +1067,46 @@ function App() {
           selectedElement={selectedElement}
           updateElement={updateElement}
           deleteElement={deleteElement}
-          allElements={activeScene?.elements || []}
-          tokenTemplates={tokenTemplates}
-          addTokenTemplate={addTokenTemplate}
-          setActiveTool={setActiveTool}
-          activeTokenTemplate={activeTokenTemplate}
-          setActiveTokenTemplate={setActiveTokenTemplate}
-          onRecentTokensChange={setRecentTokens}
-          activeTool={activeTool}
-          selectedFloorTexture={selectedFloorTexture}
-          onSelectFloorTexture={setSelectedFloorTexture}
-          tileSize={tileSize}
-          onTileSizeChange={setTileSize}
-          showWalls={showWalls}
-          onShowWallsChange={setShowWalls}
-          selectedWallTexture={selectedWallTexture}
-          onSelectWallTexture={setSelectedWallTexture}
-          wallTextures={wallTextures}
-          wallThickness={wallThickness}
-          onWallThicknessChange={setWallThickness}
-          wallTileSize={wallTileSize}
-          onWallTileSizeChange={setWallTileSize}
-          roomSubTool={roomSubTool}
-          setRoomSubTool={setRoomSubTool}
-          autoMergeRooms={autoMergeRooms}
-          setAutoMergeRooms={setAutoMergeRooms}
-          defaultCornerRadius={defaultCornerRadius}
-          setDefaultCornerRadius={setDefaultCornerRadius}
-          onMergeRooms={mergeRoomsHandlerRef.current || undefined}
-          onMergeWalls={mergeWallsHandlerRef.current || undefined}
-          onCenterElement={handleCenterElement}
-          selectedTerrainBrush={selectedTerrainBrush}
-          onSelectTerrainBrush={setSelectedTerrainBrush}
-          backgroundBrushSize={backgroundBrushSize}
-          onBackgroundBrushSizeChange={setBackgroundBrushSize}
-          activeTab={rightPanelActiveTab}
-          onActiveTabChange={setRightPanelActiveTab}
-          xlabShapeMode={xlabShapeMode}
-          onXlabShapeModeChange={setXlabShapeMode}
-        />
+            allElements={activeScene?.elements || []}
+            tokenTemplates={tokenTemplates}
+            addTokenTemplate={addTokenTemplate}
+            setActiveTool={setActiveTool}
+            activeTokenTemplate={activeTokenTemplate}
+            setActiveTokenTemplate={setActiveTokenTemplate}
+            onRecentTokensChange={setRecentTokens}
+            activeTool={activeTool}
+            selectedFloorTexture={selectedFloorTexture}
+            onSelectFloorTexture={setSelectedFloorTexture}
+            tileSize={tileSize}
+            onTileSizeChange={setTileSize}
+            showWalls={showWalls}
+            onShowWallsChange={setShowWalls}
+            selectedWallTexture={selectedWallTexture}
+            onSelectWallTexture={setSelectedWallTexture}
+            wallTextures={wallTextures}
+            wallThickness={wallThickness}
+            onWallThicknessChange={setWallThickness}
+            wallTileSize={wallTileSize}
+            onWallTileSizeChange={setWallTileSize}
+            roomSubTool={roomSubTool}
+            setRoomSubTool={setRoomSubTool}
+            autoMergeRooms={autoMergeRooms}
+            setAutoMergeRooms={setAutoMergeRooms}
+            defaultCornerRadius={defaultCornerRadius}
+            setDefaultCornerRadius={setDefaultCornerRadius}
+            onMergeRooms={mergeRoomsHandlerRef.current || undefined}
+            onMergeWalls={mergeWallsHandlerRef.current || undefined}
+            onCenterElement={handleCenterElement}
+            selectedTerrainBrush={selectedTerrainBrush}
+            onSelectTerrainBrush={setSelectedTerrainBrush}
+            backgroundBrushSize={backgroundBrushSize}
+            onBackgroundBrushSizeChange={setBackgroundBrushSize}
+            activeTab={rightPanelActiveTab}
+            onActiveTabChange={setRightPanelActiveTab}
+            xlabShapeMode={xlabShapeMode}
+            onXlabShapeModeChange={setXlabShapeMode}
+            onMouseEnter={handleHideToolPreview}
+          />
       )}
 
       {/* Game Mode Components */}

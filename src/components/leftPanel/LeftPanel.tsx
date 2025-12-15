@@ -17,6 +17,7 @@ interface LeftPanelProps {
   centerViewportOnElement?: (elementId: string) => void;
   isOpen?: boolean;
   setIsOpen?: (open: boolean) => void;
+  onMouseEnter?: () => void;
 }
 
 const LeftPanel = ({
@@ -27,7 +28,8 @@ const LeftPanel = ({
   deleteElements: _deleteElements,
   centerViewportOnElement: _centerViewportOnElement,
   isOpen: externalIsOpen,
-  setIsOpen: setExternalIsOpen
+  setIsOpen: setExternalIsOpen,
+  onMouseEnter
 }: LeftPanelProps) => {
   const [internalIsExpanded, setInternalIsExpanded] = useState(false);
   const [showAddWidgetPopup, setShowAddWidgetPopup] = useState(false);
@@ -334,6 +336,8 @@ const LeftPanel = ({
       {!isExpanded && (
         <button
           onClick={() => setIsExpanded(true)}
+          onMouseEnter={onMouseEnter}
+          onMouseMove={onMouseEnter}
           className="fixed top-4 left-4 z-50 bg-dm-panel border border-dm-border rounded-lg p-2 hover:bg-dm-hover transition-colors"
           title="Open Properties"
         >
@@ -343,7 +347,11 @@ const LeftPanel = ({
 
       {/* Expanded state - full panel */}
       {isExpanded && (
-        <div className="fixed top-0 left-0 h-screen w-[450px] bg-dm-panel border-r border-dm-border flex flex-col overflow-hidden z-40 shadow-xl">
+        <div 
+          onMouseEnter={onMouseEnter}
+          onMouseMove={onMouseEnter}
+          className="fixed top-0 left-0 h-screen w-[450px] bg-dm-panel border-r border-dm-border flex flex-col overflow-hidden z-40 shadow-xl"
+        >
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-dm-border">
             {hasSingleSelection && selectedElement ? (

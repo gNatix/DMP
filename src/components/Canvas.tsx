@@ -155,6 +155,7 @@ interface CanvasProps {
   onMergeRooms?: (handler: () => void) => void;
   onMergeWalls?: (handler: () => void) => void;
   onCenterElementReady?: (centerFn: (elementId: string) => void) => void;
+  onHideToolPreviewReady?: (hideFn: () => void) => void;
   selectedBackgroundTexture: string | null;
   backgroundBrushSize: number;
   terrainBrushes: Array<{ name: string; download_url: string }>;
@@ -233,6 +234,7 @@ const Canvas = ({
   onMergeRooms,
   onMergeWalls,
   onCenterElementReady,
+  onHideToolPreviewReady,
   selectedBackgroundTexture,
   backgroundBrushSize,
   terrainBrushes,
@@ -676,6 +678,13 @@ const Canvas = ({
       onCenterElementReady(centerViewportOnElement);
     }
   }, [onCenterElementReady]);
+
+  // Expose hide tool preview function to parent (for use by side panels)
+  useEffect(() => {
+    if (onHideToolPreviewReady) {
+      onHideToolPreviewReady(() => setCursorPosition(null));
+    }
+  }, [onHideToolPreviewReady]);
 
   // Clear custom room vertices when changing tool or room sub-tool
   useEffect(() => {
@@ -4166,6 +4175,20 @@ const Canvas = ({
     const x = (e.clientX - rect.left - viewport.x) / viewport.zoom;
     const y = (e.clientY - rect.top - viewport.y) / viewport.zoom;
 
+    // Check if mouse is over left or right panel (by screen coordinates)
+    // This is needed because Canvas receives mouse events even when panels overlay it
+    const screenX = e.clientX;
+    const screenWidth = window.innerWidth;
+    const leftPanelWidth = leftPanelOpen ? 450 : 0;
+    const rightPanelWidth = viewMode === 'planning' ? 320 : 0;
+    const isOverPanel = screenX < leftPanelWidth || screenX > screenWidth - rightPanelWidth;
+    
+    // Hide tool preview immediately if over a panel
+    if (isOverPanel) {
+      setCursorPosition(null);
+      return; // Don't process any Canvas mouse logic when over panels
+    }
+
     // Interior wall preview - update end point while drawing
     if (interiorWallStart) {
       console.log('[INTERIOR WALL] Preview at:', { x, y });
@@ -7460,6 +7483,7 @@ const Canvas = ({
       {/* Mode Toggle Button - Top Center */}
       <button
         onClick={onToggleViewMode}
+        onMouseEnter={() => setCursorPosition(null)}
         className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2 bg-dm-panel border border-dm-border rounded-lg hover:bg-dm-hover transition-colors shadow-lg"
         title={viewMode === 'planning' ? 'Switch to Game Mode' : 'Switch to Planning Mode'}
       >

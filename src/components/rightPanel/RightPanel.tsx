@@ -63,6 +63,7 @@ interface RightPanelProps {
   onActiveTabChange?: (tab: 'scenes' | 'tokens' | 'draw' | 'xlab' | 'settings') => void;
   xlabShapeMode: TerrainShapeMode;
   onXlabShapeModeChange: (mode: TerrainShapeMode) => void;
+  onMouseEnter?: () => void;
 }
 
 type TabType = 'scenes' | 'tokens' | 'draw' | 'xlab' | 'settings';
@@ -122,7 +123,8 @@ const RightPanel = ({
   activeTab: externalActiveTab,
   onActiveTabChange,
   xlabShapeMode,
-  onXlabShapeModeChange
+  onXlabShapeModeChange,
+  onMouseEnter
 }: RightPanelProps) => {
   const [internalActiveTab, setInternalActiveTab] = useState<TabType>('scenes');
   const [activeDrawTab, setActiveDrawTab] = useState<'room' | 'terrain' | 'walls'>('room');
@@ -150,7 +152,10 @@ const RightPanel = ({
   }, [activeTool, setActiveTab]);
 
   return (
-    <div className="w-80 bg-dm-panel border-l border-dm-border flex flex-col">
+    <div 
+      onMouseEnter={onMouseEnter}
+      className="w-80 bg-dm-panel border-l border-dm-border flex flex-col"
+    >
       {/* Tabs */}
       <div className="flex border-b border-dm-border">
         <button
