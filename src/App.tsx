@@ -168,7 +168,7 @@ function App() {
   const [terrainBrushes, setTerrainBrushes] = useState<{ name: string; download_url: string }[]>([]);
   const [selectedTerrainBrush, setSelectedTerrainBrush] = useState<string | null>(null);
   const [wallTextures, setWallTextures] = useState<{ name: string; download_url: string }[]>([]);
-  const [rightPanelActiveTab, setRightPanelActiveTab] = useState<'scenes' | 'tokens' | 'draw' | 'xlab' | 'settings'>('scenes');
+  const [rightPanelActiveTab, setRightPanelActiveTab] = useState<'scenes' | 'tokens' | 'draw' | 'modules' | 'xlab' | 'settings'>('scenes');
 
   // X-Lab experimental features
   const [xlabShapeMode, setXlabShapeMode] = useState<TerrainShapeMode>(null);
@@ -420,6 +420,40 @@ function App() {
   // Get selected element(s)
   const selectedElement = activeScene?.elements.find(e => e.id === selectedElementId) || null;
   const selectedElements = activeScene?.elements.filter(e => selectedElementIds.includes(e.id)) || [];
+
+  // Get modular room wall groups from active scene
+  const wallGroups = activeScene?.modularRoomsState?.wallGroups || [];
+
+  // Update a wall group's properties (e.g., wallStyleId)
+  const updateWallGroup = (groupId: string, updates: Partial<{ wallStyleId: string }>) => {
+    if (!activeSceneId || !activeScene) return;
+    
+    const currentState = activeScene.modularRoomsState || { wallGroups: [], doors: [] };
+    const updatedGroups = currentState.wallGroups.map(g => 
+      g.id === groupId ? { ...g, ...updates } : g
+    );
+    
+    updateScene(activeSceneId, {
+      modularRoomsState: {
+        ...currentState,
+        wallGroups: updatedGroups,
+      }
+    });
+  };
+
+  // State for dragging modular floor from panel
+  const [placingModularFloor, setPlacingModularFloor] = useState<{
+    floorStyleId: string;
+    tilesW: number;
+    tilesH: number;
+    imageUrl: string;
+  } | null>(null);
+
+  // Handle starting drag of modular floor from panel
+  const handleStartDragModularFloor = (floorStyleId: string, tilesW: number, tilesH: number, imageUrl: string) => {
+    setPlacingModularFloor({ floorStyleId, tilesW, tilesH, imageUrl });
+    setActiveTool('modularRoom');
+  };
 
   // Update scene
   const updateScene = (sceneId: string, updates: Partial<Scene>) => {
@@ -1045,6 +1079,8 @@ function App() {
         setXlabShapeMode={setXlabShapeMode}
         onElementSelected={viewMode === 'game' ? handleCanvasElementSelect : undefined}
         onViewportChange={setViewport}
+        placingModularFloor={placingModularFloor}
+        setPlacingModularFloor={setPlacingModularFloor}
       />
 
       {/* Right Panel (Planning Mode Only) */}
@@ -1106,6 +1142,9 @@ function App() {
             xlabShapeMode={xlabShapeMode}
             onXlabShapeModeChange={setXlabShapeMode}
             onMouseEnter={handleHideToolPreview}
+            wallGroups={wallGroups}
+            updateWallGroup={updateWallGroup}
+            onStartDragModularFloor={handleStartDragModularFloor}
           />
       )}
 

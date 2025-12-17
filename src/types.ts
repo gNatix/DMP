@@ -2,9 +2,9 @@
 
 export type ViewMode = "planning" | "game";
 
-export type ElementType = "annotation" | "token" | "room" | "wall";
+export type ElementType = "annotation" | "token" | "room" | "wall" | "modularRoom";
 
-export type ToolType = "pointer" | "marker" | "token" | "pan" | "zoom-in" | "zoom-out" | "room" | "background" | "wall" | "wall-line" | "xlab" | "doorTool" | "wallCutterTool";
+export type ToolType = "pointer" | "marker" | "token" | "pan" | "zoom-in" | "zoom-out" | "room" | "background" | "wall" | "wall-line" | "xlab" | "doorTool" | "wallCutterTool" | "modularRoom";
 
 export type RoomSubTool = "rectangle" | "pentagon" | "hexagon" | "octagon" | "erase" | "custom" | 
   "subtract-rectangle" | "subtract-pentagon" | "subtract-hexagon" | "subtract-octagon" | "subtract-custom";
@@ -145,7 +145,101 @@ export interface WallElement {
   playlistObject?: boolean; // Display in game mode playlist
 }
 
-export type MapElement = AnnotationElement | TokenElement | RoomElement | WallElement;
+// ============================================
+// MODULAR ROOMS - Prefab floor + auto-generated walls system
+// ============================================
+
+/**
+ * Modular Room Element - A prefab floor image placed on the tile grid.
+ * Walls/pillars/doors are auto-generated based on adjacency.
+ */
+export interface ModularRoomElement {
+  id: string;
+  type: "modularRoom";
+  
+  // Position in pixels (free placement, not locked to universal grid)
+  x: number;
+  y: number;
+  
+  // Dimensions in tiles
+  tilesW: number;
+  tilesH: number;
+  
+  // Floor style (folder name in modular-rooms/floors/)
+  floorStyleId: string;
+  
+  // Optional variant for future use
+  floorVariantId?: string;
+  
+  // Wall group membership (for shared wall style)
+  wallGroupId: string;
+  
+  // Rotation (0, 90, 180, 270 degrees)
+  rotation?: number;
+  
+  // Metadata
+  name?: string;
+  notes?: string;
+  zIndex?: number;
+  visible?: boolean;
+  locked?: boolean;
+  widgets?: Widget[];
+  playlistObject?: boolean;
+}
+
+/**
+ * Wall Group - A connected component of modular rooms sharing the same wall style
+ */
+export interface WallGroup {
+  id: string;
+  wallStyleId: string; // Folder name in modular-rooms/walls/
+}
+
+/**
+ * Modular Door - A door opening in the wall between two adjacent modular rooms
+ */
+export interface ModularDoor {
+  id: string;
+  
+  // Room references (sorted alphabetically for stable key)
+  roomAId: string;
+  roomBId: string;
+  
+  // Edge identification
+  edgeOrientation: 'horizontal' | 'vertical';
+  edgePosition: number; // The fixed coordinate (x for vertical, y for horizontal)
+  edgeRangeStart: number; // Start of shared edge range
+  edgeRangeEnd: number; // End of shared edge range
+  
+  // Door position along the shared edge (in tiles from edgeRangeStart)
+  offsetTiles: number;
+  
+  // Door width in tiles (default 1)
+  widthTiles: number;
+}
+
+/**
+ * Scene-level modular rooms state
+ */
+export interface ModularRoomsState {
+  wallGroups: WallGroup[];
+  doors: ModularDoor[];
+}
+
+/**
+ * Simulation result for drop preview
+ */
+export interface ModularDropSimulation {
+  newPosition: { x: number; y: number };  // Position in pixels
+  willMerge: boolean;
+  targetGroupId: string | null;
+  targetWallStyleId: string | null;
+  newDoors: ModularDoor[];
+  removedDoorIds: string[];
+  affectedRoomIds: string[];
+}
+
+export type MapElement = AnnotationElement | TokenElement | RoomElement | WallElement | ModularRoomElement;
 
 export interface CollectionAppearance {
   gradient: string; // CSS gradient string
@@ -193,6 +287,7 @@ export interface Scene {
   backgroundTiles?: BackgroundTile[]; // Painted background tiles
   terrainStamps?: Array<{ x: number; y: number; size: number; textureUrl: string }>; // Terrain brush stamps (deprecated - use terrainTiles)
   terrainTiles?: { [key: string]: TerrainTile }; // New tile-based terrain system
+  modularRoomsState?: ModularRoomsState; // Modular rooms wall groups and doors
   width: number;
   height: number;
   collectionId?: string; // Optional reference to a collection

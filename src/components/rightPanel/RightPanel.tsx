@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Settings } from 'lucide-react';
-import { Scene, MapElement, TokenTemplate, ToolType, Collection, CollectionAppearance, RoomSubTool, TerrainShapeMode } from '../../types';
+import { Settings, Boxes } from 'lucide-react';
+import { Scene, MapElement, TokenTemplate, ToolType, Collection, CollectionAppearance, RoomSubTool, TerrainShapeMode, ModularRoomElement, WallGroup } from '../../types';
 import ScenesTab from './ScenesTab';
 import TokensTab from './TokensTab';
 import RoomBuilderPanel from './RoomBuilderPanel';
 import XLabPanel from './XLabPanel';
 import SettingsTab from './SettingsTab';
+import ModulesTab from './ModulesTab';
 
 interface RightPanelProps {
   scenes: Scene[];
@@ -59,14 +60,18 @@ interface RightPanelProps {
   onSelectTerrainBrush: (url: string) => void;
   backgroundBrushSize: number;
   onBackgroundBrushSizeChange: (size: number) => void;
-  activeTab?: 'scenes' | 'tokens' | 'draw' | 'xlab' | 'settings';
-  onActiveTabChange?: (tab: 'scenes' | 'tokens' | 'draw' | 'xlab' | 'settings') => void;
+  activeTab?: 'scenes' | 'tokens' | 'draw' | 'modules' | 'xlab' | 'settings';
+  onActiveTabChange?: (tab: 'scenes' | 'tokens' | 'draw' | 'modules' | 'xlab' | 'settings') => void;
   xlabShapeMode: TerrainShapeMode;
   onXlabShapeModeChange: (mode: TerrainShapeMode) => void;
   onMouseEnter?: () => void;
+  // Modular rooms props
+  wallGroups?: WallGroup[];
+  updateWallGroup?: (groupId: string, updates: Partial<WallGroup>) => void;
+  onStartDragModularFloor?: (floorStyleId: string, tilesW: number, tilesH: number, imageUrl: string) => void;
 }
 
-type TabType = 'scenes' | 'tokens' | 'draw' | 'xlab' | 'settings';
+type TabType = 'scenes' | 'tokens' | 'draw' | 'modules' | 'xlab' | 'settings';
 
 const RightPanel = ({
   scenes,
@@ -124,7 +129,10 @@ const RightPanel = ({
   onActiveTabChange,
   xlabShapeMode,
   onXlabShapeModeChange,
-  onMouseEnter
+  onMouseEnter,
+  wallGroups = [],
+  updateWallGroup = () => {},
+  onStartDragModularFloor = () => {},
 }: RightPanelProps) => {
   const [internalActiveTab, setInternalActiveTab] = useState<TabType>('scenes');
   const [activeDrawTab, setActiveDrawTab] = useState<'room' | 'terrain' | 'walls'>('room');
@@ -132,6 +140,9 @@ const RightPanel = ({
   // Use external tab if provided, otherwise use internal
   const activeTab = externalActiveTab || internalActiveTab;
   const setActiveTab = onActiveTabChange || setInternalActiveTab;
+
+  // Get selected modular room if any
+  const selectedModularRoom = selectedElement?.type === 'modularRoom' ? selectedElement as ModularRoomElement : null;
 
   // Auto-switch to draw tab and draw sub-tab when terrain-brush tool is active
   useEffect(() => {
@@ -148,6 +159,8 @@ const RightPanel = ({
       setActiveDrawTab('walls');
     } else if (activeTool === 'xlab') {
       setActiveTab('xlab');
+    } else if (activeTool === 'modularRoom') {
+      setActiveTab('modules');
     }
   }, [activeTool, setActiveTab]);
 
@@ -187,6 +200,17 @@ const RightPanel = ({
           }`}
         >
           Draw
+        </button>
+        <button
+          onClick={() => setActiveTab('modules')}
+          className={`flex-1 py-3 text-sm font-medium transition-colors flex items-center justify-center gap-1 ${
+            activeTab === 'modules'
+              ? 'bg-dm-dark text-dm-highlight border-b-2 border-dm-highlight'
+              : 'text-gray-400 hover:text-gray-200'
+          }`}
+          title="Modular Rooms"
+        >
+          <Boxes className="w-4 h-4" />
         </button>
         <button
           onClick={() => setActiveTab('settings')}
@@ -270,6 +294,15 @@ const RightPanel = ({
             onActiveDrawTabChange={setActiveDrawTab}
             terrainShapeMode={xlabShapeMode}
             onTerrainShapeModeChange={onXlabShapeModeChange}
+          />
+        )}
+        {activeTab === 'modules' && (
+          <ModulesTab
+            selectedModularRoom={selectedModularRoom}
+            wallGroups={wallGroups}
+            updateElement={updateElement}
+            updateWallGroup={updateWallGroup}
+            onStartDragFloor={onStartDragModularFloor}
           />
         )}
         {activeTab === 'xlab' && (

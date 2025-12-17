@@ -1,8 +1,26 @@
 import { useRef, useState, useEffect } from 'react';
-import { Scene, MapElement, AnnotationElement, TokenElement, RoomElement, WallElement, ToolType, IconType, ColorType, TokenTemplate, RoomSubTool, Point, TerrainTile, TerrainStamp, TerrainShapeMode, ViewMode, WallOpening } from '../types';
+import { Scene, MapElement, AnnotationElement, TokenElement, RoomElement, WallElement, ModularRoomElement, ToolType, IconType, ColorType, TokenTemplate, RoomSubTool, Point, TerrainTile, TerrainStamp, TerrainShapeMode, ViewMode, WallOpening, WallGroup } from '../types';
 import { Circle, Square, Triangle, Star, Diamond, Heart, Skull, MapPin, Search, Eye, DoorOpen, Landmark, Footprints, Info, Gamepad2, StopCircle } from 'lucide-react';
 import Toolbox from './toolbox/Toolbox';
 import polygonClipping from 'polygon-clipping';
+import ModularRoomRenderer from './canvas/ModularRoomRenderer';
+import ModularRoomContextMenu from './canvas/ModularRoomContextMenu';
+import {
+  MODULAR_TILE_PX,
+  DEFAULT_WALL_STYLE_ID,
+} from '../constants';
+import {
+  getModularRooms,
+  generateModularRoomId,
+  generateWallGroupId,
+  getRoomPixelRect,
+  createDoorsForNewRoom,
+  recalculateAllDoors,
+  findMagneticSnapPosition,
+  getWallSpriteUrl,
+  getPillarSpriteUrl,
+  roomsOverlapPx,
+} from '../utils/modularRooms';
 
 // Helper function to create rounded polygon path (for room shapes)
 // Uses quadratic bezier curves at corners for smooth rounding
@@ -170,6 +188,19 @@ interface CanvasProps {
   setXlabShapeMode: (mode: TerrainShapeMode) => void;
   onElementSelected?: (elementId: string) => void;
   onViewportChange?: (viewport: { x: number; y: number; zoom: number }) => void;
+  // Modular rooms
+  placingModularFloor?: {
+    floorStyleId: string;
+    tilesW: number;
+    tilesH: number;
+    imageUrl: string;
+  } | null;
+  setPlacingModularFloor?: (floor: {
+    floorStyleId: string;
+    tilesW: number;
+    tilesH: number;
+    imageUrl: string;
+  } | null) => void;
 }
 
 // Visual stacking order (back → front):
@@ -247,7 +278,9 @@ const Canvas = ({
   xlabShapeMode,
   setXlabShapeMode: _setXlabShapeMode,
   onElementSelected,
-  onViewportChange
+  onViewportChange,
+  placingModularFloor,
+  setPlacingModularFloor,
 }: CanvasProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
@@ -335,6 +368,51 @@ const Canvas = ({
 
   // Clipboard state for copy/paste
   const [clipboard, setClipboard] = useState<MapElement[]>([]);
+
+  // Modular Rooms state - now using pixels for free movement with magnetic snap
+  const [modularRoomDragPreview, setModularRoomDragPreview] = useState<{
+    roomId: string;
+    originalPosition: { x: number; y: number };  // Pixels
+    ghostPosition: { x: number; y: number };     // Pixels (snapped or free)
+    cursorPosition: { x: number; y: number };    // Pixels (raw cursor)
+    snappedToRoom: string | null;  // ID of room we snapped to
+    sharedEdgeTiles: number;       // How many tiles shared (0 if free)
+  } | null>(null);
+  // Note: placingModularFloor is now passed as a prop from App.tsx
+
+  // Rotate modular room by 90 degrees (swaps dimensions)
+  const handleRotateModularRoom = (roomId: string, direction: 'left' | 'right') => {
+    if (!scene || !activeSceneId) return;
+    
+    const room = scene.elements.find(el => el.id === roomId) as ModularRoomElement | undefined;
+    if (!room) return;
+    
+    saveToHistory();
+    
+    // Calculate new rotation (0, 90, 180, 270)
+    const currentRotation = room.rotation || 0;
+    const delta = direction === 'right' ? 90 : -90;
+    let newRotation = (currentRotation + delta) % 360;
+    if (newRotation < 0) newRotation += 360;
+    
+    // Swap dimensions - 2x4 becomes 4x2
+    const newTilesW = room.tilesH;
+    const newTilesH = room.tilesW;
+    
+    // Adjust position to keep room centered
+    const oldCenterX = room.x + (room.tilesW * MODULAR_TILE_PX) / 2;
+    const oldCenterY = room.y + (room.tilesH * MODULAR_TILE_PX) / 2;
+    const newX = oldCenterX - (newTilesW * MODULAR_TILE_PX) / 2;
+    const newY = oldCenterY - (newTilesH * MODULAR_TILE_PX) / 2;
+    
+    updateElement(roomId, {
+      rotation: newRotation,
+      tilesW: newTilesW,
+      tilesH: newTilesH,
+      x: newX,
+      y: newY,
+    });
+  };
 
   // Tile management helper functions
   const getTileKey = (worldX: number, worldY: number): string => {
@@ -723,6 +801,49 @@ const Canvas = ({
     window.addEventListener('applyColorToSelection', handleApplyColor as EventListener);
     return () => window.removeEventListener('applyColorToSelection', handleApplyColor as EventListener);
   }, [selectedElementId, selectedElementIds, scene, updateElement, updateElements]);
+
+  // Recalculate modular room doors when room positions change
+  // This useEffect watches modular room positions and recalculates doors automatically
+  useEffect(() => {
+    if (!scene || !activeSceneId) return;
+    
+    const modularRooms = getModularRooms(scene.elements);
+    if (modularRooms.length === 0) return;
+    
+    // Recalculate all doors based on current room positions
+    const newDoors = recalculateAllDoors(modularRooms);
+    const currentDoors = scene.modularRoomsState?.doors || [];
+    
+    // Only update if doors have changed (compare by checking edge positions)
+    const doorsChanged = newDoors.length !== currentDoors.length ||
+      newDoors.some((newDoor) => {
+        const oldDoor = currentDoors.find(d => 
+          (d.roomAId === newDoor.roomAId && d.roomBId === newDoor.roomBId) ||
+          (d.roomAId === newDoor.roomBId && d.roomBId === newDoor.roomAId)
+        );
+        if (!oldDoor) return true; // New door pair
+        // Check if edge position changed
+        return oldDoor.edgePosition !== newDoor.edgePosition ||
+               oldDoor.edgeRangeStart !== newDoor.edgeRangeStart ||
+               oldDoor.edgeRangeEnd !== newDoor.edgeRangeEnd;
+      });
+    
+    if (doorsChanged) {
+      console.log('[MODULAR ROOMS] Doors recalculated:', newDoors.length, 'doors');
+      const updatedState = {
+        wallGroups: scene.modularRoomsState?.wallGroups || [],
+        doors: newDoors,
+      };
+      updateScene(activeSceneId, { modularRoomsState: updatedState });
+    }
+  }, [
+    // Only re-run when modular room positions change
+    // Create a stable dependency by stringifying positions (now using x,y pixels)
+    scene?.elements
+      .filter((el): el is ModularRoomElement => el.type === 'modularRoom')
+      .map(r => `${r.id}:${r.x},${r.y}`)
+      .join('|')
+  ]);
 
   // Render terrain tiles based on visible tiles
   useEffect(() => {
@@ -3815,6 +3936,10 @@ const Canvas = ({
                 const ys = el.vertices.map(v => v.y);
                 elX = (Math.min(...xs) + Math.max(...xs)) / 2;
                 elY = (Math.min(...ys) + Math.max(...ys)) / 2;
+              } else if (el.type === 'modularRoom') {
+                // For modular rooms, use pixel position directly
+                elX = el.x;
+                elY = el.y;
               } else if ('x' in el && 'y' in el) {
                 elX = el.x;
                 elY = el.y;
@@ -3897,6 +4022,25 @@ const Canvas = ({
             const centerY = (Math.min(...ys) + Math.max(...ys)) / 2;
             offsetX = x - centerX;
             offsetY = y - centerY;
+          } else if (clickedElement.type === 'modularRoom') {
+            // For modular rooms, use the drag preview system for consistent behavior
+            const modRoom = clickedElement as ModularRoomElement;
+            saveToHistory();
+            
+            // Calculate snap position
+            const allModularRooms = getModularRooms(scene.elements);
+            const otherRooms = allModularRooms.filter(r => r.id !== modRoom.id);
+            const snapResult = findMagneticSnapPosition(modRoom, modRoom.x, modRoom.y, otherRooms);
+            
+            setModularRoomDragPreview({
+              roomId: modRoom.id,
+              originalPosition: { x: modRoom.x, y: modRoom.y },
+              ghostPosition: { x: snapResult.x, y: snapResult.y },
+              cursorPosition: { x: modRoom.x, y: modRoom.y },
+              snappedToRoom: snapResult.snappedToRoom,
+              sharedEdgeTiles: snapResult.sharedEdgeTiles,
+            });
+            return; // Don't continue to setDraggedElement
           } else if (clickedElement.type === 'wall') {
             const wallElement = clickedElement as WallElement;
             const hasSegments = wallElement.segments && wallElement.segments.length > 0;
@@ -3971,6 +4115,224 @@ const Canvas = ({
         color: activeTokenTemplate.color || activeColor // Always set color for border (use template color or selected color)
       };
       setTempElement(tempToken);
+    } else if (effectiveTool === 'modularRoom' && placingModularFloor) {
+      // Modular Room placement - free placement with magnetic snap to nearby rooms
+      e.preventDefault();
+      
+      // Calculate room dimensions in pixels
+      const roomWidthPx = placingModularFloor.tilesW * MODULAR_TILE_PX;
+      const roomHeightPx = placingModularFloor.tilesH * MODULAR_TILE_PX;
+      
+      // Center the room under the cursor
+      let roomX = x - roomWidthPx / 2;
+      let roomY = y - roomHeightPx / 2;
+      
+      // Find existing modular rooms to check for magnetic snap
+      const existingModularRooms = getModularRooms(scene.elements);
+      
+      // If there are other rooms, try magnetic snap
+      if (existingModularRooms.length > 0) {
+        // Create a temporary room object for snap calculation
+        const tempRoom: ModularRoomElement = {
+          id: 'temp',
+          type: 'modularRoom',
+          x: roomX,
+          y: roomY,
+          tilesW: placingModularFloor.tilesW,
+          tilesH: placingModularFloor.tilesH,
+          floorStyleId: placingModularFloor.floorStyleId,
+          wallGroupId: 'temp',
+        };
+        
+        const snapResult = findMagneticSnapPosition(tempRoom, roomX, roomY, existingModularRooms, 96);  // Same as preview
+        roomX = snapResult.x;
+        roomY = snapResult.y;
+      }
+      
+      // Check if final position overlaps with any existing room
+      const roomWidthPxFinal = placingModularFloor.tilesW * MODULAR_TILE_PX;
+      const roomHeightPxFinal = placingModularFloor.tilesH * MODULAR_TILE_PX;
+      const proposedRect = { x: roomX, y: roomY, w: roomWidthPxFinal, h: roomHeightPxFinal };
+      
+      const hasOverlap = existingModularRooms.some(other => {
+        const otherRect = {
+          x: other.x,
+          y: other.y,
+          w: other.tilesW * MODULAR_TILE_PX,
+          h: other.tilesH * MODULAR_TILE_PX,
+        };
+        return roomsOverlapPx(proposedRect, otherRect);
+      });
+      
+      if (hasOverlap) {
+        // Show error message and don't place the room
+        setMergeNotification('Modular rooms can only be placed in unoccupied space');
+        setTimeout(() => setMergeNotification(null), 3000);
+        return;
+      }
+      
+      // Generate unique IDs
+      const roomId = generateModularRoomId();
+      const wallGroupId = generateWallGroupId();
+      
+      // Create the modular room element (now using x/y in pixels)
+      const newModularRoom: ModularRoomElement = {
+        id: roomId,
+        type: 'modularRoom',
+        x: roomX,
+        y: roomY,
+        tilesW: placingModularFloor.tilesW,
+        tilesH: placingModularFloor.tilesH,
+        floorStyleId: placingModularFloor.floorStyleId,
+        wallGroupId: wallGroupId,
+        notes: '',
+        zIndex: -100, // Below tokens
+        visible: true,
+        locked: false,
+        widgets: [],
+      };
+      
+      // Create the wall group for this room
+      const newWallGroup: WallGroup = {
+        id: wallGroupId,
+        wallStyleId: DEFAULT_WALL_STYLE_ID,
+      };
+      
+      // Get current modular rooms state or create new
+      const currentState = scene.modularRoomsState || { wallGroups: [], doors: [] };
+      
+      // Create automatic doors for adjacent rooms
+      const newDoors = createDoorsForNewRoom(newModularRoom, existingModularRooms, currentState.doors);
+      
+      const updatedState = {
+        wallGroups: [...currentState.wallGroups, newWallGroup],
+        doors: [...currentState.doors, ...newDoors],
+      };
+      
+      // Save to history before adding
+      const newElements = [...scene.elements, newModularRoom];
+      const newHistoryEntry = {
+        elements: newElements,
+        terrainTiles: (() => {
+          const tilesObj: { [key: string]: TerrainTile } = {};
+          terrainTiles.forEach((tile, key) => {
+            tilesObj[key] = tile;
+          });
+          return tilesObj;
+        })()
+      };
+      setHistory(prev => [...prev.slice(0, historyIndex + 1), newHistoryEntry]);
+      setHistoryIndex(prev => prev + 1);
+      
+      // Add the element and update scene state
+      addElement(newModularRoom);
+      if (activeSceneId) {
+        updateScene(activeSceneId, { modularRoomsState: updatedState });
+      }
+      
+      // Select the new room
+      setSelectedElementId(roomId);
+      setSelectedElementIds([]);
+      
+      // Clear placement mode - user must go back to panel to place another room
+      if (setPlacingModularFloor) {
+        setPlacingModularFloor(null);
+      }
+      setCursorPosition(null);
+      
+      console.log('[MODULAR ROOM] Placed floor:', newModularRoom);
+      console.log('[MODULAR ROOM] Created wall group:', newWallGroup);
+      if (newDoors.length > 0) {
+        console.log('[MODULAR ROOM] Auto-created doors:', newDoors);
+      }
+      
+      return; // Don't continue to other tool handling
+    } else if (effectiveTool === 'modularRoom' && !placingModularFloor) {
+      // Modular Room tool - click-to-pickup, click-to-drop behavior
+      
+      // If we're already carrying a room, this click drops it
+      if (modularRoomDragPreview) {
+        const { roomId, ghostPosition, originalPosition } = modularRoomDragPreview;
+        
+        // Only update if position actually changed
+        if (ghostPosition.x !== originalPosition.x || ghostPosition.y !== originalPosition.y) {
+          // Check if final position overlaps with any existing room (excluding the one being moved)
+          const room = scene.elements.find(el => el.id === roomId) as ModularRoomElement | undefined;
+          if (room) {
+            const roomWidthPx = room.tilesW * MODULAR_TILE_PX;
+            const roomHeightPx = room.tilesH * MODULAR_TILE_PX;
+            const proposedRect = { x: ghostPosition.x, y: ghostPosition.y, w: roomWidthPx, h: roomHeightPx };
+            
+            const existingModularRooms = getModularRooms(scene.elements).filter(r => r.id !== roomId);
+            const hasOverlap = existingModularRooms.some(other => {
+              const otherRect = {
+                x: other.x,
+                y: other.y,
+                w: other.tilesW * MODULAR_TILE_PX,
+                h: other.tilesH * MODULAR_TILE_PX,
+              };
+              return roomsOverlapPx(proposedRect, otherRect);
+            });
+            
+            if (hasOverlap) {
+              // Show error message but STAY in placement mode - don't drop the room
+              setMergeNotification('Modular rooms can only be placed in unoccupied space');
+              setTimeout(() => setMergeNotification(null), 3000);
+              // Keep modularRoomDragPreview active - user can try another position
+              return;
+            }
+          }
+          
+          updateElement(roomId, {
+            x: ghostPosition.x,
+            y: ghostPosition.y,
+          });
+        }
+        
+        setModularRoomDragPreview(null);
+        return;
+      }
+      
+      // Not carrying a room - check if clicking on a modular room to pick it up
+      if (clickedElement && clickedElement.type === 'modularRoom') {
+        const modRoom = clickedElement as ModularRoomElement;
+        
+        // Select and pick up the room
+        setSelectedElementId(modRoom.id);
+        setSelectedElementIds([]);
+        saveToHistory();
+        
+        // Start "carrying" the room - center it under cursor
+        const roomWidthPx = modRoom.tilesW * MODULAR_TILE_PX;
+        const roomHeightPx = modRoom.tilesH * MODULAR_TILE_PX;
+        const centeredX = x - roomWidthPx / 2;
+        const centeredY = y - roomHeightPx / 2;
+        
+        // Get other rooms for magnetic snap
+        const allModularRooms = getModularRooms(scene.elements);
+        const otherRooms = allModularRooms.filter(r => r.id !== modRoom.id);
+        const snapResult = findMagneticSnapPosition(modRoom, centeredX, centeredY, otherRooms);
+        
+        setModularRoomDragPreview({
+          roomId: modRoom.id,
+          originalPosition: { x: modRoom.x, y: modRoom.y },
+          ghostPosition: { x: snapResult.x, y: snapResult.y },
+          cursorPosition: { x: centeredX, y: centeredY },
+          snappedToRoom: snapResult.snappedToRoom,
+          sharedEdgeTiles: snapResult.sharedEdgeTiles,
+        });
+        
+        return;
+      } else if (clickedElement) {
+        // Clicked on a non-modular element - just select it
+        setSelectedElementId(clickedElement.id);
+        setSelectedElementIds([]);
+      } else {
+        // Click on empty space - deselect
+        setSelectedElementId(null);
+        setSelectedElementIds([]);
+      }
+      return;
     } else if (effectiveTool === 'room') {
       const baseShape = getBaseShape(roomSubTool);
       if (baseShape === 'custom') {
@@ -4166,6 +4528,22 @@ const Canvas = ({
       setWallCutterToolStart({ x, y });
       setWallCutterToolEnd({ x, y });
     }
+  };
+
+  // Handle drag over for modular floor placement from panel
+  const handleDragOver = (e: React.DragEvent) => {
+    // Only process if we're placing a modular floor
+    if (!placingModularFloor || activeTool !== 'modularRoom') return;
+    
+    e.preventDefault(); // Allow drop
+    
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    const x = (e.clientX - rect.left - viewport.x) / viewport.zoom;
+    const y = (e.clientY - rect.top - viewport.y) / viewport.zoom;
+
+    setCursorPosition({ x, y });
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
@@ -4426,6 +4804,32 @@ const Canvas = ({
     // Update cursor position for token preview - only if scene exists and not over UI
     if (activeTool === 'token' && activeTokenTemplate && scene && !isOverUI) {
       setCursorPosition({ x, y });
+    } else if (activeTool === 'modularRoom' && placingModularFloor && scene && !isOverUI) {
+      // Update cursor position for modular floor preview
+      setCursorPosition({ x, y });
+    } else if (modularRoomDragPreview && scene && !isOverUI) {
+      // Update carried modular room position (works with any tool)
+      const room = scene.elements.find(el => el.id === modularRoomDragPreview.roomId) as ModularRoomElement | undefined;
+      if (room) {
+        // Center room under cursor
+        const roomWidthPx = room.tilesW * MODULAR_TILE_PX;
+        const roomHeightPx = room.tilesH * MODULAR_TILE_PX;
+        const centeredX = x - roomWidthPx / 2;
+        const centeredY = y - roomHeightPx / 2;
+        
+        // Get other rooms for magnetic snap
+        const allModularRooms = getModularRooms(scene.elements);
+        const otherRooms = allModularRooms.filter(r => r.id !== room.id);
+        const snapResult = findMagneticSnapPosition(room, centeredX, centeredY, otherRooms);
+        
+        setModularRoomDragPreview({
+          ...modularRoomDragPreview,
+          ghostPosition: { x: snapResult.x, y: snapResult.y },
+          cursorPosition: { x: centeredX, y: centeredY },
+          snappedToRoom: snapResult.snappedToRoom,
+          sharedEdgeTiles: snapResult.sharedEdgeTiles,
+        });
+      }
     } else if (activeTool === 'background' && selectedTerrainBrush && scene && !isOverUI) {
       // Update cursor position for terrain brush preview
       setCursorPosition({ x, y });
@@ -4578,6 +4982,11 @@ const Canvas = ({
                 updates.set(id, { vertices: newVertices });
               }
             }
+          } else if (element.type === 'modularRoom') {
+            // Modular rooms use x/y in pixels - direct pixel movement
+            const newPixelX = x - initialOffset.x;
+            const newPixelY = y - initialOffset.y;
+            updates.set(id, { x: newPixelX, y: newPixelY });
           } else if ('x' in element && 'y' in element) {
             updates.set(id, {
               x: x - initialOffset.x,
@@ -4961,6 +5370,9 @@ const Canvas = ({
               updateElement(draggedElement.id, { vertices: newVertices });
             }
           }
+        } else if (element.type === 'modularRoom') {
+          // Modular rooms now use modularRoomDragPreview for both pointer and modularRoom tools
+          // This branch should not be reached
         } else if ('x' in element && 'y' in element) {
           updateElement(draggedElement.id, {
             x: x - draggedElement.offsetX,
@@ -4972,6 +5384,47 @@ const Canvas = ({
   };
 
   const handleMouseUp = async () => {
+    // Finalize modular room drag (for pointer tool - modularRoom tool uses click-to-drop)
+    if (modularRoomDragPreview && activeTool !== 'modularRoom' && scene) {
+      const { roomId, ghostPosition, originalPosition } = modularRoomDragPreview;
+      
+      // Only update if position actually changed
+      if (ghostPosition.x !== originalPosition.x || ghostPosition.y !== originalPosition.y) {
+        // Check if final position overlaps with any existing room
+        const room = scene.elements.find(el => el.id === roomId) as ModularRoomElement | undefined;
+        if (room) {
+          const roomWidthPx = room.tilesW * MODULAR_TILE_PX;
+          const roomHeightPx = room.tilesH * MODULAR_TILE_PX;
+          const proposedRect = { x: ghostPosition.x, y: ghostPosition.y, w: roomWidthPx, h: roomHeightPx };
+          
+          const existingModularRooms = getModularRooms(scene.elements).filter(r => r.id !== roomId);
+          const hasOverlap = existingModularRooms.some(other => {
+            const otherRect = {
+              x: other.x,
+              y: other.y,
+              w: other.tilesW * MODULAR_TILE_PX,
+              h: other.tilesH * MODULAR_TILE_PX,
+            };
+            return roomsOverlapPx(proposedRect, otherRect);
+          });
+          
+          if (hasOverlap) {
+            // Show error and revert
+            setMergeNotification('Modular rooms can only be placed in unoccupied space');
+            setTimeout(() => setMergeNotification(null), 3000);
+          } else {
+            // Commit the move
+            updateElement(roomId, {
+              x: ghostPosition.x,
+              y: ghostPosition.y,
+            });
+          }
+        }
+      }
+      
+      setModularRoomDragPreview(null);
+    }
+    
     // Finalize interior wall drawing (ALT + drag from room edge)
     if (interiorWallStart && scene) {
       // Use ref for the most up-to-date preview position
@@ -5179,6 +5632,9 @@ const Canvas = ({
       setXlabTerrainShapeEnd(null);
       return; // Exit early to prevent double history save
     }
+
+    // Note: Modular room placement now uses click-to-pickup, click-to-drop in handleMouseDown
+    // No mouseUp handling needed for modular rooms
 
     // Door Tool: DISABLED
 
@@ -6030,6 +6486,14 @@ const Canvas = ({
             }
           }
         }
+      } else if (element.type === 'modularRoom') {
+        // Handle modular room elements - simple rectangle hit test
+        const modRoom = element as ModularRoomElement;
+        const rect = getRoomPixelRect(modRoom);
+        
+        if (x >= rect.x && x <= rect.x + rect.w && y >= rect.y && y <= rect.y + rect.h) {
+          return element;
+        }
       } else if ('x' in element && 'y' in element && 'size' in element) {
         // Handle circular elements (annotations and tokens)
         const distance = Math.sqrt((x - element.x) ** 2 + (y - element.y) ** 2);
@@ -6099,6 +6563,8 @@ const Canvas = ({
     if (isPanning || isSpacePressed || activeTool === 'pan') return 'cursor-grab';
     if (activeTool === 'marker') return 'cursor-copy';
     if (activeTool === 'token' && scene) return 'cursor-none'; // Hide default cursor for token mode only when scene exists
+    if (activeTool === 'modularRoom' && placingModularFloor && scene) return 'cursor-none'; // Hide cursor for modular floor placement
+    if (activeTool === 'modularRoom' && modularRoomDragPreview) return 'cursor-grabbing'; // Grabbing hand when carrying a room
     if (activeTool === 'background') return 'cursor-crosshair'; // Crosshair for painting background
     if (activeTool === 'room') {
       // Show cell cursor (precision cursor) when in erase mode
@@ -6171,6 +6637,7 @@ const Canvas = ({
         onMouseUp={handleMouseUp}
         onWheel={handleWheel}
         onContextMenu={handleContextMenu}
+        onDragOver={handleDragOver}
       >
         {/* ...no token submenu rendered... */}
         {scene && (() => {
@@ -6271,6 +6738,19 @@ const Canvas = ({
                         renderLayer="floor"
                       />
                     ))}
+                  
+                  {/* Modular Room Floors */}
+                  <ModularRoomRenderer
+                    modularRooms={getModularRooms(scene.elements)}
+                    wallGroups={scene.modularRoomsState?.wallGroups || []}
+                    doors={scene.modularRoomsState?.doors || []}
+                    selectedRoomId={selectedElementId}
+                    selectedRoomIds={selectedElementIds}
+                    renderLayer="floor"
+                    gridSize={gridSize}
+                    dragPreview={modularRoomDragPreview}
+                    placingFloor={placingModularFloor}
+                  />
                 </div>
 
                 {/* Layer 4: GRID - Infinite scrolling grid overlay */}
@@ -6356,6 +6836,20 @@ const Canvas = ({
                         selectedVertex={selectedVertex}
                       />
                     ))}
+                  
+                  {/* Modular Room Walls, Pillars, and Doors */}
+                  <ModularRoomRenderer
+                    modularRooms={getModularRooms(scene.elements)}
+                    wallGroups={scene.modularRoomsState?.wallGroups || []}
+                    doors={scene.modularRoomsState?.doors || []}
+                    selectedRoomId={selectedElementId}
+                    selectedRoomIds={selectedElementIds}
+                    renderLayer="walls"
+                    gridSize={gridSize}
+                    dragPreview={modularRoomDragPreview}
+                    placingFloor={placingModularFloor}
+                  />
+                  
                 </div>
 
                 {/* Layer 6: TOKENS & OTHER ELEMENTS - Tokens, annotations, etc. */}
@@ -6491,6 +6985,19 @@ const Canvas = ({
                     renderLayer="floor"
                   />
                 ))}
+              
+              {/* Modular Room Floors */}
+              <ModularRoomRenderer
+                modularRooms={getModularRooms(scene.elements)}
+                wallGroups={scene.modularRoomsState?.wallGroups || []}
+                doors={scene.modularRoomsState?.doors || []}
+                selectedRoomId={selectedElementId}
+                selectedRoomIds={selectedElementIds}
+                renderLayer="floor"
+                gridSize={gridSize}
+                dragPreview={modularRoomDragPreview}
+                placingFloor={placingModularFloor}
+              />
             </div>
             
             {/* Layer 4: GRID - Fixed size grid overlay (WORLD SPACE - 50k x 50k like canvas mode) */}
@@ -6556,6 +7063,20 @@ const Canvas = ({
                     selectedVertex={selectedVertex}
                   />
                 ))}
+              
+              {/* Modular Room Walls, Pillars, and Doors */}
+              <ModularRoomRenderer
+                modularRooms={getModularRooms(scene.elements)}
+                wallGroups={scene.modularRoomsState?.wallGroups || []}
+                doors={scene.modularRoomsState?.doors || []}
+                selectedRoomId={selectedElementId}
+                selectedRoomIds={selectedElementIds}
+                renderLayer="walls"
+                gridSize={gridSize}
+                dragPreview={modularRoomDragPreview}
+                placingFloor={placingModularFloor}
+              />
+              
             </div>
             
             {/* Layer 6: TOKENS & OTHER ELEMENTS */}
@@ -7478,7 +7999,214 @@ const Canvas = ({
                 ) : null}
               </div>
             )}
+
+        {/* Modular Floor cursor preview */}
+        {scene && activeTool === 'modularRoom' && placingModularFloor && cursorPosition && (
+          (() => {
+            // Use magnetic snap - free placement unless near existing rooms
+            const roomWidthPx = placingModularFloor.tilesW * MODULAR_TILE_PX;
+            const roomHeightPx = placingModularFloor.tilesH * MODULAR_TILE_PX;
+            
+            // Center room under cursor (in canvas coordinates)
+            const centeredX = cursorPosition.x - roomWidthPx / 2;
+            const centeredY = cursorPosition.y - roomHeightPx / 2;
+            
+            // Create temporary room for snap calculation
+            const tempRoom: ModularRoomElement = {
+              id: 'preview-temp',
+              type: 'modularRoom',
+              tilesW: placingModularFloor.tilesW,
+              tilesH: placingModularFloor.tilesH,
+              x: centeredX,
+              y: centeredY,
+              floorStyleId: placingModularFloor.floorStyleId || 'stone-floor',
+              wallGroupId: 'default',
+            };
+            
+            // Apply magnetic snap (only snaps when close to existing rooms)
+            // Use same parameters as actual placement for consistency
+            const existingRooms = getModularRooms(scene.elements);
+            const snappedPos = findMagneticSnapPosition(
+              tempRoom,
+              centeredX,
+              centeredY,
+              existingRooms,
+              96  // Same magnetDistancePx as placement
+            );
+            
+            // Convert canvas coordinates to screen coordinates
+            // Same formula as token preview: viewport.x + canvasX * viewport.zoom
+            const screenX = viewport.x + snappedPos.x * viewport.zoom;
+            const screenY = viewport.y + snappedPos.y * viewport.zoom;
+            const screenWidth = roomWidthPx * viewport.zoom;
+            const screenHeight = roomHeightPx * viewport.zoom;
+            
+            // Wall preview settings
+            const wallStyleId = 'worn-castle'; // Default wall style for preview
+            const wallHeight = 32; // Wall thickness in pixels
+            const pillarSize = 64; // Pillar size
+            const wall1xUrl = getWallSpriteUrl(wallStyleId, 1);
+            const wall2xUrl = getWallSpriteUrl(wallStyleId, 2);
+            const pillarUrl = getPillarSpriteUrl(wallStyleId);
+            
+            // Calculate how many wall segments we need
+            const tilesW = placingModularFloor.tilesW;
+            const tilesH = placingModularFloor.tilesH;
+            
+            return (
+              <div
+                style={{
+                  position: 'absolute',
+                  left: screenX,
+                  top: screenY,
+                  width: screenWidth,
+                  height: screenHeight,
+                  pointerEvents: 'none',
+                  opacity: 0.7,
+                  zIndex: 40,
+                }}
+              >
+                {/* Floor */}
+                <img 
+                  src={placingModularFloor.imageUrl} 
+                  alt={`${tilesW}x${tilesH}`}
+                  style={{
+                    position: 'absolute',
+                    left: 0,
+                    top: 0,
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                  }}
+                  draggable={false}
+                />
+                
+                {/* Top wall */}
+                <div style={{
+                  position: 'absolute',
+                  left: pillarSize * viewport.zoom / 2,
+                  top: -wallHeight * viewport.zoom / 2,
+                  width: (roomWidthPx - pillarSize) * viewport.zoom,
+                  height: wallHeight * viewport.zoom,
+                  backgroundImage: `url(${tilesW > 2 ? wall2xUrl : wall1xUrl})`,
+                  backgroundSize: `${MODULAR_TILE_PX * (tilesW > 2 ? 2 : 1) * viewport.zoom}px ${wallHeight * viewport.zoom}px`,
+                  backgroundRepeat: 'repeat-x',
+                }} />
+                
+                {/* Bottom wall */}
+                <div style={{
+                  position: 'absolute',
+                  left: pillarSize * viewport.zoom / 2,
+                  bottom: -wallHeight * viewport.zoom / 2,
+                  width: (roomWidthPx - pillarSize) * viewport.zoom,
+                  height: wallHeight * viewport.zoom,
+                  backgroundImage: `url(${tilesW > 2 ? wall2xUrl : wall1xUrl})`,
+                  backgroundSize: `${MODULAR_TILE_PX * (tilesW > 2 ? 2 : 1) * viewport.zoom}px ${wallHeight * viewport.zoom}px`,
+                  backgroundRepeat: 'repeat-x',
+                  transform: 'scaleY(-1)',
+                }} />
+                
+                {/* Left wall - rotated horizontal sprite */}
+                <div style={{
+                  position: 'absolute',
+                  // After 90deg rotation around (0,0), element extends LEFT by height and DOWN by width
+                  // So we position origin at x=0 to center the wall thickness on the left edge
+                  left: 0,
+                  top: (pillarSize / 2) * viewport.zoom,
+                  width: (roomHeightPx - pillarSize) * viewport.zoom,
+                  height: wallHeight * viewport.zoom,
+                  backgroundImage: `url(${tilesH > 2 ? wall2xUrl : wall1xUrl})`,
+                  backgroundSize: `${MODULAR_TILE_PX * (tilesH > 2 ? 2 : 1) * viewport.zoom}px ${wallHeight * viewport.zoom}px`,
+                  backgroundRepeat: 'repeat-x',
+                  transform: 'rotate(90deg) translateY(-100%)',
+                  transformOrigin: '0 0',
+                }} />
+                
+                {/* Right wall - rotated horizontal sprite */}
+                <div style={{
+                  position: 'absolute',
+                  left: roomWidthPx * viewport.zoom,
+                  top: (pillarSize / 2) * viewport.zoom,
+                  width: (roomHeightPx - pillarSize) * viewport.zoom,
+                  height: wallHeight * viewport.zoom,
+                  backgroundImage: `url(${tilesH > 2 ? wall2xUrl : wall1xUrl})`,
+                  backgroundSize: `${MODULAR_TILE_PX * (tilesH > 2 ? 2 : 1) * viewport.zoom}px ${wallHeight * viewport.zoom}px`,
+                  backgroundRepeat: 'repeat-x',
+                  transform: 'rotate(90deg)',
+                  transformOrigin: '0 0',
+                }} />
+                
+                {/* Corner pillars - centered on tile corners */}
+                {/* Top-left */}
+                <img src={pillarUrl} style={{
+                  position: 'absolute',
+                  left: (-pillarSize / 2) * viewport.zoom,
+                  top: (-pillarSize / 2) * viewport.zoom,
+                  width: pillarSize * viewport.zoom,
+                  height: pillarSize * viewport.zoom,
+                }} draggable={false} />
+                {/* Top-right */}
+                <img src={pillarUrl} style={{
+                  position: 'absolute',
+                  left: (roomWidthPx - pillarSize / 2) * viewport.zoom,
+                  top: (-pillarSize / 2) * viewport.zoom,
+                  width: pillarSize * viewport.zoom,
+                  height: pillarSize * viewport.zoom,
+                }} draggable={false} />
+                {/* Bottom-left */}
+                <img src={pillarUrl} style={{
+                  position: 'absolute',
+                  left: (-pillarSize / 2) * viewport.zoom,
+                  top: (roomHeightPx - pillarSize / 2) * viewport.zoom,
+                  width: pillarSize * viewport.zoom,
+                  height: pillarSize * viewport.zoom,
+                }} draggable={false} />
+                {/* Bottom-right */}
+                <img src={pillarUrl} style={{
+                  position: 'absolute',
+                  left: (roomWidthPx - pillarSize / 2) * viewport.zoom,
+                  top: (roomHeightPx - pillarSize / 2) * viewport.zoom,
+                  width: pillarSize * viewport.zoom,
+                  height: pillarSize * viewport.zoom,
+                }} draggable={false} />
+                
+                {/* Dashed border indicator */}
+                <div style={{
+                  position: 'absolute',
+                  inset: 0,
+                  border: '2px dashed #8b5cf6',
+                  borderRadius: 4,
+                  pointerEvents: 'none',
+                }} />
+              </div>
+            );
+          })()
+        )}
       </div>
+
+      {/* Modular Room Context Menu - Rendered in screen-space (fixed size) */}
+      {scene && selectedElementId && !modularRoomDragPreview && (() => {
+        const selectedRoom = getModularRooms(scene.elements).find(r => r.id === selectedElementId);
+        if (!selectedRoom) return null;
+        
+        // Calculate screen coordinates from world coordinates
+        const roomRect = getRoomPixelRect(selectedRoom);
+        const worldX = roomRect.x + roomRect.w / 2;
+        const worldY = roomRect.y;
+        
+        // Convert world to screen: screenPos = viewport.x + worldPos * zoom
+        const screenX = viewport.x + worldX * viewport.zoom;
+        const screenY = viewport.y + worldY * viewport.zoom;
+        
+        return (
+          <ModularRoomContextMenu
+            screenX={screenX}
+            screenY={screenY}
+            onRotateLeft={() => handleRotateModularRoom(selectedRoom.id, 'left')}
+            onRotateRight={() => handleRotateModularRoom(selectedRoom.id, 'right')}
+          />
+        );
+      })()}
 
       {/* Mode Toggle Button - Top Center */}
       <button

@@ -41,6 +41,7 @@ import PointerButton, { pointerButtonConfig } from './buttons/PointerButton';
 import TokenButton, { tokenButtonConfig } from './buttons/TokenButton';
 import TerrainButton, { terrainButtonConfig } from './buttons/TerrainButton';
 import RoomButton, { roomButtonConfig } from './buttons/RoomButton';
+import ModularRoomButton, { modularRoomButtonConfig } from './buttons/ModularRoomButton';
 import WallButton, { wallButtonConfig } from './buttons/WallButton';
 import WallCutterToolButton, { wallCutterToolButtonConfig } from './buttons/WallCutterToolButton';
 import PanButton, { panButtonConfig } from './buttons/PanButton';
@@ -126,6 +127,7 @@ const BUTTON_REGISTRY = [
   { component: TokenButton, config: tokenButtonConfig },
   { component: TerrainButton, config: terrainButtonConfig },
   { component: RoomButton, config: roomButtonConfig },
+  { component: ModularRoomButton, config: modularRoomButtonConfig },
   { component: WallButton, config: wallButtonConfig },
   { component: WallCutterToolButton, config: wallCutterToolButtonConfig },
   { component: PanButton, config: panButtonConfig },
