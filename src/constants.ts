@@ -36,5 +36,5 @@ export const MODULAR_FLOORS_PATH = 'modular-rooms/floors';
 export const MODULAR_WALLS_PATH = 'modular-rooms/walls';
 
 // Default styles
-export const DEFAULT_FLOOR_STYLE_ID = 'stone-beta';
+export const DEFAULT_FLOOR_STYLE_ID = 'wood-beta';
 export const DEFAULT_WALL_STYLE_ID = 'worn-castle';

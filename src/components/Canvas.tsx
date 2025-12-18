@@ -4405,7 +4405,7 @@ const Canvas = ({
       // Create automatic doors for adjacent rooms
       const newDoors = createDoorsForNewRoom(newModularRoom, existingModularRooms, currentState.doors);
       
-      // Check if this new room connects multiple different groups (merge needed)
+      // Check ALL adjacent rooms to determine if we need to merge groups
       const adjacentRooms = existingModularRooms.filter(other => areRoomsAdjacent(newModularRoom, other));
       const adjacentGroupIds = [...new Set(adjacentRooms.map(r => r.wallGroupId).filter(Boolean))] as string[];
       
@@ -4415,37 +4415,54 @@ const Canvas = ({
       // Prepare element updates for merging groups
       let updatedElements = [...scene.elements, newModularRoom];
       
-      if (adjacentGroupIds.length > 1) {
-        // Multiple groups need to be merged into the primary group (wallGroupId)
-        const groupsToMerge = adjacentGroupIds.filter(id => id !== wallGroupId);
-        console.log('[MODULAR ROOM] Merging groups:', groupsToMerge.map(id => id.slice(-8)), 'into', wallGroupId.slice(-8));
+      if (adjacentGroupIds.length >= 1) {
+        // Use the first adjacent group as the primary group
+        const primaryGroupId = adjacentGroupIds[0];
+        const groupsToMerge = adjacentGroupIds.slice(1); // All other groups need to merge into primary
         
-        // Count total rooms that will be in the merged group
-        let totalRoomCount = 1; // The new room
+        console.log('[MODULAR ROOM] Primary group:', primaryGroupId.slice(-8));
+        if (groupsToMerge.length > 0) {
+          console.log('[MODULAR ROOM] Groups to merge:', groupsToMerge.map(id => id.slice(-8)));
+        }
         
-        // Update all rooms in the groups being merged
+        // Update the new room to use the primary group ID (in case it was assigned a different one)
         updatedElements = updatedElements.map(el => {
+          if (el.id === newModularRoom.id) {
+            return { ...el, wallGroupId: primaryGroupId } as MapElement;
+          }
+          // Also update rooms from merged groups
           if (el.type === 'modularRoom') {
             const room = el as ModularRoomElement;
-            if (room.wallGroupId === wallGroupId) {
-              totalRoomCount++;
-              return el;
-            }
             if (room.wallGroupId && groupsToMerge.includes(room.wallGroupId)) {
-              totalRoomCount++;
-              console.log('[MODULAR ROOM] Updating room', el.id.slice(-8), 'from group', room.wallGroupId.slice(-8), 'to', wallGroupId.slice(-8));
-              return { ...el, wallGroupId } as MapElement;
+              console.log('[MODULAR ROOM] Updating room', el.id.slice(-8), 'from group', room.wallGroupId.slice(-8), 'to', primaryGroupId.slice(-8));
+              return { ...el, wallGroupId: primaryGroupId } as MapElement;
             }
           }
           return el;
         });
         
-        // Remove the merged groups from wallGroups and update the primary group's roomCount
-        updatedWallGroups = updatedWallGroups
-          .filter(g => !groupsToMerge.includes(g.id))
-          .map(g => g.id === wallGroupId ? { ...g, roomCount: totalRoomCount } : g);
+        // Count total rooms in the merged group
+        const totalRoomCount = updatedElements.filter(el => 
+          el.type === 'modularRoom' && (el as ModularRoomElement).wallGroupId === primaryGroupId
+        ).length;
         
         console.log('[MODULAR ROOM] After merge - total room count:', totalRoomCount);
+        
+        // Remove merged groups and update primary group's roomCount
+        // Also remove the new group if we created one (since we're using primary instead)
+        updatedWallGroups = updatedWallGroups
+          .filter(g => !groupsToMerge.includes(g.id) && g.id !== wallGroupId)
+          .map(g => g.id === primaryGroupId ? { ...g, roomCount: totalRoomCount } : g);
+        
+        // If the primary group doesn't exist yet (shouldn't happen), create it
+        if (!updatedWallGroups.some(g => g.id === primaryGroupId)) {
+          const originalGroup = currentState.wallGroups.find(g => g.id === primaryGroupId);
+          updatedWallGroups.push({ 
+            id: primaryGroupId, 
+            wallStyleId: originalGroup?.wallStyleId || defaultWallStyleId, 
+            roomCount: totalRoomCount 
+          });
+        }
       }
       
       const updatedState = {
