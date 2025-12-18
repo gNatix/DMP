@@ -68,14 +68,16 @@ export function getDoorSpriteUrl(wallStyleId: string): string {
  * Get the API URL to list floor styles (folders)
  */
 export function getFloorStylesApiUrl(): string {
-  return `${MODULAR_ASSETS_BASE_URL}/list-files.php?path=${MODULAR_FLOORS_PATH}`;
+  // Add cache-busting parameter to avoid stale data
+  return `${MODULAR_ASSETS_BASE_URL}/list-files.php?path=${MODULAR_FLOORS_PATH}&_t=${Date.now()}`;
 }
 
 /**
  * Get the API URL to list wall styles (folders)
  */
 export function getWallStylesApiUrl(): string {
-  return `${MODULAR_ASSETS_BASE_URL}/list-files.php?path=${MODULAR_WALLS_PATH}`;
+  // Add cache-busting parameter to avoid stale data
+  return `${MODULAR_ASSETS_BASE_URL}/list-files.php?path=${MODULAR_WALLS_PATH}&_t=${Date.now()}`;
 }
 
 /**
