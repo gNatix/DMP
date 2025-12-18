@@ -222,6 +222,11 @@ function App() {
           setCollections(settingsResult.settings.collections);
         }
         
+        // Restore viewport position
+        if (settingsResult.settings.viewport) {
+          setViewport(settingsResult.settings.viewport);
+        }
+        
         // Restore active scene (if it exists in loaded scenes)
         if (settingsResult.settings.activeSceneId) {
           const sceneExists = scenesResult.scenes?.some(s => s.id === settingsResult.settings!.activeSceneId);
@@ -260,21 +265,22 @@ function App() {
     return () => clearTimeout(timeoutId);
   }, [scenes, activeSceneId, user, hasLoadedFromCloud]);
 
-  // Auto-save user settings (collections, activeSceneId) when they change
+  // Auto-save user settings (collections, activeSceneId, viewport) when they change
   useEffect(() => {
     // Only save if logged in and we've already loaded from cloud
     if (!user || !hasLoadedFromCloud) return;
 
-    // Debounce auto-save (wait 1 second after last change)
+    // Debounce auto-save (wait 500ms after last change)
     const timeoutId = setTimeout(async () => {
       await saveUserSettings(user.id, {
         collections,
         activeSceneId,
+        viewport,
       }, user.handle, user.authProvider);
-    }, 1000);
+    }, 500);
 
     return () => clearTimeout(timeoutId);
-  }, [collections, activeSceneId, user, hasLoadedFromCloud]);
+  }, [collections, activeSceneId, viewport, user, hasLoadedFromCloud]);
 
   // Load terrain brushes on mount
   useEffect(() => {
@@ -448,6 +454,9 @@ function App() {
     tilesH: number;
     imageUrl: string;
   } | null>(null);
+
+  // Default wall style for new modular rooms
+  const [defaultWallStyleId, setDefaultWallStyleId] = useState<string>('worn-castle');
 
   // Handle starting drag of modular floor from panel
   const handleStartDragModularFloor = (floorStyleId: string, tilesW: number, tilesH: number, imageUrl: string) => {
@@ -801,11 +810,23 @@ function App() {
     }));
   };
 
-  // Delete collection
+  // Delete collection and all scenes within it
   const deleteCollection = (collectionId: string) => {
+    // Get all scene IDs in this collection
+    const scenesInCollection = scenes.filter(s => s.collectionId === collectionId);
+    const sceneIdsToDelete = scenesInCollection.map(s => s.id);
+    
+    // If active scene is in this collection, switch to another scene
+    if (activeSceneId && sceneIdsToDelete.includes(activeSceneId)) {
+      const remainingScenes = scenes.filter(s => !sceneIdsToDelete.includes(s.id));
+      setActiveSceneId(remainingScenes.length > 0 ? remainingScenes[0].id : null);
+    }
+    
+    // Delete all scenes in the collection
+    setScenes(prev => prev.filter(s => s.collectionId !== collectionId));
+    
+    // Delete the collection itself
     setCollections(prev => prev.filter(c => c.id !== collectionId));
-    // Remove collectionId from all scenes in that collection
-    setScenes(prev => prev.map(s => s.collectionId === collectionId ? { ...s, collectionId: undefined } : s));
   };
 
   // Move scene to different collection
@@ -1079,8 +1100,10 @@ function App() {
         setXlabShapeMode={setXlabShapeMode}
         onElementSelected={viewMode === 'game' ? handleCanvasElementSelect : undefined}
         onViewportChange={setViewport}
+        initialViewport={viewport}
         placingModularFloor={placingModularFloor}
         setPlacingModularFloor={setPlacingModularFloor}
+        defaultWallStyleId={defaultWallStyleId}
       />
 
       {/* Right Panel (Planning Mode Only) */}
@@ -1145,6 +1168,9 @@ function App() {
             wallGroups={wallGroups}
             updateWallGroup={updateWallGroup}
             onStartDragModularFloor={handleStartDragModularFloor}
+            defaultWallStyleId={defaultWallStyleId}
+            onDefaultWallStyleChange={setDefaultWallStyleId}
+            selectedElementIds={selectedElementIds}
           />
       )}
 

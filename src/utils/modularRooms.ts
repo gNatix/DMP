@@ -672,6 +672,25 @@ export function generateWallSegments(
     
     const lengthTiles = edge.rangeEnd - edge.rangeStart;
     const lengthPx = lengthTiles * MODULAR_TILE_PX;
+    const startPx = edge.rangeStart * MODULAR_TILE_PX;
+    
+    // Calculate interior pillar positions for this edge (same logic as generatePillarsWithEdgeInfo)
+    const numSegments = lengthPx / MODULAR_WALL_SPRITE_2TILE_WIDTH;
+    const interiorPillarOffsets: number[] = []; // Offsets in px from edge start
+    
+    // Interior pillar positions - place exactly at center (no snap to grid)
+    // For 6-tile wall: center is at 384 (between tile 3 and 4)
+    if (numSegments >= 5) {
+      // 10+ tiles: pillars at 25%, 50%, 75%
+      interiorPillarOffsets.push(
+        lengthPx * 0.25,
+        lengthPx * 0.5,
+        lengthPx * 0.75
+      );
+    } else if (numSegments >= 3) {
+      // 6-8 tiles: single pillar at exact center
+      interiorPillarOffsets.push(lengthPx / 2);
+    }
     
     // Check for doors on this edge
     const edgeDoors = doors.filter(d => 
@@ -681,11 +700,22 @@ export function generateWallSegments(
       d.edgeRangeEnd === edge.rangeEnd
     );
     
-    if (edgeDoors.length === 0) {
-      // No doors - single wall segment
+    // Combine all split points (pillars and doors) and sort
+    const splitPoints: number[] = [...interiorPillarOffsets];
+    
+    for (const door of edgeDoors) {
+      splitPoints.push(door.offsetTiles * MODULAR_TILE_PX);
+      splitPoints.push((door.offsetTiles + door.widthTiles) * MODULAR_TILE_PX);
+    }
+    
+    // Sort and deduplicate
+    const uniqueSplitPoints = [...new Set(splitPoints)].sort((a, b) => a - b);
+    
+    if (uniqueSplitPoints.length === 0) {
+      // No pillars or doors - single wall segment
       if (edge.orientation === 'horizontal') {
         segments.push({
-          x: edge.rangeStart * MODULAR_TILE_PX + lengthPx / 2,
+          x: startPx + lengthPx / 2,
           y: edge.position * MODULAR_TILE_PX,
           width: lengthPx,
           height: MODULAR_WALL_THICKNESS_PX,
@@ -695,7 +725,7 @@ export function generateWallSegments(
       } else {
         segments.push({
           x: edge.position * MODULAR_TILE_PX,
-          y: edge.rangeStart * MODULAR_TILE_PX + lengthPx / 2,
+          y: startPx + lengthPx / 2,
           width: lengthPx,
           height: MODULAR_WALL_THICKNESS_PX,
           rotation: 90,
@@ -703,23 +733,20 @@ export function generateWallSegments(
         });
       }
     } else {
-      // Has doors - split into segments around door openings
-      // Sort doors by offset
-      const sortedDoors = [...edgeDoors].sort((a, b) => a.offsetTiles - b.offsetTiles);
+      // Split wall into segments at split points
+      let currentOffset = 0;
       
-      let currentStart = 0;
-      for (const door of sortedDoors) {
-        const doorStart = door.offsetTiles;
-        const doorEnd = door.offsetTiles + door.widthTiles;
+      for (const splitPoint of uniqueSplitPoints) {
+        // Check if this is a door start (skip the door opening)
+        const isDoorStart = edgeDoors.some(d => d.offsetTiles * MODULAR_TILE_PX === splitPoint);
         
-        // Wall segment before door
-        if (doorStart > currentStart) {
-          const segLengthTiles = doorStart - currentStart;
-          const segLengthPx = segLengthTiles * MODULAR_TILE_PX;
+        if (splitPoint > currentOffset) {
+          // Create segment from currentOffset to splitPoint
+          const segLengthPx = splitPoint - currentOffset;
           
           if (edge.orientation === 'horizontal') {
             segments.push({
-              x: (edge.rangeStart + currentStart) * MODULAR_TILE_PX + segLengthPx / 2,
+              x: startPx + currentOffset + segLengthPx / 2,
               y: edge.position * MODULAR_TILE_PX,
               width: segLengthPx,
               height: MODULAR_WALL_THICKNESS_PX,
@@ -729,7 +756,7 @@ export function generateWallSegments(
           } else {
             segments.push({
               x: edge.position * MODULAR_TILE_PX,
-              y: (edge.rangeStart + currentStart) * MODULAR_TILE_PX + segLengthPx / 2,
+              y: startPx + currentOffset + segLengthPx / 2,
               width: segLengthPx,
               height: MODULAR_WALL_THICKNESS_PX,
               rotation: 90,
@@ -738,17 +765,22 @@ export function generateWallSegments(
           }
         }
         
-        currentStart = doorEnd;
+        // If this is a door start, skip to door end
+        if (isDoorStart) {
+          const door = edgeDoors.find(d => d.offsetTiles * MODULAR_TILE_PX === splitPoint)!;
+          currentOffset = (door.offsetTiles + door.widthTiles) * MODULAR_TILE_PX;
+        } else {
+          currentOffset = splitPoint;
+        }
       }
       
-      // Wall segment after last door
-      if (currentStart < lengthTiles) {
-        const segLengthTiles = lengthTiles - currentStart;
-        const segLengthPx = segLengthTiles * MODULAR_TILE_PX;
+      // Final segment from last split point to end
+      if (currentOffset < lengthPx) {
+        const segLengthPx = lengthPx - currentOffset;
         
         if (edge.orientation === 'horizontal') {
           segments.push({
-            x: (edge.rangeStart + currentStart) * MODULAR_TILE_PX + segLengthPx / 2,
+            x: startPx + currentOffset + segLengthPx / 2,
             y: edge.position * MODULAR_TILE_PX,
             width: segLengthPx,
             height: MODULAR_WALL_THICKNESS_PX,
@@ -758,7 +790,7 @@ export function generateWallSegments(
         } else {
           segments.push({
             x: edge.position * MODULAR_TILE_PX,
-            y: (edge.rangeStart + currentStart) * MODULAR_TILE_PX + segLengthPx / 2,
+            y: startPx + currentOffset + segLengthPx / 2,
             width: segLengthPx,
             height: MODULAR_WALL_THICKNESS_PX,
             rotation: 90,
@@ -794,14 +826,17 @@ export function generateInternalWallSegments(
     const edgeStartPx = edge.rangeStart * MODULAR_TILE_PX;
     const edgeEndPx = edge.rangeEnd * MODULAR_TILE_PX;
     
-    // Find doors on this internal edge
+    // Find doors between the same two rooms
+    // We match on room IDs ONLY - orientation may change if rooms are rotated
+    // The door will be rendered at the CURRENT edge position regardless of stored orientation
     const edgeDoors = doors.filter(d => {
-      // Match doors that are on this shared edge
+      // Match doors that connect the same two rooms
       const roomsMatch = edge.roomAId && edge.roomBId &&
         ((d.roomAId === edge.roomAId && d.roomBId === edge.roomBId) ||
          (d.roomAId === edge.roomBId && d.roomBId === edge.roomAId));
-      const positionMatch = d.edgeOrientation === edge.orientation && d.edgePosition === edge.position;
-      return roomsMatch && positionMatch;
+      
+      // Only check room IDs - orientation is determined by current edge
+      return roomsMatch;
     });
     
     if (edgeDoors.length === 0) {
@@ -900,17 +935,42 @@ export function generateInternalWallSegments(
  * Doors are ALWAYS centered on their edge in pixels, regardless of offsetTiles.
  * This ensures the door is perfectly centered between the wall segments,
  * especially when using 64px wall segments near pillars.
+ * 
+ * Uses internalEdges to get the CURRENT position of the shared edge,
+ * which may have changed if rooms were rotated.
  */
 export function generateDoorRenderings(
   doors: ModularDoor[],
-  wallStyleId: string
+  wallStyleId: string,
+  internalEdges: PerimeterEdge[] = []
 ): DoorOpening[] {
   return doors.map(door => {
     const doorWidthPx = door.widthTiles * MODULAR_TILE_PX; // 128px for 1-tile door
     
-    // Calculate edge dimensions in pixels
-    const edgeStartPx = door.edgeRangeStart * MODULAR_TILE_PX;
-    const edgeEndPx = door.edgeRangeEnd * MODULAR_TILE_PX;
+    // Find the CURRENT edge between these two rooms
+    // This handles the case where rooms have been rotated and edge positions changed
+    // Match on room IDs ONLY - orientation may have changed
+    const currentEdge = internalEdges.find(e => {
+      const roomsMatch = e.roomAId && e.roomBId &&
+        ((door.roomAId === e.roomAId && door.roomBId === e.roomBId) ||
+         (door.roomAId === e.roomBId && door.roomBId === e.roomAId));
+      return roomsMatch;
+    });
+    
+    // Use current edge if found, otherwise fall back to stored door values
+    const edgeStartPx = currentEdge 
+      ? currentEdge.rangeStart * MODULAR_TILE_PX 
+      : door.edgeRangeStart * MODULAR_TILE_PX;
+    const edgeEndPx = currentEdge 
+      ? currentEdge.rangeEnd * MODULAR_TILE_PX 
+      : door.edgeRangeEnd * MODULAR_TILE_PX;
+    const edgePositionPx = currentEdge
+      ? currentEdge.position * MODULAR_TILE_PX
+      : door.edgePosition * MODULAR_TILE_PX;
+    
+    // Use CURRENT edge orientation, not stored door orientation
+    const orientation = currentEdge ? currentEdge.orientation : door.edgeOrientation;
+    
     const edgeLengthPx = edgeEndPx - edgeStartPx;
     
     // Center the door on the edge (in pixels, not tiles)
@@ -919,11 +979,11 @@ export function generateDoorRenderings(
     
     let x: number, y: number;
     
-    if (door.edgeOrientation === 'horizontal') {
+    if (orientation === 'horizontal') {
       x = edgeStartPx + doorCenterOffset;
-      y = door.edgePosition * MODULAR_TILE_PX;
+      y = edgePositionPx;
     } else {
-      x = door.edgePosition * MODULAR_TILE_PX;
+      x = edgePositionPx;
       y = edgeStartPx + doorCenterOffset;
     }
     
@@ -932,7 +992,7 @@ export function generateDoorRenderings(
       y,
       width: doorWidthPx,
       height: MODULAR_WALL_THICKNESS_PX,
-      rotation: door.edgeOrientation === 'vertical' ? 90 : 0,
+      rotation: orientation === 'vertical' ? 90 : 0,
       wallStyleId,
       doorId: door.id,
     };
@@ -1031,17 +1091,75 @@ export interface PillarWithEdgeInfo extends Pillar {
  * - ALL edges (external AND internal): Pillars at endpoints (corners)
  * - ONLY external edges: Interior pillars along the wall based on length
  * - Internal edges: NO interior pillars, only endpoint pillars
+ * - NO pillars where doors are (pillars at door endpoints are skipped)
  */
 export function generatePillarsWithEdgeInfo(
   externalEdges: PerimeterEdge[],
   internalEdges: PerimeterEdge[],
-  wallStyleId: string
+  wallStyleId: string,
+  doors: ModularDoor[] = []
 ): PillarWithEdgeInfo[] {
   const pillars: PillarWithEdgeInfo[] = [];
   const pillarPositions = new Map<string, PillarWithEdgeInfo>(); // Track position -> pillar for dedup
   
-  // Helper to add/update pillar
+  // Helper to check if a position overlaps with any door
+  // Door position is ALWAYS centered on its edge (matching generateDoorRenderings and generateInternalWallSegments)
+  // Uses internalEdges to get CURRENT edge position (handles rotated rooms)
+  const isPositionInDoor = (x: number, y: number): boolean => {
+    for (const door of doors) {
+      // Find the CURRENT edge between these two rooms
+      // Match on room IDs ONLY - orientation may have changed
+      const currentEdge = internalEdges.find(e => {
+        const roomsMatch = e.roomAId && e.roomBId &&
+          ((door.roomAId === e.roomAId && door.roomBId === e.roomBId) ||
+           (door.roomAId === e.roomBId && door.roomBId === e.roomAId));
+        return roomsMatch;
+      });
+      
+      // Use current edge if found, otherwise fall back to stored door values
+      const doorPositionPx = currentEdge 
+        ? currentEdge.position * MODULAR_TILE_PX 
+        : door.edgePosition * MODULAR_TILE_PX;
+      const edgeStartPx = currentEdge 
+        ? currentEdge.rangeStart * MODULAR_TILE_PX 
+        : door.edgeRangeStart * MODULAR_TILE_PX;
+      const edgeEndPx = currentEdge 
+        ? currentEdge.rangeEnd * MODULAR_TILE_PX 
+        : door.edgeRangeEnd * MODULAR_TILE_PX;
+      
+      // Use CURRENT edge orientation
+      const orientation = currentEdge ? currentEdge.orientation : door.edgeOrientation;
+      
+      const edgeLengthPx = edgeEndPx - edgeStartPx;
+      const doorWidthPx = door.widthTiles * MODULAR_TILE_PX;
+      
+      // Door is centered on the edge
+      const doorCenterPx = edgeStartPx + edgeLengthPx / 2;
+      const doorStartPx = doorCenterPx - doorWidthPx / 2;
+      const doorEndPx = doorCenterPx + doorWidthPx / 2;
+      
+      if (orientation === 'horizontal') {
+        // Horizontal door: check if pillar is within door range on x-axis and at door y-position
+        if (y === doorPositionPx && x > doorStartPx && x < doorEndPx) {
+          return true;
+        }
+      } else {
+        // Vertical door: check if pillar is within door range on y-axis and at door x-position
+        if (x === doorPositionPx && y > doorStartPx && y < doorEndPx) {
+          return true;
+        }
+      }
+    }
+    return false;
+  };
+  
+  // Helper to add/update pillar (skips if position is inside a door)
   const addPillar = (x: number, y: number, isCorner: boolean, isExternal: boolean) => {
+    // Skip pillars that would be inside a door opening
+    if (isPositionInDoor(x, y)) {
+      return;
+    }
+    
     const key = `${x},${y}`;
     const existing = pillarPositions.get(key);
     
@@ -1071,6 +1189,7 @@ export function generatePillarsWithEdgeInfo(
     }
     
     // Interior pillars based on segment count (external only)
+    // Place exactly at center positions (no snap to grid)
     const numSegments = lengthPx / MODULAR_WALL_SPRITE_2TILE_WIDTH;
     
     const interiorPillarRatios: number[] = [];
@@ -1081,13 +1200,13 @@ export function generatePillarsWithEdgeInfo(
     }
     
     for (const ratio of interiorPillarRatios) {
-      const rawPos = startPx + lengthPx * ratio;
-      const snappedPos = Math.round(rawPos / MODULAR_TILE_PX) * MODULAR_TILE_PX;
+      // Use exact position without snapping to tile grid
+      const exactPos = startPx + lengthPx * ratio;
       
       if (edge.orientation === 'horizontal') {
-        addPillar(snappedPos, positionPx, false, true);
+        addPillar(exactPos, positionPx, false, true);
       } else {
-        addPillar(positionPx, snappedPos, false, true);
+        addPillar(positionPx, exactPos, false, true);
       }
     }
   }
@@ -1712,3 +1831,307 @@ export function findMagneticSnapPosition(
   // Free placement - no snap, no overlap
   return { x: cursorX, y: cursorY, snappedToRoom: null, sharedEdgeTiles: 0 };
 }
+
+// ============================================
+// WALL GROUP MANAGEMENT - SPLIT & MERGE
+// ============================================
+
+/**
+ * Find all connected components within a set of rooms.
+ * Returns an array of arrays, where each inner array is a connected component (rooms that are adjacent).
+ */
+export function findConnectedComponents(rooms: ModularRoomElement[]): ModularRoomElement[][] {
+  if (rooms.length === 0) return [];
+  
+  const visited = new Set<string>();
+  const components: ModularRoomElement[][] = [];
+  
+  console.log('[findConnectedComponents] rooms:', rooms.length, rooms.map(r => ({ id: r.id.slice(-8), x: r.x, y: r.y, w: r.tilesW, h: r.tilesH })));
+  
+  function bfs(startRoom: ModularRoomElement): ModularRoomElement[] {
+    const component: ModularRoomElement[] = [];
+    const queue: ModularRoomElement[] = [startRoom];
+    visited.add(startRoom.id);
+    
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      component.push(current);
+      
+      // Find all adjacent rooms that haven't been visited
+      for (const other of rooms) {
+        if (!visited.has(other.id)) {
+          const adjacent = areRoomsAdjacent(current, other);
+          console.log('[findConnectedComponents] checking adjacency:', current.id.slice(-8), 'vs', other.id.slice(-8), '=', adjacent);
+          if (adjacent) {
+            visited.add(other.id);
+            queue.push(other);
+          }
+        }
+      }
+    }
+    
+    return component;
+  }
+  
+  // Find all connected components
+  for (const room of rooms) {
+    if (!visited.has(room.id)) {
+      const component = bfs(room);
+      components.push(component);
+    }
+  }
+  
+  return components;
+}
+
+/**
+ * Check if removing a room would split a group into multiple components.
+ * Returns the new components that would result, or null if no split occurs.
+ */
+export function checkGroupSplitAfterRemoval(
+  allRooms: ModularRoomElement[],
+  removedRoomId: string
+): { needsSplit: boolean; components: ModularRoomElement[][] } {
+  // Get the removed room to find its group
+  const removedRoom = allRooms.find(r => r.id === removedRoomId);
+  console.log('[checkGroupSplitAfterRemoval] removedRoom:', removedRoom?.id, 'groupId:', removedRoom?.wallGroupId);
+  
+  if (!removedRoom || !removedRoom.wallGroupId) {
+    console.log('[checkGroupSplitAfterRemoval] No room or no group, returning false');
+    return { needsSplit: false, components: [] };
+  }
+  
+  // Get all other rooms in the same group
+  const sameGroupRooms = allRooms.filter(
+    r => r.id !== removedRoomId && r.wallGroupId === removedRoom.wallGroupId
+  );
+  
+  console.log('[checkGroupSplitAfterRemoval] sameGroupRooms:', sameGroupRooms.length, sameGroupRooms.map(r => r.id.slice(-8)));
+  
+  if (sameGroupRooms.length <= 1) {
+    // 0 or 1 room remaining - no split needed
+    console.log('[checkGroupSplitAfterRemoval] 0 or 1 rooms remaining, no split needed');
+    return { needsSplit: false, components: sameGroupRooms.length === 1 ? [sameGroupRooms] : [] };
+  }
+  
+  // Find connected components among remaining rooms
+  const components = findConnectedComponents(sameGroupRooms);
+  
+  console.log('[checkGroupSplitAfterRemoval] components:', components.length, components.map(c => c.map(r => r.id.slice(-8))));
+  
+  // If more than one component, a split occurred
+  return {
+    needsSplit: components.length > 1,
+    components,
+  };
+}
+
+/**
+ * Generate updates for rooms when a group is split.
+ * The largest component keeps the original group ID, others get new IDs.
+ * If sizes are equal, the component with the oldest room (lowest room ID) wins.
+ */
+export function generateSplitUpdates(
+  components: ModularRoomElement[][],
+  originalGroupId: string,
+  wallGroups: WallGroup[]
+): {
+  roomUpdates: { roomId: string; newWallGroupId: string }[];
+  newWallGroups: WallGroup[];
+  updatedOriginalGroup: WallGroup | null;
+} {
+  if (components.length <= 1) {
+    return { roomUpdates: [], newWallGroups: [], updatedOriginalGroup: null };
+  }
+  
+  // Find the original wall group to get its style
+  const originalGroup = wallGroups.find(g => g.id === originalGroupId);
+  const originalWallStyleId = originalGroup?.wallStyleId || 'dungeon';
+  
+  // Sort components: largest first, then by oldest room ID (alphabetically for determinism)
+  const sortedComponents = [...components].sort((a, b) => {
+    // First by size (descending)
+    if (b.length !== a.length) {
+      return b.length - a.length;
+    }
+    // Then by oldest room ID in each component (ascending = oldest wins)
+    const oldestA = a.map(r => r.id).sort()[0];
+    const oldestB = b.map(r => r.id).sort()[0];
+    return oldestA.localeCompare(oldestB);
+  });
+  
+  const roomUpdates: { roomId: string; newWallGroupId: string }[] = [];
+  const newWallGroups: WallGroup[] = [];
+  
+  // First component keeps original group ID - update its roomCount
+  const updatedOriginalGroup: WallGroup = {
+    id: originalGroupId,
+    wallStyleId: originalWallStyleId,
+    roomCount: sortedComponents[0].length,
+  };
+  
+  console.log('[generateSplitUpdates] First component (keeps original ID):', sortedComponents[0].map(r => r.id.slice(-8)));
+  
+  // Other components get new IDs
+  for (let i = 1; i < sortedComponents.length; i++) {
+    const component = sortedComponents[i];
+    const newGroupId = `wallgroup-${Date.now()}-${i}-${Math.random().toString(36).substr(2, 9)}`;
+    
+    console.log('[generateSplitUpdates] Component', i, 'gets new group:', newGroupId.slice(-12), 'rooms:', component.map(r => r.id.slice(-8)));
+    
+    // Create new wall group with same style as original and correct roomCount
+    newWallGroups.push({
+      id: newGroupId,
+      wallStyleId: originalWallStyleId,
+      roomCount: component.length,
+    });
+    
+    // Update all rooms in this component
+    for (const room of component) {
+      roomUpdates.push({
+        roomId: room.id,
+        newWallGroupId: newGroupId,
+      });
+    }
+  }
+  
+  console.log('[generateSplitUpdates] roomUpdates:', roomUpdates.length, roomUpdates.map(u => ({ room: u.roomId.slice(-8), group: u.newWallGroupId.slice(-12) })));
+  console.log('[generateSplitUpdates] newWallGroups:', newWallGroups.length);
+  
+  return { roomUpdates, newWallGroups, updatedOriginalGroup };
+}
+
+/**
+ * Find all groups that a room would connect to if placed at a given position.
+ * Returns unique group IDs of adjacent rooms.
+ */
+export function findAdjacentGroups(
+  placedRoom: ModularRoomElement,
+  allRooms: ModularRoomElement[]
+): string[] {
+  const adjacentGroupIds = new Set<string>();
+  
+  for (const other of allRooms) {
+    if (other.id === placedRoom.id) continue;
+    if (areRoomsAdjacent(placedRoom, other) && other.wallGroupId) {
+      adjacentGroupIds.add(other.wallGroupId);
+    }
+  }
+  
+  return Array.from(adjacentGroupIds);
+}
+
+/**
+ * Determine which group should dominate when merging multiple groups.
+ * Largest group (highest roomCount) wins. If equal, oldest group (lowest ID) wins.
+ */
+export function getDominantGroup(
+  groupIds: string[],
+  wallGroups: WallGroup[]
+): { dominantGroupId: string; dominantWallStyleId: string; dominantRoomCount: number } | null {
+  if (groupIds.length === 0) return null;
+  if (groupIds.length === 1) {
+    const group = wallGroups.find(g => g.id === groupIds[0]);
+    return {
+      dominantGroupId: groupIds[0],
+      dominantWallStyleId: group?.wallStyleId || 'dungeon',
+      dominantRoomCount: group?.roomCount || 1,
+    };
+  }
+  
+  // Get group info with roomCount
+  const groupInfo = groupIds.map(gid => {
+    const group = wallGroups.find(g => g.id === gid);
+    return {
+      groupId: gid,
+      roomCount: group?.roomCount || 0,
+      wallStyleId: group?.wallStyleId || 'dungeon',
+    };
+  });
+  
+  // Sort by roomCount (desc), then by group ID (asc = oldest wins)
+  groupInfo.sort((a, b) => {
+    if (b.roomCount !== a.roomCount) return b.roomCount - a.roomCount;
+    return a.groupId.localeCompare(b.groupId);
+  });
+  
+  const dominant = groupInfo[0];
+  
+  return {
+    dominantGroupId: dominant.groupId,
+    dominantWallStyleId: dominant.wallStyleId,
+    dominantRoomCount: dominant.roomCount,
+  };
+}
+
+/**
+ * Generate updates when a room connects multiple groups (merge).
+ * All rooms from non-dominant groups get updated to the dominant group ID.
+ * Returns updated dominant group with new roomCount.
+ */
+export function generateMergeUpdates(
+  placedRoom: ModularRoomElement,
+  adjacentGroupIds: string[],
+  allRooms: ModularRoomElement[],
+  wallGroups: WallGroup[]
+): {
+  roomUpdates: { roomId: string; newWallGroupId: string }[];
+  groupsToRemove: string[];
+  updatedDominantGroup: WallGroup;
+} | null {
+  if (adjacentGroupIds.length <= 1) return null;
+  
+  const dominant = getDominantGroup(adjacentGroupIds, wallGroups);
+  if (!dominant) return null;
+  
+  const { dominantGroupId, dominantWallStyleId } = dominant;
+  const roomUpdates: { roomId: string; newWallGroupId: string }[] = [];
+  const groupsToRemove: string[] = [];
+  
+  // Calculate total room count for merged group
+  let totalRoomCount = 0;
+  
+  // Update all rooms from non-dominant groups
+  for (const groupId of adjacentGroupIds) {
+    const group = wallGroups.find(g => g.id === groupId);
+    totalRoomCount += group?.roomCount || 0;
+    
+    if (groupId === dominantGroupId) continue;
+    
+    groupsToRemove.push(groupId);
+    
+    const roomsInGroup = allRooms.filter(r => r.wallGroupId === groupId);
+    for (const room of roomsInGroup) {
+      roomUpdates.push({
+        roomId: room.id,
+        newWallGroupId: dominantGroupId,
+      });
+    }
+  }
+  
+  // Also update the placed room itself to use dominant group
+  if (placedRoom.wallGroupId !== dominantGroupId) {
+    // If the placed room had no group or a different group, add 1 to count
+    if (!placedRoom.wallGroupId || !adjacentGroupIds.includes(placedRoom.wallGroupId)) {
+      totalRoomCount += 1;
+    }
+    roomUpdates.push({
+      roomId: placedRoom.id,
+      newWallGroupId: dominantGroupId,
+    });
+  }
+  
+  // Create updated dominant group with new total roomCount
+  const updatedDominantGroup: WallGroup = {
+    id: dominantGroupId,
+    wallStyleId: dominantWallStyleId,
+    roomCount: totalRoomCount,
+  };
+  
+  return {
+    roomUpdates,
+    groupsToRemove,
+    updatedDominantGroup,
+  };
+}
+

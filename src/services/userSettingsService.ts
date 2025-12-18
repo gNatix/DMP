@@ -13,6 +13,7 @@ import type { Collection } from '../types';
 export interface UserSettings {
   collections: Collection[];
   activeSceneId: string | null;
+  viewport?: { x: number; y: number; zoom: number };
   // Add more settings as needed
 }
 
@@ -21,6 +22,7 @@ interface SupabaseUserSettings {
   user_id: string;
   collections: Collection[];
   active_scene_id: string | null;
+  viewport: { x: number; y: number; zoom: number } | null;
   updated_at: string;
 }
 
@@ -46,6 +48,7 @@ export const saveUserSettings = async (
       auth_provider: authProvider || null,
       collections: settings.collections,
       active_scene_id: settings.activeSceneId,
+      viewport: settings.viewport || { x: 0, y: 0, zoom: 1 },
       updated_at: new Date().toISOString(),
     };
 
@@ -105,6 +108,7 @@ export const loadUserSettings = async (
     const settings: UserSettings = {
       collections: row.collections || [],
       activeSceneId: row.active_scene_id,
+      viewport: row.viewport || undefined,
     };
 
     return { settings, error: null };

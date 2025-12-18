@@ -24,6 +24,7 @@ interface RightPanelProps {
   updateCollectionAppearance: (collectionId: string, appearance?: CollectionAppearance) => void;
   deleteCollection: (collectionId: string) => void;
   selectedElement: MapElement | null;
+  selectedElementIds?: string[];
   updateElement: (id: string, updates: Partial<MapElement>) => void;
   deleteElement: (id: string) => void;
   allElements?: MapElement[]; // All elements in active scene
@@ -69,6 +70,8 @@ interface RightPanelProps {
   wallGroups?: WallGroup[];
   updateWallGroup?: (groupId: string, updates: Partial<WallGroup>) => void;
   onStartDragModularFloor?: (floorStyleId: string, tilesW: number, tilesH: number, imageUrl: string) => void;
+  defaultWallStyleId?: string;
+  onDefaultWallStyleChange?: (styleId: string) => void;
 }
 
 type TabType = 'scenes' | 'tokens' | 'draw' | 'modules' | 'xlab' | 'settings';
@@ -89,6 +92,7 @@ const RightPanel = ({
   updateCollectionAppearance,
   deleteCollection,
   selectedElement,
+  selectedElementIds = [],
   updateElement,
   deleteElement,
   allElements = [],
@@ -133,6 +137,8 @@ const RightPanel = ({
   wallGroups = [],
   updateWallGroup = () => {},
   onStartDragModularFloor = () => {},
+  defaultWallStyleId = 'worn-castle',
+  onDefaultWallStyleChange = () => {},
 }: RightPanelProps) => {
   const [internalActiveTab, setInternalActiveTab] = useState<TabType>('scenes');
   const [activeDrawTab, setActiveDrawTab] = useState<'room' | 'terrain' | 'walls'>('room');
@@ -141,8 +147,13 @@ const RightPanel = ({
   const activeTab = externalActiveTab || internalActiveTab;
   const setActiveTab = onActiveTabChange || setInternalActiveTab;
 
-  // Get selected modular room if any
+  // Get selected modular room if any (single selection)
   const selectedModularRoom = selectedElement?.type === 'modularRoom' ? selectedElement as ModularRoomElement : null;
+
+  // Get all selected modular rooms (for multi-selection)
+  const selectedModularRooms = (allElements || []).filter(
+    el => el.type === 'modularRoom' && selectedElementIds.includes(el.id)
+  ) as ModularRoomElement[];
 
   // Auto-switch to draw tab and draw sub-tab when terrain-brush tool is active
   useEffect(() => {
@@ -299,10 +310,13 @@ const RightPanel = ({
         {activeTab === 'modules' && (
           <ModulesTab
             selectedModularRoom={selectedModularRoom}
+            selectedModularRooms={selectedModularRooms}
             wallGroups={wallGroups}
             updateElement={updateElement}
             updateWallGroup={updateWallGroup}
             onStartDragFloor={onStartDragModularFloor}
+            defaultWallStyleId={defaultWallStyleId}
+            onDefaultWallStyleChange={onDefaultWallStyleChange}
           />
         )}
         {activeTab === 'xlab' && (

@@ -1,0 +1,1106 @@
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}orientation: "vertical"position: 43.82405827407018rangeEnd: 45.30140893394262rangeStart: 39.30140893394262roomAId: "mr-1765990079480-0b1g0yab1"roomBId: "mr-1765990242200-iqe33mcf1"[[Prototype]]: Object
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}doorId: "door-1765990537028-w73izvbf8"doorRoomA: "mr-1765990079480-0b1g0yab1"doorRoomB: "mr-1765990242200-iqe33mcf1"edgeRoomA: "mr-1765990079480-0b1g0yab1"edgeRoomB: "mr-1765990242200-iqe33mcf1"roomsMatch: true[[Prototype]]: Object
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 0
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 4 internal: 0 doors: 0 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 1
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990537028-w73izvbf8', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 1 pillars: 14
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 1
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 5 internal: 0 doors: 1 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 1
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 5 internal: 0 doors: 1 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 2
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-171lurtbt', doorRoomA: 'mr-1765990056720-dxnxhpaer', doorRoomB: 'mr-1765990079480-0b1g0yab1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-dqw9mvffy', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 2 pillars: 13
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 2
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-171lurtbt', doorRoomA: 'mr-1765990056720-dxnxhpaer', doorRoomB: 'mr-1765990079480-0b1g0yab1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-dqw9mvffy', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 2 pillars: 13
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 1
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 5 internal: 0 doors: 1 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 1
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 5 internal: 0 doors: 1 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 2
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-171lurtbt', doorRoomA: 'mr-1765990056720-dxnxhpaer', doorRoomB: 'mr-1765990079480-0b1g0yab1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-dqw9mvffy', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 2 pillars: 13
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 2
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-171lurtbt', doorRoomA: 'mr-1765990056720-dxnxhpaer', doorRoomB: 'mr-1765990079480-0b1g0yab1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-dqw9mvffy', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 2 pillars: 13
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 1
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 5 internal: 0 doors: 1 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 1
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 5 internal: 0 doors: 1 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 2
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-171lurtbt', doorRoomA: 'mr-1765990056720-dxnxhpaer', doorRoomB: 'mr-1765990079480-0b1g0yab1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-dqw9mvffy', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 2 pillars: 13
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 2
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-171lurtbt', doorRoomA: 'mr-1765990056720-dxnxhpaer', doorRoomB: 'mr-1765990079480-0b1g0yab1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-dqw9mvffy', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 2 pillars: 13
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 1
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 5 internal: 0 doors: 1 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 1
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 5 internal: 0 doors: 1 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 2
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-171lurtbt', doorRoomA: 'mr-1765990056720-dxnxhpaer', doorRoomB: 'mr-1765990079480-0b1g0yab1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-dqw9mvffy', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 2 pillars: 13
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 2
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-171lurtbt', doorRoomA: 'mr-1765990056720-dxnxhpaer', doorRoomB: 'mr-1765990079480-0b1g0yab1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-dqw9mvffy', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 2 pillars: 13
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 1
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 5 internal: 0 doors: 1 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 1
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 5 internal: 0 doors: 1 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 2
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-171lurtbt', doorRoomA: 'mr-1765990056720-dxnxhpaer', doorRoomB: 'mr-1765990079480-0b1g0yab1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-dqw9mvffy', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 2 pillars: 13
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 2
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-171lurtbt', doorRoomA: 'mr-1765990056720-dxnxhpaer', doorRoomB: 'mr-1765990079480-0b1g0yab1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-dqw9mvffy', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 2 pillars: 13
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 1
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 5 internal: 0 doors: 1 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 1
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 5 internal: 0 doors: 1 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 2
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-171lurtbt', doorRoomA: 'mr-1765990056720-dxnxhpaer', doorRoomB: 'mr-1765990079480-0b1g0yab1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-dqw9mvffy', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 2 pillars: 13
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 2
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-171lurtbt', doorRoomA: 'mr-1765990056720-dxnxhpaer', doorRoomB: 'mr-1765990079480-0b1g0yab1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-dqw9mvffy', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 2 pillars: 13
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 1
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 5 internal: 0 doors: 1 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 1
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 5 internal: 0 doors: 1 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 2
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-171lurtbt', doorRoomA: 'mr-1765990056720-dxnxhpaer', doorRoomB: 'mr-1765990079480-0b1g0yab1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-dqw9mvffy', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 2 pillars: 13
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 2
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-171lurtbt', doorRoomA: 'mr-1765990056720-dxnxhpaer', doorRoomB: 'mr-1765990079480-0b1g0yab1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-dqw9mvffy', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 2 pillars: 13
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 1
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 5 internal: 0 doors: 1 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 1
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 5 internal: 0 doors: 1 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 2
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-171lurtbt', doorRoomA: 'mr-1765990056720-dxnxhpaer', doorRoomB: 'mr-1765990079480-0b1g0yab1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-dqw9mvffy', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 2 pillars: 13
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 2
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-171lurtbt', doorRoomA: 'mr-1765990056720-dxnxhpaer', doorRoomB: 'mr-1765990079480-0b1g0yab1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-dqw9mvffy', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 2 pillars: 13
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 1
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 5 internal: 0 doors: 1 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 1
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 5 internal: 0 doors: 1 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 2
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-171lurtbt', doorRoomA: 'mr-1765990056720-dxnxhpaer', doorRoomB: 'mr-1765990079480-0b1g0yab1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-dqw9mvffy', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 2 pillars: 13
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 2
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-171lurtbt', doorRoomA: 'mr-1765990056720-dxnxhpaer', doorRoomB: 'mr-1765990079480-0b1g0yab1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-dqw9mvffy', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 2 pillars: 13
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 1
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 5 internal: 0 doors: 1 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 1
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 5 internal: 0 doors: 1 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 2
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-171lurtbt', doorRoomA: 'mr-1765990056720-dxnxhpaer', doorRoomB: 'mr-1765990079480-0b1g0yab1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-dqw9mvffy', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 2 pillars: 13
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 2
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-171lurtbt', doorRoomA: 'mr-1765990056720-dxnxhpaer', doorRoomB: 'mr-1765990079480-0b1g0yab1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-dqw9mvffy', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 2 pillars: 13
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 1
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 5 internal: 0 doors: 1 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 1
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 5 internal: 0 doors: 1 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 2
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-171lurtbt', doorRoomA: 'mr-1765990056720-dxnxhpaer', doorRoomB: 'mr-1765990079480-0b1g0yab1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-dqw9mvffy', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 2 pillars: 13
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 2
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-171lurtbt', doorRoomA: 'mr-1765990056720-dxnxhpaer', doorRoomB: 'mr-1765990079480-0b1g0yab1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-dqw9mvffy', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 2 pillars: 13
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 1
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 5 internal: 0 doors: 1 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 0 doors: 1
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 5 internal: 0 doors: 1 pillars: 4
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 2
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-171lurtbt', doorRoomA: 'mr-1765990056720-dxnxhpaer', doorRoomB: 'mr-1765990079480-0b1g0yab1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-dqw9mvffy', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 2 pillars: 13
+modularRooms.ts?t=1765990522089:435 [generateInternalWallSegments] internalEdges: 1 doors: 2
+modularRooms.ts?t=1765990522089:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-171lurtbt', doorRoomA: 'mr-1765990056720-dxnxhpaer', doorRoomB: 'mr-1765990079480-0b1g0yab1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-dqw9mvffy', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990522089:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 2 pillars: 13
+sceneService.ts:54 [Supabase] Saving scene: Canvas
+sceneService.ts:65 [Supabase] Scene saved successfully
+modularRooms.ts?t=1765990543229:435 [generateInternalWallSegments] internalEdges: 0 doors: 1
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 5 internal: 0 doors: 1 pillars: 4
+modularRooms.ts?t=1765990543229:435 [generateInternalWallSegments] internalEdges: 0 doors: 1
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 5 internal: 0 doors: 1 pillars: 4
+modularRooms.ts?t=1765990543229:435 [generateInternalWallSegments] internalEdges: 1 doors: 2
+modularRooms.ts?t=1765990543229:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990543229:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-171lurtbt', doorRoomA: 'mr-1765990056720-dxnxhpaer', doorRoomB: 'mr-1765990079480-0b1g0yab1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990543229:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-dqw9mvffy', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990543229:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 2 pillars: 13
+modularRooms.ts?t=1765990543229:435 [generateInternalWallSegments] internalEdges: 1 doors: 2
+modularRooms.ts?t=1765990543229:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990543229:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-171lurtbt', doorRoomA: 'mr-1765990056720-dxnxhpaer', doorRoomB: 'mr-1765990079480-0b1g0yab1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990543229:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-dqw9mvffy', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990543229:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 2 pillars: 13
+Canvas.tsx:878 [TILE RENDER] useEffect triggered, visible tiles: 16 total tiles: 0
+modularRooms.ts?t=1765990543229:435 [generateInternalWallSegments] internalEdges: 0 doors: 1
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 5 internal: 0 doors: 1 pillars: 4
+modularRooms.ts?t=1765990543229:435 [generateInternalWallSegments] internalEdges: 0 doors: 1
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 5 internal: 0 doors: 1 pillars: 4
+modularRooms.ts?t=1765990543229:435 [generateInternalWallSegments] internalEdges: 1 doors: 2
+modularRooms.ts?t=1765990543229:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990543229:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-171lurtbt', doorRoomA: 'mr-1765990056720-dxnxhpaer', doorRoomB: 'mr-1765990079480-0b1g0yab1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990543229:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-dqw9mvffy', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990543229:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 2 pillars: 13
+modularRooms.ts?t=1765990543229:435 [generateInternalWallSegments] internalEdges: 1 doors: 2
+modularRooms.ts?t=1765990543229:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990543229:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-171lurtbt', doorRoomA: 'mr-1765990056720-dxnxhpaer', doorRoomB: 'mr-1765990079480-0b1g0yab1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990543229:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-dqw9mvffy', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990543229:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 2 pillars: 13
+Canvas.tsx:878 [TILE RENDER] useEffect triggered, visible tiles: 16 total tiles: 0
+modularRooms.ts?t=1765990543229:435 [generateInternalWallSegments] internalEdges: 0 doors: 1
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 5 internal: 0 doors: 1 pillars: 4
+modularRooms.ts?t=1765990543229:435 [generateInternalWallSegments] internalEdges: 0 doors: 1
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 5 internal: 0 doors: 1 pillars: 4
+modularRooms.ts?t=1765990543229:435 [generateInternalWallSegments] internalEdges: 1 doors: 2
+modularRooms.ts?t=1765990543229:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990543229:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-171lurtbt', doorRoomA: 'mr-1765990056720-dxnxhpaer', doorRoomB: 'mr-1765990079480-0b1g0yab1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990543229:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-dqw9mvffy', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990543229:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 2 pillars: 13
+modularRooms.ts?t=1765990543229:435 [generateInternalWallSegments] internalEdges: 1 doors: 2
+modularRooms.ts?t=1765990543229:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990543229:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-171lurtbt', doorRoomA: 'mr-1765990056720-dxnxhpaer', doorRoomB: 'mr-1765990079480-0b1g0yab1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990543229:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-dqw9mvffy', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990543229:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 2 pillars: 13
+modularRooms.ts?t=1765990543229:435 [generateInternalWallSegments] internalEdges: 0 doors: 1
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 5 internal: 0 doors: 1 pillars: 4
+modularRooms.ts?t=1765990543229:435 [generateInternalWallSegments] internalEdges: 0 doors: 1
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 5 internal: 0 doors: 1 pillars: 4
+modularRooms.ts?t=1765990543229:435 [generateInternalWallSegments] internalEdges: 1 doors: 2
+modularRooms.ts?t=1765990543229:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990543229:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-171lurtbt', doorRoomA: 'mr-1765990056720-dxnxhpaer', doorRoomB: 'mr-1765990079480-0b1g0yab1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990543229:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-dqw9mvffy', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990543229:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 2 pillars: 13
+modularRooms.ts?t=1765990543229:435 [generateInternalWallSegments] internalEdges: 1 doors: 2
+modularRooms.ts?t=1765990543229:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990543229:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-171lurtbt', doorRoomA: 'mr-1765990056720-dxnxhpaer', doorRoomB: 'mr-1765990079480-0b1g0yab1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990543229:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-dqw9mvffy', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990543229:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 2 pillars: 13
+modularRooms.ts?t=1765990543229:435 [generateInternalWallSegments] internalEdges: 0 doors: 1
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 5 internal: 0 doors: 1 pillars: 4
+modularRooms.ts?t=1765990543229:435 [generateInternalWallSegments] internalEdges: 0 doors: 1
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 5 internal: 0 doors: 1 pillars: 4
+modularRooms.ts?t=1765990543229:435 [generateInternalWallSegments] internalEdges: 1 doors: 2
+modularRooms.ts?t=1765990543229:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990543229:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-171lurtbt', doorRoomA: 'mr-1765990056720-dxnxhpaer', doorRoomB: 'mr-1765990079480-0b1g0yab1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990543229:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-dqw9mvffy', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990543229:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 2 pillars: 13
+modularRooms.ts?t=1765990543229:435 [generateInternalWallSegments] internalEdges: 1 doors: 2
+modularRooms.ts?t=1765990543229:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990543229:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-171lurtbt', doorRoomA: 'mr-1765990056720-dxnxhpaer', doorRoomB: 'mr-1765990079480-0b1g0yab1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990543229:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-dqw9mvffy', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990543229:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 2 pillars: 13
+userSettingsService.ts:64 [UserSettings] Saved successfully
+sceneService.ts:54 [Supabase] Saving scene: Canvas
+modularRooms.ts?t=1765990543229:435 [generateInternalWallSegments] internalEdges: 0 doors: 1
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 5 internal: 0 doors: 1 pillars: 4
+modularRooms.ts?t=1765990543229:435 [generateInternalWallSegments] internalEdges: 0 doors: 1
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 5 internal: 0 doors: 1 pillars: 4
+modularRooms.ts?t=1765990543229:435 [generateInternalWallSegments] internalEdges: 1 doors: 2
+modularRooms.ts?t=1765990543229:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990543229:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-171lurtbt', doorRoomA: 'mr-1765990056720-dxnxhpaer', doorRoomB: 'mr-1765990079480-0b1g0yab1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990543229:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-dqw9mvffy', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts?t=1765990543229:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 2 pillars: 13
+modularRooms.ts?t=1765990543229:435 [generateInternalWallSegments] internalEdges: 1 doors: 2
+modularRooms.ts?t=1765990543229:441 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts?t=1765990543229:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-171lurtbt', doorRoomA: 'mr-1765990056720-dxnxhpaer', doorRoomB: 'mr-1765990079480-0b1g0yab1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}doorId: "door-1765990540380-171lurtbt"doorRoomA: "mr-1765990056720-dxnxhpaer"doorRoomB: "mr-1765990079480-0b1g0yab1"edgeRoomA: "mr-1765990079480-0b1g0yab1"edgeRoomB: "mr-1765990242200-iqe33mcf1"roomsMatch: false[[Prototype]]: Object
+modularRooms.ts?t=1765990543229:451 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-dqw9mvffy', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}doorId: "door-1765990540380-dqw9mvffy"doorRoomA: "mr-1765990079480-0b1g0yab1"doorRoomB: "mr-1765990242200-iqe33mcf1"edgeRoomA: "mr-1765990079480-0b1g0yab1"edgeRoomB: "mr-1765990242200-iqe33mcf1"roomsMatch: true[[Prototype]]: Object
+modularRooms.ts?t=1765990543229:461 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 2 pillars: 13
+sceneService.ts:65 [Supabase] Scene saved successfully
+userSettingsService.ts:64 [UserSettings] Saved successfully
+sceneService.ts:54 [Supabase] Saving scene: Canvas
+sceneService.ts:65 [Supabase] Scene saved successfully
+modularRooms.ts:822 [generateInternalWallSegments] internalEdges: 0 doors: 1
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 5 internal: 0 doors: 1 pillars: 4
+modularRooms.ts:822 [generateInternalWallSegments] internalEdges: 0 doors: 1
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 5 internal: 0 doors: 1 pillars: 4
+modularRooms.ts:822 [generateInternalWallSegments] internalEdges: 1 doors: 2
+modularRooms.ts:831 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts:849 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-171lurtbt', doorRoomA: 'mr-1765990056720-dxnxhpaer', doorRoomB: 'mr-1765990079480-0b1g0yab1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts:849 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-dqw9mvffy', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts:862 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 2 pillars: 13
+modularRooms.ts:822 [generateInternalWallSegments] internalEdges: 1 doors: 2
+modularRooms.ts:831 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts:849 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-171lurtbt', doorRoomA: 'mr-1765990056720-dxnxhpaer', doorRoomB: 'mr-1765990079480-0b1g0yab1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts:849 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-dqw9mvffy', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts:862 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 2 pillars: 13
+Canvas.tsx:878 [TILE RENDER] useEffect triggered, visible tiles: 16 total tiles: 0
+modularRooms.ts:822 [generateInternalWallSegments] internalEdges: 0 doors: 1
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 5 internal: 0 doors: 1 pillars: 4
+modularRooms.ts:822 [generateInternalWallSegments] internalEdges: 0 doors: 1
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 5 internal: 0 doors: 1 pillars: 4
+modularRooms.ts:822 [generateInternalWallSegments] internalEdges: 1 doors: 2
+modularRooms.ts:831 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts:849 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-171lurtbt', doorRoomA: 'mr-1765990056720-dxnxhpaer', doorRoomB: 'mr-1765990079480-0b1g0yab1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts:849 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-dqw9mvffy', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts:862 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 2 pillars: 13
+modularRooms.ts:822 [generateInternalWallSegments] internalEdges: 1 doors: 2
+modularRooms.ts:831 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}
+modularRooms.ts:849 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-171lurtbt', doorRoomA: 'mr-1765990056720-dxnxhpaer', doorRoomB: 'mr-1765990079480-0b1g0yab1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts:849 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-dqw9mvffy', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}
+modularRooms.ts:862 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 2 pillars: 13
+Canvas.tsx:878 [TILE RENDER] useEffect triggered, visible tiles: 16 total tiles: 0
+modularRooms.ts:822 [generateInternalWallSegments] internalEdges: 0 doors: 1
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 5 internal: 0 doors: 1 pillars: 4
+modularRooms.ts:822 [generateInternalWallSegments] internalEdges: 0 doors: 1
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 5 internal: 0 doors: 1 pillars: 4
+modularRooms.ts:822 [generateInternalWallSegments] internalEdges: 1 doors: 2
+modularRooms.ts:831 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}orientation: "vertical"position: 43.82405827407018rangeEnd: 45.30140893394262rangeStart: 39.30140893394262roomAId: "mr-1765990079480-0b1g0yab1"roomBId: "mr-1765990242200-iqe33mcf1"[[Prototype]]: Object
+modularRooms.ts:849 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-171lurtbt', doorRoomA: 'mr-1765990056720-dxnxhpaer', doorRoomB: 'mr-1765990079480-0b1g0yab1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}doorId: "door-1765990540380-171lurtbt"doorRoomA: "mr-1765990056720-dxnxhpaer"doorRoomB: "mr-1765990079480-0b1g0yab1"edgeRoomA: "mr-1765990079480-0b1g0yab1"edgeRoomB: "mr-1765990242200-iqe33mcf1"roomsMatch: false[[Prototype]]: Object
+modularRooms.ts:849 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-dqw9mvffy', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}doorId: "door-1765990540380-dqw9mvffy"doorRoomA: "mr-1765990079480-0b1g0yab1"doorRoomB: "mr-1765990242200-iqe33mcf1"edgeRoomA: "mr-1765990079480-0b1g0yab1"edgeRoomB: "mr-1765990242200-iqe33mcf1"roomsMatch: true[[Prototype]]: Object
+modularRooms.ts:862 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 2 pillars: 13
+modularRooms.ts:822 [generateInternalWallSegments] internalEdges: 1 doors: 2
+modularRooms.ts:831 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}orientation: "vertical"position: 43.82405827407018rangeEnd: 45.30140893394262rangeStart: 39.30140893394262roomAId: "mr-1765990079480-0b1g0yab1"roomBId: "mr-1765990242200-iqe33mcf1"[[Prototype]]: Object
+modularRooms.ts:849 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-171lurtbt', doorRoomA: 'mr-1765990056720-dxnxhpaer', doorRoomB: 'mr-1765990079480-0b1g0yab1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}doorId: "door-1765990540380-171lurtbt"doorRoomA: "mr-1765990056720-dxnxhpaer"doorRoomB: "mr-1765990079480-0b1g0yab1"edgeRoomA: "mr-1765990079480-0b1g0yab1"edgeRoomB: "mr-1765990242200-iqe33mcf1"roomsMatch: false[[Prototype]]: Object
+modularRooms.ts:849 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-dqw9mvffy', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}doorId: "door-1765990540380-dqw9mvffy"doorRoomA: "mr-1765990079480-0b1g0yab1"doorRoomB: "mr-1765990242200-iqe33mcf1"edgeRoomA: "mr-1765990079480-0b1g0yab1"edgeRoomB: "mr-1765990242200-iqe33mcf1"roomsMatch: true[[Prototype]]: Object
+modularRooms.ts:862 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 2 pillars: 13
+modularRooms.ts:822 [generateInternalWallSegments] internalEdges: 0 doors: 1
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 5 internal: 0 doors: 1 pillars: 4
+modularRooms.ts:822 [generateInternalWallSegments] internalEdges: 0 doors: 1
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990025033-5o83n8gw5 external: 5 internal: 0 doors: 1 pillars: 4
+modularRooms.ts:822 [generateInternalWallSegments] internalEdges: 1 doors: 2
+modularRooms.ts:831 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}orientation: "vertical"position: 43.82405827407018rangeEnd: 45.30140893394262rangeStart: 39.30140893394262roomAId: "mr-1765990079480-0b1g0yab1"roomBId: "mr-1765990242200-iqe33mcf1"[[Prototype]]: Object
+modularRooms.ts:849 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-171lurtbt', doorRoomA: 'mr-1765990056720-dxnxhpaer', doorRoomB: 'mr-1765990079480-0b1g0yab1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}doorId: "door-1765990540380-171lurtbt"doorRoomA: "mr-1765990056720-dxnxhpaer"doorRoomB: "mr-1765990079480-0b1g0yab1"edgeRoomA: "mr-1765990079480-0b1g0yab1"edgeRoomB: "mr-1765990242200-iqe33mcf1"roomsMatch: false[[Prototype]]: Object
+modularRooms.ts:849 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-dqw9mvffy', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}doorId: "door-1765990540380-dqw9mvffy"doorRoomA: "mr-1765990079480-0b1g0yab1"doorRoomB: "mr-1765990242200-iqe33mcf1"edgeRoomA: "mr-1765990079480-0b1g0yab1"edgeRoomB: "mr-1765990242200-iqe33mcf1"roomsMatch: true[[Prototype]]: Object
+modularRooms.ts:862 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 2 pillars: 13
+modularRooms.ts:822 [generateInternalWallSegments] internalEdges: 1 doors: 2
+modularRooms.ts:831 [generateInternalWallSegments] Processing edge: {orientation: 'vertical', position: 43.82405827407018, rangeStart: 39.30140893394262, rangeEnd: 45.30140893394262, roomAId: 'mr-1765990079480-0b1g0yab1', …}orientation: "vertical"position: 43.82405827407018rangeEnd: 45.30140893394262rangeStart: 39.30140893394262roomAId: "mr-1765990079480-0b1g0yab1"roomBId: "mr-1765990242200-iqe33mcf1"[[Prototype]]: Object
+modularRooms.ts:849 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-171lurtbt', doorRoomA: 'mr-1765990056720-dxnxhpaer', doorRoomB: 'mr-1765990079480-0b1g0yab1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}doorId: "door-1765990540380-171lurtbt"doorRoomA: "mr-1765990056720-dxnxhpaer"doorRoomB: "mr-1765990079480-0b1g0yab1"edgeRoomA: "mr-1765990079480-0b1g0yab1"edgeRoomB: "mr-1765990242200-iqe33mcf1"roomsMatch: false[[Prototype]]: Object
+modularRooms.ts:849 [generateInternalWallSegments] Door check: {doorId: 'door-1765990540380-dqw9mvffy', doorRoomA: 'mr-1765990079480-0b1g0yab1', doorRoomB: 'mr-1765990242200-iqe33mcf1', edgeRoomA: 'mr-1765990079480-0b1g0yab1', edgeRoomB: 'mr-1765990242200-iqe33mcf1', …}doorId: "door-1765990540380-dqw9mvffy"doorRoomA: "mr-1765990079480-0b1g0yab1"doorRoomB: "mr-1765990242200-iqe33mcf1"edgeRoomA: "mr-1765990079480-0b1g0yab1"edgeRoomB: "mr-1765990242200-iqe33mcf1"roomsMatch: true[[Prototype]]: Object
+modularRooms.ts:862 [generateInternalWallSegments] Found 1 doors for this edge
+ModularRoomRenderer.tsx:359 [WallGroupRenderer] groupId: wg-1765990027116-j46b9gfjs external: 14 internal: 2 doors: 2 pillars: 13

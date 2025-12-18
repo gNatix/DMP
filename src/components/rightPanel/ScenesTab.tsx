@@ -50,7 +50,7 @@ const ScenesTab = ({
   const [confirmDialog, setConfirmDialog] = useState<{
     isOpen: boolean;
     title: string;
-    message: string;
+    message: React.ReactNode;
     onConfirm: () => void;
   }>({ isOpen: false, title: '', message: '', onConfirm: () => {} });
   
@@ -662,10 +662,18 @@ const ScenesTab = ({
           <button
             onClick={(e) => {
               e.stopPropagation();
+              const mapsInCollection = scenes.filter(s => s.collectionId === collection.id).length;
               setConfirmDialog({
                 isOpen: true,
                 title: 'Delete Collection',
-                message: `Are you sure you want to delete "${collection.name}"? Scenes will not be deleted.`,
+                message: (
+                  <>
+                    <p>Are you sure you want to delete "{collection.name}" and all {mapsInCollection} map{mapsInCollection !== 1 ? 's' : ''} inside it?</p>
+                    <p className="mt-3 px-3 py-2 bg-dm-dark/50 rounded text-gray-400 italic text-xs">
+                      To keep your maps, move them to another collection first.
+                    </p>
+                  </>
+                ),
                 onConfirm: () => deleteCollection(collection.id)
               });
             }}

@@ -186,9 +186,10 @@ const FloatingWalls: React.FC<{
 const ModularRoomFloor: React.FC<{
   room: ModularRoomElement;
   isSelected: boolean;
+  isMultiSelected?: boolean; // Part of multi-selection (shift-click or box select)
   isGhost?: boolean;
   isFloating?: boolean;
-}> = ({ room, isSelected, isGhost = false, isFloating = false }) => {
+}> = ({ room, isSelected, isMultiSelected = false, isGhost = false, isFloating = false }) => {
   const rect = getRoomPixelRect(room);
   const rotation = room.rotation || 0;
   
@@ -245,18 +246,34 @@ const ModularRoomFloor: React.FC<{
         />
       </div>
       
-      {/* Selection highlight - brighter glow when floating */}
+      {/* Selection highlight - dashed inner border that's clearly visible */}
       {isSelected && !isGhost && (
         <div
           style={{
             position: 'absolute',
-            inset: 0,
-            border: isFloating ? '3px solid #4ade80' : '3px solid #22c55e',
-            borderRadius: 4,
+            inset: isFloating ? 0 : 20, // Inset 20px to be clearly inside the walls
+            border: isFloating ? '3px solid #4ade80' : '4px dashed #4ade80',
+            borderRadius: 6,
             pointerEvents: 'none',
             boxShadow: isFloating 
               ? '0 0 20px rgba(74, 222, 128, 0.7)' 
-              : '0 0 10px rgba(34, 197, 94, 0.5)',
+              : '0 0 15px rgba(74, 222, 128, 0.5), inset 0 0 30px rgba(74, 222, 128, 0.1)',
+            background: isFloating ? 'transparent' : 'rgba(74, 222, 128, 0.08)',
+          }}
+        />
+      )}
+      
+      {/* Multi-selection border - purple dashed border inside walls */}
+      {isMultiSelected && !isSelected && !isGhost && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 20, // Inset to be inside the walls
+            border: '3px dashed #c4b5fd',
+            borderRadius: 6,
+            pointerEvents: 'none',
+            boxShadow: '0 0 12px rgba(196, 181, 253, 0.4), inset 0 0 25px rgba(196, 181, 253, 0.1)',
+            background: 'rgba(196, 181, 253, 0.06)',
           }}
         />
       )}
@@ -279,125 +296,165 @@ const WallGroupRenderer: React.FC<{
     const groupRooms = rooms.filter(r => roomIds.includes(r.id));
     const { externalEdges, internalEdges } = getGroupEdges(roomIds, groupRooms);
     
-    // Get doors that belong to rooms in this group
+    // Get doors that belong to rooms in this group (both rooms must be in the group)
     const groupDoors = doors.filter(d => 
-      roomIds.includes(d.roomAId) || roomIds.includes(d.roomBId)
+      roomIds.includes(d.roomAId) && roomIds.includes(d.roomBId)
     );
     
     return {
       wallSegments: generateWallSegments(externalEdges, groupDoors, wallStyleId),
       internalWallSegments: generateInternalWallSegments(internalEdges, groupDoors, wallStyleId),
-      doorRenderings: generateDoorRenderings(groupDoors, wallStyleId),
+      // Pass internalEdges to get CURRENT edge positions for rotated rooms
+      doorRenderings: generateDoorRenderings(groupDoors, wallStyleId, internalEdges),
       // Use edge-aware pillar generation: corners on all walls, interior only on external
-      pillars: generatePillarsWithEdgeInfo(externalEdges, internalEdges, wallStyleId),
+      // Pass doors so pillars aren't placed where doors are
+      pillars: generatePillarsWithEdgeInfo(externalEdges, internalEdges, wallStyleId, groupDoors),
     };
   }, [groupId, roomIds, wallStyleId, rooms, doors]);
 
-  const wallSprite2x = getWallSpriteUrl(wallStyleId, 2);    // 256px
-  const wallSprite1x = getWallSpriteUrl(wallStyleId, 1);    // 128px
-  const wallSpriteHalf = getWallSpriteUrl(wallStyleId, 0.5); // 64px
+  const wallSprite2x = getWallSpriteUrl(wallStyleId, 2);    // 256px (2 tiles)
+  const wallSprite1x = getWallSpriteUrl(wallStyleId, 1);    // 128px (1 tile)
+  const wallSpriteHalf = getWallSpriteUrl(wallStyleId, 0.5); // 64px (0.5 tile)
   const pillarSprite = getPillarSpriteUrl(wallStyleId);
   const doorSprite = getDoorSpriteUrl(wallStyleId);
+
+  // Helper to break a segment into optimal tile pieces (largest first: 256 -> 128 -> 64)
+  // Returns array of { offset, size } where offset is from segment start
+  const packWallTiles = (totalWidth: number): Array<{ offset: number; size: number }> => {
+    const tiles: Array<{ offset: number; size: number }> = [];
+    let remaining = totalWidth;
+    let offset = 0;
+    
+    // Greedy approach: use largest tiles first
+    while (remaining > 0) {
+      if (remaining >= 256) {
+        tiles.push({ offset, size: 256 });
+        offset += 256;
+        remaining -= 256;
+      } else if (remaining >= 128) {
+        tiles.push({ offset, size: 128 });
+        offset += 128;
+        remaining -= 128;
+      } else if (remaining >= 64) {
+        tiles.push({ offset, size: 64 });
+        offset += 64;
+        remaining -= 64;
+      } else {
+        // Should not happen if segments are aligned to 64px grid
+        break;
+      }
+    }
+    
+    return tiles;
+  };
   
-  // Helper to get the right wall sprite based on segment width
-  const getWallSprite = (width: number): string => {
-    if (width >= 256) return wallSprite2x;
-    if (width >= 128) return wallSprite1x;
+  // Get sprite URL for a specific tile size
+  const getSpriteForSize = (size: number): string => {
+    if (size === 256) return wallSprite2x;
+    if (size === 128) return wallSprite1x;
     return wallSpriteHalf;
   };
 
-  // Debug: log wall segments
-  console.log('[WallGroupRenderer] groupId:', groupId, 'external:', wallSegments.length, 'internal:', internalWallSegments.length, 'doors:', doorRenderings.length, 'pillars:', pillars.length);
-
   return (
     <div style={{ position: 'absolute', left: 0, top: 0, pointerEvents: 'none' }}>
-      {/* Wall segments */}
-      {wallSegments.map((segment, idx) => {
+      {/* Wall segments - each segment is packed with optimal tile sizes */}
+      {wallSegments.map((segment, segIdx) => {
         const isVertical = segment.rotation === 90;
-        const spriteUrl = getWallSprite(segment.width);
+        const tiles = packWallTiles(segment.width);
         
-        // For horizontal walls: width is segment.width, height is thickness
-        // For vertical walls: width is thickness, height is segment.width (length of wall)
-        const renderWidth = isVertical ? MODULAR_WALL_THICKNESS_PX : segment.width;
-        const renderHeight = isVertical ? segment.width : MODULAR_WALL_THICKNESS_PX;
+        // Calculate segment start position
+        const segmentLength = segment.width;
+        const renderWidth = isVertical ? MODULAR_WALL_THICKNESS_PX : segmentLength;
+        const renderHeight = isVertical ? segmentLength : MODULAR_WALL_THICKNESS_PX;
+        const segmentLeft = segment.x - renderWidth / 2;
+        const segmentTop = segment.y - renderHeight / 2;
         
-        // Position: segment.x and segment.y are CENTER of the wall
-        const left = segment.x - renderWidth / 2;
-        const top = segment.y - renderHeight / 2;
-        
-        return (
-          <div
-            key={`wall-${groupId}-${idx}`}
-            style={{
-              position: 'absolute',
-              left,
-              top,
-              width: renderWidth,
-              height: renderHeight,
-              overflow: 'hidden',
-              backgroundColor: '#5d4037', // Fallback brown color
-            }}
-          >
-            {/* Inner div with rotated sprite for vertical walls */}
+        return tiles.map((tile, tileIdx) => {
+          // Position this tile within the segment
+          const tileLeft = isVertical ? segmentLeft : segmentLeft + tile.offset;
+          const tileTop = isVertical ? segmentTop + tile.offset : segmentTop;
+          const tileWidth = isVertical ? MODULAR_WALL_THICKNESS_PX : tile.size;
+          const tileHeight = isVertical ? tile.size : MODULAR_WALL_THICKNESS_PX;
+          
+          return (
             <div
+              key={`wall-${groupId}-${segIdx}-${tileIdx}`}
               style={{
                 position: 'absolute',
-                // For vertical: rotate around center, so we need to offset
-                left: isVertical ? (renderWidth - renderHeight) / 2 : 0,
-                top: isVertical ? (renderHeight - renderWidth) / 2 : 0,
-                width: isVertical ? renderHeight : renderWidth,
-                height: isVertical ? renderWidth : renderHeight,
-                backgroundImage: `url(${spriteUrl})`,
-                backgroundRepeat: 'repeat-x',
-                backgroundSize: `auto ${MODULAR_WALL_THICKNESS_PX}px`,
-                transform: isVertical ? 'rotate(90deg)' : undefined,
-                transformOrigin: 'center center',
+                left: tileLeft,
+                top: tileTop,
+                width: tileWidth,
+                height: tileHeight,
+                overflow: 'hidden',
+                backgroundColor: '#5d4037',
               }}
-            />
-          </div>
-        );
+            >
+              <div
+                style={{
+                  position: 'absolute',
+                  left: isVertical ? (tileWidth - tileHeight) / 2 : 0,
+                  top: isVertical ? (tileHeight - tileWidth) / 2 : 0,
+                  width: isVertical ? tileHeight : tileWidth,
+                  height: isVertical ? tileWidth : tileHeight,
+                  backgroundImage: `url(${getSpriteForSize(tile.size)})`,
+                  backgroundRepeat: 'no-repeat',
+                  backgroundSize: `${tile.size}px ${MODULAR_WALL_THICKNESS_PX}px`,
+                  transform: isVertical ? 'rotate(90deg)' : undefined,
+                  transformOrigin: 'center center',
+                }}
+              />
+            </div>
+          );
+        });
       })}
       
-      {/* Internal wall segments (shared walls between rooms) */}
-      {internalWallSegments.map((segment, idx) => {
+      {/* Internal wall segments (shared walls between rooms) - packed with optimal tile sizes */}
+      {internalWallSegments.map((segment, segIdx) => {
         const isVertical = segment.rotation === 90;
-        const spriteUrl = getWallSprite(segment.width);
+        const tiles = packWallTiles(segment.width);
         
-        const renderWidth = isVertical ? MODULAR_WALL_THICKNESS_PX : segment.width;
-        const renderHeight = isVertical ? segment.width : MODULAR_WALL_THICKNESS_PX;
+        const segmentLength = segment.width;
+        const renderWidth = isVertical ? MODULAR_WALL_THICKNESS_PX : segmentLength;
+        const renderHeight = isVertical ? segmentLength : MODULAR_WALL_THICKNESS_PX;
+        const segmentLeft = segment.x - renderWidth / 2;
+        const segmentTop = segment.y - renderHeight / 2;
         
-        const left = segment.x - renderWidth / 2;
-        const top = segment.y - renderHeight / 2;
-        
-        return (
-          <div
-            key={`internal-wall-${groupId}-${idx}`}
-            style={{
-              position: 'absolute',
-              left,
-              top,
-              width: renderWidth,
-              height: renderHeight,
-              overflow: 'hidden',
-              backgroundColor: '#5d4037',
-            }}
-          >
+        return tiles.map((tile, tileIdx) => {
+          const tileLeft = isVertical ? segmentLeft : segmentLeft + tile.offset;
+          const tileTop = isVertical ? segmentTop + tile.offset : segmentTop;
+          const tileWidth = isVertical ? MODULAR_WALL_THICKNESS_PX : tile.size;
+          const tileHeight = isVertical ? tile.size : MODULAR_WALL_THICKNESS_PX;
+          
+          return (
             <div
+              key={`internal-wall-${groupId}-${segIdx}-${tileIdx}`}
               style={{
                 position: 'absolute',
-                left: isVertical ? (renderWidth - renderHeight) / 2 : 0,
-                top: isVertical ? (renderHeight - renderWidth) / 2 : 0,
-                width: isVertical ? renderHeight : renderWidth,
-                height: isVertical ? renderWidth : renderHeight,
-                backgroundImage: `url(${spriteUrl})`,
-                backgroundRepeat: 'repeat-x',
-                backgroundSize: `auto ${MODULAR_WALL_THICKNESS_PX}px`,
-                transform: isVertical ? 'rotate(90deg)' : undefined,
-                transformOrigin: 'center center',
+                left: tileLeft,
+                top: tileTop,
+                width: tileWidth,
+                height: tileHeight,
+                overflow: 'hidden',
+                backgroundColor: '#5d4037',
               }}
-            />
-          </div>
-        );
+            >
+              <div
+                style={{
+                  position: 'absolute',
+                  left: isVertical ? (tileWidth - tileHeight) / 2 : 0,
+                  top: isVertical ? (tileHeight - tileWidth) / 2 : 0,
+                  width: isVertical ? tileHeight : tileWidth,
+                  height: isVertical ? tileWidth : tileHeight,
+                  backgroundImage: `url(${getSpriteForSize(tile.size)})`,
+                  backgroundRepeat: 'no-repeat',
+                  backgroundSize: `${tile.size}px ${MODULAR_WALL_THICKNESS_PX}px`,
+                  transform: isVertical ? 'rotate(90deg)' : undefined,
+                  transformOrigin: 'center center',
+                }}
+              />
+            </div>
+          );
+        });
       })}
       
       {/* Door sprites */}
@@ -480,23 +537,31 @@ const ModularRoomRenderer: React.FC<ModularRoomRendererProps> = ({
   dragPreview,
   placingFloor,
 }) => {
-  // For wall rendering, we need to consider ALL rooms together to properly calculate
-  // shared edges and internal walls. The wallGroupId is used for wall STYLE, not grouping.
-  // All rooms are rendered as one group for wall calculation purposes.
-  // When dragging, exclude the dragged room from static wall rendering
+  // When dragging, exclude the dragged room from static rendering
   const staticRooms = useMemo(() => 
     dragPreview ? modularRooms.filter(r => r.id !== dragPreview.roomId) : modularRooms,
     [modularRooms, dragPreview]
   );
-  const allRoomIds = useMemo(() => staticRooms.map(r => r.id), [staticRooms]);
   
-  // Get the primary wall style (from first room's wall group, or default)
-  const primaryWallStyleId = useMemo(() => {
-    if (modularRooms.length === 0) return 'worn-castle';
-    const firstRoom = modularRooms[0];
-    const wallGroup = wallGroups.find(g => g.id === firstRoom.wallGroupId);
-    return wallGroup?.wallStyleId || 'worn-castle';
-  }, [modularRooms, wallGroups]);
+  // When dragging, filter out doors that involve the dragged room
+  // This makes walls "close up" immediately when a room is picked up
+  const activeDoors = useMemo(() =>
+    dragPreview ? doors.filter(d => d.roomAId !== dragPreview.roomId && d.roomBId !== dragPreview.roomId) : doors,
+    [doors, dragPreview]
+  );
+  
+  // Group rooms by wallGroupId for rendering with separate wall styles
+  const roomsByWallGroup = useMemo(() => {
+    const groups = new Map<string, ModularRoomElement[]>();
+    staticRooms.forEach(room => {
+      const groupId = room.wallGroupId || 'default';
+      if (!groups.has(groupId)) {
+        groups.set(groupId, []);
+      }
+      groups.get(groupId)!.push(room);
+    });
+    return groups;
+  }, [staticRooms]);
 
   if (modularRooms.length === 0 && !placingFloor) {
     return null;
@@ -520,7 +585,8 @@ const ModularRoomRenderer: React.FC<ModularRoomRendererProps> = ({
               >
                 <ModularRoomFloor
                   room={room}
-                  isSelected={selectedRoomId === room.id || selectedRoomIds.includes(room.id)}
+                  isSelected={selectedRoomId === room.id}
+                  isMultiSelected={selectedRoomIds.includes(room.id)}
                 />
               </div>
             );
@@ -578,19 +644,28 @@ const ModularRoomRenderer: React.FC<ModularRoomRendererProps> = ({
       {/* Layer: Walls */}
       {(renderLayer === 'walls' || renderLayer === 'full') && (
         <>
-          {/* Render all walls as one unified group to properly handle shared edges */}
-          {staticRooms.length > 0 && (
-            <WallGroupRenderer
-              key="walls-unified"
-              groupId="unified"
-              roomIds={allRoomIds}
-              wallStyleId={primaryWallStyleId}
-              rooms={staticRooms}
-              doors={doors}
-            />
-          )}
-
-
+          {/* Render each wall group separately with its own wall style */}
+          {Array.from(roomsByWallGroup.entries()).map(([groupId, groupRooms]) => {
+            // Find wall style for this group
+            const wallGroup = wallGroups.find(g => g.id === groupId);
+            const wallStyleId = wallGroup?.wallStyleId || 'worn-castle';
+            const roomIds = groupRooms.map(r => r.id);
+            
+            return (
+              <WallGroupRenderer
+                key={`walls-${groupId}`}
+                groupId={groupId}
+                roomIds={roomIds}
+                wallStyleId={wallStyleId}
+                rooms={groupRooms}
+                doors={activeDoors.filter(d => 
+                  // Only include doors where BOTH rooms are in this group
+                  // (doors between different groups are invalid and should be filtered out)
+                  roomIds.includes(d.roomAId) && roomIds.includes(d.roomBId)
+                )}
+              />
+            );
+          })}
         </>
       )}
     </>

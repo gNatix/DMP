@@ -18,14 +18,18 @@ import {
   getDoorSpriteUrl,
   parseFloorFilename,
 } from '../../utils/modularRooms';
-import { DEFAULT_FLOOR_STYLE_ID, DEFAULT_WALL_STYLE_ID } from '../../constants';
+import { DEFAULT_FLOOR_STYLE_ID } from '../../constants';
 
 interface ModulesTabProps {
   selectedModularRoom: ModularRoomElement | null;
+  selectedModularRooms: ModularRoomElement[]; // All selected modular rooms
   wallGroups: WallGroup[];
   updateElement: (id: string, updates: Partial<MapElement>) => void;
   updateWallGroup: (groupId: string, updates: Partial<WallGroup>) => void;
   onStartDragFloor: (floorStyleId: string, tilesW: number, tilesH: number, imageUrl: string) => void;
+  // Default wall style for new rooms
+  defaultWallStyleId: string;
+  onDefaultWallStyleChange: (styleId: string) => void;
 }
 
 interface FloorStyle {
@@ -52,10 +56,13 @@ interface WallStyle {
 
 const ModulesTab = ({
   selectedModularRoom,
+  selectedModularRooms = [],
   wallGroups,
   updateElement, // Used for changing floor style
   updateWallGroup,
   onStartDragFloor,
+  defaultWallStyleId,
+  onDefaultWallStyleChange,
 }: ModulesTabProps) => {
   const [activeSubTab, setActiveSubTab] = useState<'rooms' | 'walls'>('rooms');
   const [floorStyles, setFloorStyles] = useState<FloorStyle[]>([]);
@@ -193,19 +200,47 @@ const ModulesTab = ({
   };
 
   const handleWallStyleChange = (styleId: string) => {
-    if (selectedModularRoom) {
-      // Find the wall group for this room and update its style
+    // If we have multiple selected rooms, update all their wall groups
+    if (selectedModularRooms.length > 0) {
+      // Collect unique wall group IDs from all selected rooms
+      const wallGroupIds = new Set<string>();
+      selectedModularRooms.forEach(room => {
+        if (room.wallGroupId) {
+          wallGroupIds.add(room.wallGroupId);
+        }
+      });
+      // Update all wall groups
+      wallGroupIds.forEach(groupId => {
+        updateWallGroup(groupId, { wallStyleId: styleId });
+      });
+    } else if (selectedModularRoom) {
+      // Single selected room fallback
       const wallGroup = wallGroups.find(g => g.id === selectedModularRoom.wallGroupId);
       if (wallGroup) {
         updateWallGroup(wallGroup.id, { wallStyleId: styleId });
       }
+    } else {
+      // No room selected - update the default wall style for new rooms
+      onDefaultWallStyleChange(styleId);
     }
   };
 
-  // Get current wall style for selected room
+  // Handle floor style change for multi-selection
+  const handleFloorStyleChange = (styleId: string) => {
+    if (selectedModularRooms.length > 0) {
+      // Update all selected rooms individually
+      selectedModularRooms.forEach(room => {
+        updateElement(room.id, { floorStyleId: styleId });
+      });
+    } else if (selectedModularRoom) {
+      updateElement(selectedModularRoom.id, { floorStyleId: styleId });
+    }
+  };
+
+  // Get current wall style - from selected room if any, otherwise use default
   const currentWallStyleId = selectedModularRoom
-    ? wallGroups.find(g => g.id === selectedModularRoom.wallGroupId)?.wallStyleId || DEFAULT_WALL_STYLE_ID
-    : DEFAULT_WALL_STYLE_ID;
+    ? wallGroups.find(g => g.id === selectedModularRoom.wallGroupId)?.wallStyleId || defaultWallStyleId
+    : defaultWallStyleId;
 
   return (
     <div className="h-full flex flex-col bg-dm-panel overflow-hidden">
@@ -240,7 +275,9 @@ const ModulesTab = ({
         {activeSubTab === 'rooms' && (
           <div className="space-y-2">
             <p className="text-xs text-gray-400 mb-3">
-              Drag floor tiles onto the canvas to place modular rooms.
+              {selectedModularRooms.length > 0 || selectedModularRoom
+                ? 'Click a style to apply to selected rooms. Drag floor tiles to place new rooms.'
+                : 'Drag floor tiles onto the canvas to place modular rooms.'}
             </p>
             
             {loadingFloors ? (
@@ -266,10 +303,8 @@ const ModulesTab = ({
                   {/* Style Header with floor preview background */}
                   <div
                     onClick={() => {
-                      // Click on header selects the floor style for the selected room
-                      if (selectedModularRoom) {
-                        updateElement(selectedModularRoom.id, { floorStyleId: style.id });
-                      }
+                      // Click on header selects the floor style for all selected rooms
+                      handleFloorStyleChange(style.id);
                     }}
                     className={`w-full flex items-center justify-between p-2 hover:brightness-110 transition-all relative overflow-hidden cursor-pointer ${
                       selectedModularRoom?.floorStyleId === style.id ? 'ring-1 ring-dm-highlight' : ''
@@ -347,69 +382,70 @@ const ModulesTab = ({
         )}
 
         {activeSubTab === 'walls' && (
-          <div className="space-y-3">
-            {selectedModularRoom ? (
-              <>
-                <p className="text-xs text-gray-400">
-                  Select a wall style for this modular room group.
-                </p>
-                
-                {loadingWalls ? (
-                  <div className="flex items-center justify-center py-8">
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-dm-highlight"></div>
-                  </div>
-                ) : wallStyles.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
-                    <p className="text-sm">No wall styles found</p>
-                    <p className="text-xs mt-1">Add wall assets to modular-rooms/walls/</p>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {wallStyles.map(style => (
-                      <button
-                        key={style.id}
-                        onClick={() => handleWallStyleChange(style.id)}
-                        className={`w-full p-3 rounded-lg border transition-all ${
-                          currentWallStyleId === style.id
-                            ? 'border-dm-highlight bg-dm-highlight/10'
-                            : 'border-dm-border hover:border-dm-border/80 hover:bg-dm-dark/20'
-                        }`}
-                      >
-                        <div className="text-sm font-medium text-gray-200 mb-2">{style.name}</div>
-                        <div className="flex gap-2">
-                          {/* Wall preview */}
-                          <div className="flex-1 bg-dm-dark/50 rounded p-1">
-                            <img
-                              src={style.wallSprite1x}
-                              alt="Wall"
-                              className="w-full h-8 object-cover"
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).style.display = 'none';
-                              }}
-                            />
-                          </div>
-                          {/* Pillar preview */}
-                          <div className="w-10 h-10 bg-dm-dark/50 rounded p-1 flex items-center justify-center">
-                            <img
-                              src={style.pillarSprite}
-                              alt="Pillar"
-                              className="max-w-full max-h-full object-contain"
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).style.display = 'none';
-                              }}
-                            />
-                          </div>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </>
-            ) : (
-              <div className="text-center py-8 text-gray-500">
-                <p className="text-sm">Select a modular room</p>
-                <p className="text-xs mt-1">to change its wall style</p>
+          <div className="space-y-0.5">
+            <p className="text-xs text-gray-400 mb-1">
+              {selectedModularRooms.length > 0 || selectedModularRoom 
+                ? 'Select a wall style. Changes apply to all connected rooms.'
+                : 'Select a wall style for new rooms.'}
+            </p>
+            
+            {loadingWalls ? (
+              <div className="flex items-center justify-center py-4">
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-dm-highlight"></div>
               </div>
+            ) : wallStyles.length === 0 ? (
+              <div className="text-center py-4 text-gray-500">
+                <p className="text-sm">No wall styles found</p>
+                <p className="text-xs mt-1">Add wall assets to modular-rooms/walls/</p>
+              </div>
+            ) : (
+              wallStyles.map(style => (
+                <div 
+                  key={style.id} 
+                  onClick={() => handleWallStyleChange(style.id)}
+                  className={`border border-dm-border rounded overflow-hidden cursor-pointer transition-all hover:brightness-110 ${
+                    currentWallStyleId === style.id ? 'ring-1 ring-dm-highlight' : ''
+                  }`}
+                >
+                  {/* Style Header with wall preview background */}
+                  <div
+                    className="w-full flex items-center justify-between px-1.5 py-0.5 relative overflow-hidden"
+                  >
+                    {/* Background preview with wall texture */}
+                    <div 
+                      className="absolute inset-0"
+                      style={{
+                        backgroundImage: `url(${style.wallSprite2x})`,
+                        backgroundSize: '128px 32px',
+                        backgroundRepeat: 'repeat-x',
+                        backgroundPosition: 'center',
+                        mask: 'linear-gradient(to right, transparent 0%, black 20%, black 80%, transparent 100%)',
+                        WebkitMask: 'linear-gradient(to right, transparent 0%, black 20%, black 80%, transparent 100%)',
+                      }}
+                    />
+                    <span 
+                      className="text-sm font-medium text-white relative z-10 flex-1"
+                      style={{
+                        textShadow: '0 0 4px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.7), 1px 1px 2px rgba(0,0,0,0.9)',
+                      }}
+                    >
+                      {style.name}
+                    </span>
+                    {/* Pillar preview on the right */}
+                    <div className="relative z-10 w-6 h-6 flex items-center justify-center">
+                      <img
+                        src={style.pillarSprite}
+                        alt="Pillar"
+                        className="max-w-full max-h-full object-contain"
+                        style={{ filter: 'drop-shadow(0 0 2px rgba(0,0,0,0.8))' }}
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'none';
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))
             )}
           </div>
         )}

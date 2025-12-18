@@ -7,7 +7,6 @@ import ModularRoomRenderer from './canvas/ModularRoomRenderer';
 import ModularRoomContextMenu from './canvas/ModularRoomContextMenu';
 import {
   MODULAR_TILE_PX,
-  DEFAULT_WALL_STYLE_ID,
 } from '../constants';
 import {
   getModularRooms,
@@ -20,6 +19,10 @@ import {
   getWallSpriteUrl,
   getPillarSpriteUrl,
   roomsOverlapPx,
+  checkGroupSplitAfterRemoval,
+  generateSplitUpdates,
+  findAdjacentGroups,
+  generateMergeUpdates,
 } from '../utils/modularRooms';
 
 // Helper function to create rounded polygon path (for room shapes)
@@ -188,6 +191,7 @@ interface CanvasProps {
   setXlabShapeMode: (mode: TerrainShapeMode) => void;
   onElementSelected?: (elementId: string) => void;
   onViewportChange?: (viewport: { x: number; y: number; zoom: number }) => void;
+  initialViewport?: { x: number; y: number; zoom: number };
   // Modular rooms
   placingModularFloor?: {
     floorStyleId: string;
@@ -201,6 +205,7 @@ interface CanvasProps {
     tilesH: number;
     imageUrl: string;
   } | null) => void;
+  defaultWallStyleId?: string;
 }
 
 // Visual stacking order (back → front):
@@ -279,8 +284,10 @@ const Canvas = ({
   setXlabShapeMode: _setXlabShapeMode,
   onElementSelected,
   onViewportChange,
+  initialViewport,
   placingModularFloor,
   setPlacingModularFloor,
+  defaultWallStyleId = 'worn-castle',
 }: CanvasProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
@@ -292,7 +299,7 @@ const Canvas = ({
   const hasActivatedSceneRef = useRef(false); // Track if we've activated auto-created scene
   const isFillingShapeRef = useRef(false); // Track if we're currently filling a shape (prevents clearing tiles during activation)
   
-  const [viewport, setViewport] = useState({ x: 0, y: 0, zoom: 1 });
+  const [viewport, setViewport] = useState(initialViewport || { x: 0, y: 0, zoom: 1 });
   const [mapDimensions, setMapDimensions] = useState({ width: 0, height: 0, padding: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
@@ -303,6 +310,7 @@ const Canvas = ({
   const [resizingElement, setResizingElement] = useState<{ id: string; handle: string } | null>(null);
   const [isSpacePressed, setIsSpacePressed] = useState(false);
   const [selectionBox, setSelectionBox] = useState<{ startX: number; startY: number; endX: number; endY: number } | null>(null);
+  const [modularSelectionBox, setModularSelectionBox] = useState<{ startX: number; startY: number; endX: number; endY: number } | null>(null);
   const [draggedMultiple, setDraggedMultiple] = useState<{ offsetX: number; offsetY: number; initialOffsets?: Map<string, {x: number, y: number}> } | null>(null);
   const [cursorPosition, setCursorPosition] = useState<{ x: number; y: number } | null>(null);
   const [hasInitializedViewport, setHasInitializedViewport] = useState(false);
@@ -324,6 +332,12 @@ const Canvas = ({
   const [fitToViewLocked, setFitToViewLocked] = useState(false);
   const [zoomLimitError, setZoomLimitError] = useState(false);
   const [canvasInfiniteError, setCanvasInfiniteError] = useState(false);
+  // Pending modular room drag - waiting for mouse movement to start actual drag
+  const [pendingModularRoomDrag, setPendingModularRoomDrag] = useState<{
+    roomId: string;
+    startX: number;
+    startY: number;
+  } | null>(null);
   const [shouldRotateMap, setShouldRotateMap] = useState(false);
   const [isErasing, setIsErasing] = useState(false);
   const [mergeNotification, setMergeNotification] = useState<string | null>(null);
@@ -399,11 +413,75 @@ const Canvas = ({
     const newTilesW = room.tilesH;
     const newTilesH = room.tilesW;
     
-    // Adjust position to keep room centered
+    // Adjust position to keep room centered (with tile alignment)
     const oldCenterX = room.x + (room.tilesW * MODULAR_TILE_PX) / 2;
     const oldCenterY = room.y + (room.tilesH * MODULAR_TILE_PX) / 2;
-    const newX = oldCenterX - (newTilesW * MODULAR_TILE_PX) / 2;
-    const newY = oldCenterY - (newTilesH * MODULAR_TILE_PX) / 2;
+    let newX = oldCenterX - (newTilesW * MODULAR_TILE_PX) / 2;
+    let newY = oldCenterY - (newTilesH * MODULAR_TILE_PX) / 2;
+    
+    // Snap to tile grid
+    newX = Math.round(newX / MODULAR_TILE_PX) * MODULAR_TILE_PX;
+    newY = Math.round(newY / MODULAR_TILE_PX) * MODULAR_TILE_PX;
+    
+    // Check for overlap with other rooms
+    const otherRooms = getModularRooms(scene.elements).filter(r => r.id !== roomId);
+    const newWidthPx = newTilesW * MODULAR_TILE_PX;
+    const newHeightPx = newTilesH * MODULAR_TILE_PX;
+    
+    const hasOverlap = otherRooms.some(other => {
+      const otherRect = {
+        x: other.x,
+        y: other.y,
+        w: other.tilesW * MODULAR_TILE_PX,
+        h: other.tilesH * MODULAR_TILE_PX,
+      };
+      return roomsOverlapPx({ x: newX, y: newY, w: newWidthPx, h: newHeightPx }, otherRect);
+    });
+    
+    // If overlap, try to find a valid position by shifting the room
+    if (hasOverlap) {
+      // Try shifting in each direction by 1 tile at a time, up to the dimension difference
+      const shiftAmount = Math.abs(newTilesW - newTilesH) * MODULAR_TILE_PX;
+      const shifts = [
+        { dx: shiftAmount, dy: 0 },    // Right
+        { dx: -shiftAmount, dy: 0 },   // Left
+        { dx: 0, dy: shiftAmount },    // Down
+        { dx: 0, dy: -shiftAmount },   // Up
+        { dx: shiftAmount / 2, dy: 0 },
+        { dx: -shiftAmount / 2, dy: 0 },
+        { dx: 0, dy: shiftAmount / 2 },
+        { dx: 0, dy: -shiftAmount / 2 },
+      ];
+      
+      let foundValid = false;
+      for (const shift of shifts) {
+        const testX = Math.round((newX + shift.dx) / MODULAR_TILE_PX) * MODULAR_TILE_PX;
+        const testY = Math.round((newY + shift.dy) / MODULAR_TILE_PX) * MODULAR_TILE_PX;
+        
+        const stillOverlaps = otherRooms.some(other => {
+          const otherRect = {
+            x: other.x,
+            y: other.y,
+            w: other.tilesW * MODULAR_TILE_PX,
+            h: other.tilesH * MODULAR_TILE_PX,
+          };
+          return roomsOverlapPx({ x: testX, y: testY, w: newWidthPx, h: newHeightPx }, otherRect);
+        });
+        
+        if (!stillOverlaps) {
+          newX = testX;
+          newY = testY;
+          foundValid = true;
+          break;
+        }
+      }
+      
+      if (!foundValid) {
+        // Still overlapping after all attempts - don't rotate
+        console.warn('[handleRotateModularRoom] Cannot rotate - would overlap with other rooms');
+        return;
+      }
+    }
     
     updateElement(roomId, {
       rotation: newRotation,
@@ -656,6 +734,14 @@ const Canvas = ({
     }
   }, [scene?.id]);
 
+  // Sync viewport with initialViewport from parent (e.g., when restored from saved settings)
+  useEffect(() => {
+    if (initialViewport && !hasInitializedViewport) {
+      setViewport(initialViewport);
+      setHasInitializedViewport(true);
+    }
+  }, [initialViewport, hasInitializedViewport]);
+
   // Notify parent about viewport changes
   useEffect(() => {
     if (onViewportChange) {
@@ -802,7 +888,7 @@ const Canvas = ({
     return () => window.removeEventListener('applyColorToSelection', handleApplyColor as EventListener);
   }, [selectedElementId, selectedElementIds, scene, updateElement, updateElements]);
 
-  // Recalculate modular room doors when room positions change
+  // Recalculate modular room doors when room positions change or scene loads
   // This useEffect watches modular room positions and recalculates doors automatically
   useEffect(() => {
     if (!scene || !activeSceneId) return;
@@ -814,8 +900,12 @@ const Canvas = ({
     const newDoors = recalculateAllDoors(modularRooms);
     const currentDoors = scene.modularRoomsState?.doors || [];
     
-    // Only update if doors have changed (compare by checking edge positions)
-    const doorsChanged = newDoors.length !== currentDoors.length ||
+    // Always update doors on initial load (when currentDoors is empty but should have doors)
+    // or when doors have actually changed
+    const doorsAreMissing = currentDoors.length === 0 && newDoors.length > 0;
+    
+    // Check if doors have changed (compare by checking edge positions)
+    const doorsChanged = doorsAreMissing || newDoors.length !== currentDoors.length ||
       newDoors.some((newDoor) => {
         const oldDoor = currentDoors.find(d => 
           (d.roomAId === newDoor.roomAId && d.roomBId === newDoor.roomBId) ||
@@ -829,7 +919,7 @@ const Canvas = ({
       });
     
     if (doorsChanged) {
-      console.log('[MODULAR ROOMS] Doors recalculated:', newDoors.length, 'doors');
+      console.log('[MODULAR ROOMS] Doors recalculated:', newDoors.length, 'doors (missing:', doorsAreMissing, ')');
       const updatedState = {
         wallGroups: scene.modularRoomsState?.wallGroups || [],
         doors: newDoors,
@@ -837,12 +927,16 @@ const Canvas = ({
       updateScene(activeSceneId, { modularRoomsState: updatedState });
     }
   }, [
-    // Only re-run when modular room positions change
+    // Re-run when scene changes or modular room positions change
+    activeSceneId,
+    scene?.id, // Also re-run when scene itself changes (e.g., after load from database)
     // Create a stable dependency by stringifying positions (now using x,y pixels)
     scene?.elements
       .filter((el): el is ModularRoomElement => el.type === 'modularRoom')
       .map(r => `${r.id}:${r.x},${r.y}`)
-      .join('|')
+      .join('|'),
+    // Also include current doors count to detect when doors are missing after reload
+    scene?.modularRoomsState?.doors?.length ?? 0
   ]);
 
   // Render terrain tiles based on visible tiles
@@ -1272,13 +1366,83 @@ const Canvas = ({
   };
 
   const handleDelete = () => {
-    if (selectedElementIds.length > 0) {
-      saveToHistory();
-      deleteElements(selectedElementIds);
-    } else if (selectedElementId) {
-      saveToHistory();
-      deleteElements([selectedElementId]);
+    if (!scene || !activeSceneId) return;
+    
+    const idsToDelete = selectedElementIds.length > 0 ? selectedElementIds : selectedElementId ? [selectedElementId] : [];
+    if (idsToDelete.length === 0) return;
+    
+    saveToHistory();
+    
+    // Check for modular room group splits before deletion
+    const modularRoomsToDelete = idsToDelete.filter(id => {
+      const el = scene.elements.find(e => e.id === id);
+      return el?.type === 'modularRoom';
+    });
+    
+    if (modularRoomsToDelete.length > 0) {
+      const allRooms = getModularRooms(scene.elements);
+      const wallGroups = scene.modularRoomsState?.wallGroups || [];
+      
+      // Collect all split updates
+      const allRoomUpdates: { roomId: string; newWallGroupId: string }[] = [];
+      const allNewWallGroups: WallGroup[] = [];
+      const groupsToUpdate: WallGroup[] = []; // Groups that need roomCount updated
+      const processedGroups = new Set<string>();
+      
+      for (const roomId of modularRoomsToDelete) {
+        const room = allRooms.find(r => r.id === roomId);
+        if (!room?.wallGroupId || processedGroups.has(room.wallGroupId)) continue;
+        
+        processedGroups.add(room.wallGroupId);
+        
+        const splitResult = checkGroupSplitAfterRemoval(allRooms, roomId);
+        if (splitResult.needsSplit) {
+          const updates = generateSplitUpdates(
+            splitResult.components,
+            room.wallGroupId,
+            wallGroups
+          );
+          allRoomUpdates.push(...updates.roomUpdates);
+          allNewWallGroups.push(...updates.newWallGroups);
+          if (updates.updatedOriginalGroup) {
+            groupsToUpdate.push(updates.updatedOriginalGroup);
+          }
+        } else {
+          // No split, just decrement roomCount for the group
+          const group = wallGroups.find(g => g.id === room.wallGroupId);
+          if (group) {
+            groupsToUpdate.push({ ...group, roomCount: Math.max(0, (group.roomCount || 1) - 1) });
+          }
+        }
+      }
+      
+      // Apply room updates and new wall groups
+      if (allRoomUpdates.length > 0 || allNewWallGroups.length > 0 || groupsToUpdate.length > 0) {
+        // Build updated wall groups: start with existing, apply updates, add new
+        let updatedWallGroups = wallGroups.map(g => {
+          const updated = groupsToUpdate.find(u => u.id === g.id);
+          return updated || g;
+        });
+        updatedWallGroups = [...updatedWallGroups, ...allNewWallGroups];
+        
+        // Update rooms with new group IDs
+        for (const update of allRoomUpdates) {
+          updateElement(update.roomId, { wallGroupId: update.newWallGroupId });
+        }
+        
+        // Update wall groups in scene state
+        updateScene(activeSceneId, {
+          modularRoomsState: {
+            ...scene.modularRoomsState,
+            wallGroups: updatedWallGroups,
+            doors: scene.modularRoomsState?.doors || [],
+          }
+        });
+      }
     }
+    
+    // Now delete the elements
+    deleteElements(idsToDelete);
   };
 
   const handleLayerUp = () => {
@@ -4023,22 +4187,13 @@ const Canvas = ({
             offsetX = x - centerX;
             offsetY = y - centerY;
           } else if (clickedElement.type === 'modularRoom') {
-            // For modular rooms, use the drag preview system for consistent behavior
+            // For modular rooms: use drag-to-pick-up, click-to-drop
+            // On pointer down, we just set up pending drag - actual drag starts on move
             const modRoom = clickedElement as ModularRoomElement;
-            saveToHistory();
-            
-            // Calculate snap position
-            const allModularRooms = getModularRooms(scene.elements);
-            const otherRooms = allModularRooms.filter(r => r.id !== modRoom.id);
-            const snapResult = findMagneticSnapPosition(modRoom, modRoom.x, modRoom.y, otherRooms);
-            
-            setModularRoomDragPreview({
+            setPendingModularRoomDrag({
               roomId: modRoom.id,
-              originalPosition: { x: modRoom.x, y: modRoom.y },
-              ghostPosition: { x: snapResult.x, y: snapResult.y },
-              cursorPosition: { x: modRoom.x, y: modRoom.y },
-              snappedToRoom: snapResult.snappedToRoom,
-              sharedEdgeTiles: snapResult.sharedEdgeTiles,
+              startX: x,
+              startY: y,
             });
             return; // Don't continue to setDraggedElement
           } else if (clickedElement.type === 'wall') {
@@ -4130,6 +4285,9 @@ const Canvas = ({
       // Find existing modular rooms to check for magnetic snap
       const existingModularRooms = getModularRooms(scene.elements);
       
+      // Track which room we snapped to (if any) - used for wall group inheritance
+      let snappedToRoomId: string | null = null;
+      
       // If there are other rooms, try magnetic snap
       if (existingModularRooms.length > 0) {
         // Create a temporary room object for snap calculation
@@ -4147,6 +4305,7 @@ const Canvas = ({
         const snapResult = findMagneticSnapPosition(tempRoom, roomX, roomY, existingModularRooms, 96);  // Same as preview
         roomX = snapResult.x;
         roomY = snapResult.y;
+        snappedToRoomId = snapResult.snappedToRoom;
       }
       
       // Check if final position overlaps with any existing room
@@ -4171,9 +4330,25 @@ const Canvas = ({
         return;
       }
       
-      // Generate unique IDs
+      // Generate unique room ID
       const roomId = generateModularRoomId();
-      const wallGroupId = generateWallGroupId();
+      
+      // Determine wall group: inherit from snapped room or create new
+      let wallGroupId: string;
+      let needNewWallGroup = true;
+      
+      if (snappedToRoomId) {
+        // Find the room we snapped to and inherit its wall group
+        const snappedRoom = existingModularRooms.find(r => r.id === snappedToRoomId);
+        if (snappedRoom && snappedRoom.wallGroupId) {
+          wallGroupId = snappedRoom.wallGroupId;
+          needNewWallGroup = false;
+        } else {
+          wallGroupId = generateWallGroupId();
+        }
+      } else {
+        wallGroupId = generateWallGroupId();
+      }
       
       // Create the modular room element (now using x/y in pixels)
       const newModularRoom: ModularRoomElement = {
@@ -4192,20 +4367,26 @@ const Canvas = ({
         widgets: [],
       };
       
-      // Create the wall group for this room
-      const newWallGroup: WallGroup = {
-        id: wallGroupId,
-        wallStyleId: DEFAULT_WALL_STYLE_ID,
-      };
-      
       // Get current modular rooms state or create new
       const currentState = scene.modularRoomsState || { wallGroups: [], doors: [] };
+      
+      // Only create a new wall group if this room isn't joining an existing group
+      let updatedWallGroups = currentState.wallGroups;
+      if (needNewWallGroup) {
+        // Create new group with roomCount: 1
+        updatedWallGroups = [...currentState.wallGroups, { id: wallGroupId, wallStyleId: defaultWallStyleId, roomCount: 1 }];
+      } else {
+        // Increment roomCount for the existing group
+        updatedWallGroups = currentState.wallGroups.map(g => 
+          g.id === wallGroupId ? { ...g, roomCount: (g.roomCount || 0) + 1 } : g
+        );
+      }
       
       // Create automatic doors for adjacent rooms
       const newDoors = createDoorsForNewRoom(newModularRoom, existingModularRooms, currentState.doors);
       
       const updatedState = {
-        wallGroups: [...currentState.wallGroups, newWallGroup],
+        wallGroups: updatedWallGroups,
         doors: [...currentState.doors, ...newDoors],
       };
       
@@ -4241,7 +4422,7 @@ const Canvas = ({
       setCursorPosition(null);
       
       console.log('[MODULAR ROOM] Placed floor:', newModularRoom);
-      console.log('[MODULAR ROOM] Created wall group:', newWallGroup);
+      console.log('[MODULAR ROOM] Created wall group ID:', wallGroupId);
       if (newDoors.length > 0) {
         console.log('[MODULAR ROOM] Auto-created doors:', newDoors);
       }
@@ -4254,38 +4435,189 @@ const Canvas = ({
       if (modularRoomDragPreview) {
         const { roomId, ghostPosition, originalPosition } = modularRoomDragPreview;
         
+        const room = scene.elements.find(el => el.id === roomId) as ModularRoomElement | undefined;
+        if (!room) {
+          setModularRoomDragPreview(null);
+          return;
+        }
+        
         // Only update if position actually changed
         if (ghostPosition.x !== originalPosition.x || ghostPosition.y !== originalPosition.y) {
           // Check if final position overlaps with any existing room (excluding the one being moved)
-          const room = scene.elements.find(el => el.id === roomId) as ModularRoomElement | undefined;
-          if (room) {
-            const roomWidthPx = room.tilesW * MODULAR_TILE_PX;
-            const roomHeightPx = room.tilesH * MODULAR_TILE_PX;
-            const proposedRect = { x: ghostPosition.x, y: ghostPosition.y, w: roomWidthPx, h: roomHeightPx };
-            
-            const existingModularRooms = getModularRooms(scene.elements).filter(r => r.id !== roomId);
-            const hasOverlap = existingModularRooms.some(other => {
-              const otherRect = {
-                x: other.x,
-                y: other.y,
-                w: other.tilesW * MODULAR_TILE_PX,
-                h: other.tilesH * MODULAR_TILE_PX,
-              };
-              return roomsOverlapPx(proposedRect, otherRect);
-            });
-            
-            if (hasOverlap) {
-              // Show error message but STAY in placement mode - don't drop the room
-              setMergeNotification('Modular rooms can only be placed in unoccupied space');
-              setTimeout(() => setMergeNotification(null), 3000);
-              // Keep modularRoomDragPreview active - user can try another position
-              return;
+          const roomWidthPx = room.tilesW * MODULAR_TILE_PX;
+          const roomHeightPx = room.tilesH * MODULAR_TILE_PX;
+          const proposedRect = { x: ghostPosition.x, y: ghostPosition.y, w: roomWidthPx, h: roomHeightPx };
+          
+          const existingModularRooms = getModularRooms(scene.elements).filter(r => r.id !== roomId);
+          const hasOverlap = existingModularRooms.some(other => {
+            const otherRect = {
+              x: other.x,
+              y: other.y,
+              w: other.tilesW * MODULAR_TILE_PX,
+              h: other.tilesH * MODULAR_TILE_PX,
+            };
+            return roomsOverlapPx(proposedRect, otherRect);
+          });
+          
+          if (hasOverlap) {
+            // Show error message but STAY in placement mode - don't drop the room
+            setMergeNotification('Modular rooms can only be placed in unoccupied space');
+            setTimeout(() => setMergeNotification(null), 3000);
+            // Keep modularRoomDragPreview active - user can try another position
+            return;
+          }
+          
+          // Create a temporary room at new position to check adjacencies
+          const tempRoom = { ...room, x: ghostPosition.x, y: ghostPosition.y };
+          const allRooms = getModularRooms(scene.elements);
+          const allRoomsWithNewPosition = allRooms.map(r => r.id === roomId ? tempRoom : r);
+          
+          console.log('[Canvas modularRoom] Moving room', roomId.slice(-8), 'from', room.x, room.y, 'to', ghostPosition.x, ghostPosition.y);
+          console.log('[Canvas modularRoom] allRooms for split check:', allRooms.map(r => ({
+            id: r.id.slice(-8),
+            groupId: r.wallGroupId?.slice(-8),
+            x: Math.round(r.x),
+            y: Math.round(r.y)
+          })));
+          
+          // Find all groups this room would be adjacent to at NEW position
+          const adjacentGroupIds = findAdjacentGroups(tempRoom, allRoomsWithNewPosition);
+          
+          let newWallGroupId: string | undefined = room.wallGroupId;
+          let wallGroupsToUpdate = scene.modularRoomsState?.wallGroups || [];
+          const roomUpdatesToApply: { roomId: string; newWallGroupId: string }[] = [];
+          
+          // STEP 1: Check if moving this room splits its original group
+          // We need to check this using the ORIGINAL positions (not the new position)
+          if (room.wallGroupId) {
+            const splitResult = checkGroupSplitAfterRemoval(allRooms, roomId);
+            if (splitResult.needsSplit) {
+              const splitUpdates = generateSplitUpdates(
+                splitResult.components,
+                room.wallGroupId,
+                wallGroupsToUpdate
+              );
+              
+              // Apply split updates to rooms (except the moving room)
+              for (const update of splitUpdates.roomUpdates) {
+                if (update.roomId !== roomId) {
+                  roomUpdatesToApply.push(update);
+                }
+              }
+              
+              // Add new groups and update original group's roomCount
+              wallGroupsToUpdate = [
+                ...wallGroupsToUpdate
+                  .filter(g => g.id !== room.wallGroupId)
+                  .concat(splitUpdates.updatedOriginalGroup ? [splitUpdates.updatedOriginalGroup] : []),
+                ...splitUpdates.newWallGroups
+              ];
+              
+              // The moving room no longer belongs to any group (it will find a new one below)
+              newWallGroupId = undefined;
+            } else {
+              // No split, but room is leaving - decrement old group's roomCount
+              wallGroupsToUpdate = wallGroupsToUpdate.map(g => {
+                if (g.id === room.wallGroupId) {
+                  return { ...g, roomCount: Math.max(0, (g.roomCount || 1) - 1) };
+                }
+                return g;
+              });
+              // Room is leaving this group
+              newWallGroupId = undefined;
             }
           }
           
-          updateElement(roomId, {
+          // STEP 2: Check merge/join at new position
+          if (adjacentGroupIds.length > 1) {
+            // Multiple groups - need to merge
+            const mergeResult = generateMergeUpdates(
+              tempRoom,
+              adjacentGroupIds,
+              allRoomsWithNewPosition,
+              wallGroupsToUpdate
+            );
+            
+            if (mergeResult) {
+              newWallGroupId = mergeResult.updatedDominantGroup.id;
+              roomUpdatesToApply.push(...mergeResult.roomUpdates);
+              // Remove merged groups and update dominant group
+              wallGroupsToUpdate = wallGroupsToUpdate
+                .filter(g => !mergeResult.groupsToRemove.includes(g.id))
+                .map(g => g.id === mergeResult.updatedDominantGroup.id ? mergeResult.updatedDominantGroup : g);
+            }
+          } else if (adjacentGroupIds.length === 1) {
+            // Single adjacent group - adopt it and increment roomCount
+            // (decrement of old group already done in STEP 1)
+            newWallGroupId = adjacentGroupIds[0];
+            wallGroupsToUpdate = wallGroupsToUpdate.map(g => {
+              if (g.id === adjacentGroupIds[0]) {
+                return { ...g, roomCount: (g.roomCount || 0) + 1 };
+              }
+              return g;
+            });
+          } else if (adjacentGroupIds.length === 0) {
+            // No adjacent groups - create a new group for this room
+            // Preserve the wall style from the room's original group
+            const originalGroup = (scene.modularRoomsState?.wallGroups || []).find(g => g.id === room.wallGroupId);
+            const preservedWallStyle = originalGroup?.wallStyleId || 'worn-castle';
+            
+            const newGroupId = generateWallGroupId();
+            const newGroup: WallGroup = {
+              id: newGroupId,
+              wallStyleId: preservedWallStyle,
+              roomCount: 1,
+            };
+            newWallGroupId = newGroupId;
+            wallGroupsToUpdate = [...wallGroupsToUpdate, newGroup];
+          }
+          
+          // Build element updates map for all rooms that need wallGroupId changes
+          console.log('[Canvas modularRoom] roomUpdatesToApply:', roomUpdatesToApply);
+          const elementUpdatesMap = new Map<string, Partial<MapElement>>();
+          
+          // Add updates for rooms affected by split/merge
+          for (const update of roomUpdatesToApply) {
+            if (update.roomId !== roomId) {
+              console.log('[Canvas modularRoom] Queueing room update:', update.roomId.slice(-8), '-> group:', update.newWallGroupId.slice(-8));
+              elementUpdatesMap.set(update.roomId, { wallGroupId: update.newWallGroupId });
+            }
+          }
+          
+          // Add update for the moved room itself
+          elementUpdatesMap.set(roomId, {
             x: ghostPosition.x,
             y: ghostPosition.y,
+            ...(newWallGroupId !== room.wallGroupId ? { wallGroupId: newWallGroupId } : {}),
+          });
+          
+          // Log final state
+          console.log('[Canvas modularRoom STEP 3] wallGroupsToUpdate:', wallGroupsToUpdate);
+          console.log('[Canvas modularRoom STEP 3] newWallGroupId:', newWallGroupId);
+          console.log('[Canvas modularRoom STEP 3] elementUpdatesMap size:', elementUpdatesMap.size);
+          
+          // Apply all element updates to get updated elements array
+          const updatedElements = scene.elements.map(el => {
+            const updates = elementUpdatesMap.get(el.id);
+            if (updates) {
+              console.log('[Canvas modularRoom] Applying update to element:', el.id.slice(-8), updates);
+              return { ...el, ...updates } as MapElement;
+            }
+            return el;
+          });
+          
+          // Recalculate doors with updated rooms (including wallGroupId changes)
+          const updatedRooms = getModularRooms(updatedElements);
+          const newDoors = recalculateAllDoors(updatedRooms);
+          
+          // Update BOTH elements AND modularRoomsState in ONE call to prevent overwrites
+          updateScene(activeSceneId!, {
+            elements: updatedElements,
+            modularRoomsState: {
+              ...scene.modularRoomsState,
+              wallGroups: wallGroupsToUpdate,
+              doors: newDoors,
+            }
           });
         }
         
@@ -4293,33 +4625,19 @@ const Canvas = ({
         return;
       }
       
-      // Not carrying a room - check if clicking on a modular room to pick it up
+      // Not carrying a room - check if clicking on a modular room
       if (clickedElement && clickedElement.type === 'modularRoom') {
         const modRoom = clickedElement as ModularRoomElement;
         
-        // Select and pick up the room
+        // Select the room and prepare for potential drag
         setSelectedElementId(modRoom.id);
         setSelectedElementIds([]);
-        saveToHistory();
         
-        // Start "carrying" the room - center it under cursor
-        const roomWidthPx = modRoom.tilesW * MODULAR_TILE_PX;
-        const roomHeightPx = modRoom.tilesH * MODULAR_TILE_PX;
-        const centeredX = x - roomWidthPx / 2;
-        const centeredY = y - roomHeightPx / 2;
-        
-        // Get other rooms for magnetic snap
-        const allModularRooms = getModularRooms(scene.elements);
-        const otherRooms = allModularRooms.filter(r => r.id !== modRoom.id);
-        const snapResult = findMagneticSnapPosition(modRoom, centeredX, centeredY, otherRooms);
-        
-        setModularRoomDragPreview({
+        // Set pending drag - actual drag starts on mousemove
+        setPendingModularRoomDrag({
           roomId: modRoom.id,
-          originalPosition: { x: modRoom.x, y: modRoom.y },
-          ghostPosition: { x: snapResult.x, y: snapResult.y },
-          cursorPosition: { x: centeredX, y: centeredY },
-          snappedToRoom: snapResult.snappedToRoom,
-          sharedEdgeTiles: snapResult.sharedEdgeTiles,
+          startX: x,
+          startY: y,
         });
         
         return;
@@ -4328,7 +4646,8 @@ const Canvas = ({
         setSelectedElementId(clickedElement.id);
         setSelectedElementIds([]);
       } else {
-        // Click on empty space - deselect
+        // Click on empty space - start modular selection box
+        setModularSelectionBox({ startX: x, startY: y, endX: x, endY: y });
         setSelectedElementId(null);
         setSelectedElementIds([]);
       }
@@ -4565,6 +4884,59 @@ const Canvas = ({
     if (isOverPanel) {
       setCursorPosition(null);
       return; // Don't process any Canvas mouse logic when over panels
+    }
+
+    // Handle pending modular room drag - start actual drag when mouse moves
+    if (pendingModularRoomDrag && scene) {
+      const dx = x - pendingModularRoomDrag.startX;
+      const dy = y - pendingModularRoomDrag.startY;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      
+      // Only start drag if mouse moved enough (5 pixels threshold)
+      if (distance > 5) {
+        const modRoom = scene.elements.find(el => el.id === pendingModularRoomDrag.roomId) as ModularRoomElement | undefined;
+        if (modRoom) {
+          saveToHistory();
+          
+          // Remove doors for this room immediately when starting drag
+          if (activeSceneId && scene.modularRoomsState) {
+            const currentDoors = scene.modularRoomsState.doors || [];
+            const doorsWithoutThisRoom = currentDoors.filter(
+              d => d.roomAId !== modRoom.id && d.roomBId !== modRoom.id
+            );
+            if (doorsWithoutThisRoom.length !== currentDoors.length) {
+              updateScene(activeSceneId, {
+                modularRoomsState: {
+                  ...scene.modularRoomsState,
+                  doors: doorsWithoutThisRoom,
+                }
+              });
+            }
+          }
+          
+          // Start "carrying" the room - center it under cursor
+          const roomWidthPx = modRoom.tilesW * MODULAR_TILE_PX;
+          const roomHeightPx = modRoom.tilesH * MODULAR_TILE_PX;
+          const centeredX = x - roomWidthPx / 2;
+          const centeredY = y - roomHeightPx / 2;
+          
+          // Calculate snap position
+          const allModularRooms = getModularRooms(scene.elements);
+          const otherRooms = allModularRooms.filter(r => r.id !== modRoom.id);
+          const snapResult = findMagneticSnapPosition(modRoom, centeredX, centeredY, otherRooms);
+          
+          setModularRoomDragPreview({
+            roomId: modRoom.id,
+            originalPosition: { x: modRoom.x, y: modRoom.y },
+            ghostPosition: { x: snapResult.x, y: snapResult.y },
+            cursorPosition: { x: centeredX, y: centeredY },
+            snappedToRoom: snapResult.snappedToRoom,
+            sharedEdgeTiles: snapResult.sharedEdgeTiles,
+          });
+        }
+        setPendingModularRoomDrag(null);
+      }
+      return; // Don't process other mouse logic while pending drag
     }
 
     // Interior wall preview - update end point while drawing
@@ -4901,6 +5273,12 @@ const Canvas = ({
     // Handle selection box
     if (selectionBox) {
       setSelectionBox(prev => prev ? { ...prev, endX: x, endY: y } : null);
+      return;
+    }
+
+    // Handle modular room selection box
+    if (modularSelectionBox) {
+      setModularSelectionBox(prev => prev ? { ...prev, endX: x, endY: y } : null);
       return;
     }
 
@@ -5384,41 +5762,173 @@ const Canvas = ({
   };
 
   const handleMouseUp = async () => {
+    // Handle pending modular room drag - if mouse released without moving, just select
+    if (pendingModularRoomDrag) {
+      // Mouse was released without moving enough to start drag - just select the room
+      setSelectedElementId(pendingModularRoomDrag.roomId);
+      setSelectedElementIds([]);
+      setPendingModularRoomDrag(null);
+      return;
+    }
+    
     // Finalize modular room drag (for pointer tool - modularRoom tool uses click-to-drop)
     if (modularRoomDragPreview && activeTool !== 'modularRoom' && scene) {
       const { roomId, ghostPosition, originalPosition } = modularRoomDragPreview;
       
+      const room = scene.elements.find(el => el.id === roomId) as ModularRoomElement | undefined;
+      if (!room) {
+        setModularRoomDragPreview(null);
+        return;
+      }
+      
       // Only update if position actually changed
       if (ghostPosition.x !== originalPosition.x || ghostPosition.y !== originalPosition.y) {
         // Check if final position overlaps with any existing room
-        const room = scene.elements.find(el => el.id === roomId) as ModularRoomElement | undefined;
-        if (room) {
-          const roomWidthPx = room.tilesW * MODULAR_TILE_PX;
-          const roomHeightPx = room.tilesH * MODULAR_TILE_PX;
-          const proposedRect = { x: ghostPosition.x, y: ghostPosition.y, w: roomWidthPx, h: roomHeightPx };
+        const roomWidthPx = room.tilesW * MODULAR_TILE_PX;
+        const roomHeightPx = room.tilesH * MODULAR_TILE_PX;
+        const proposedRect = { x: ghostPosition.x, y: ghostPosition.y, w: roomWidthPx, h: roomHeightPx };
+        
+        const existingModularRooms = getModularRooms(scene.elements).filter(r => r.id !== roomId);
+        const hasOverlap = existingModularRooms.some(other => {
+          const otherRect = {
+            x: other.x,
+            y: other.y,
+            w: other.tilesW * MODULAR_TILE_PX,
+            h: other.tilesH * MODULAR_TILE_PX,
+          };
+          return roomsOverlapPx(proposedRect, otherRect);
+        });
+        
+        if (hasOverlap) {
+          // Show error and revert
+          setMergeNotification('Modular rooms can only be placed in unoccupied space');
+          setTimeout(() => setMergeNotification(null), 3000);
+        } else {
+          // Create a temporary room at new position to check adjacencies
+          const tempRoom = { ...room, x: ghostPosition.x, y: ghostPosition.y };
+          const allRooms = getModularRooms(scene.elements);
+          const allRoomsWithNewPosition = allRooms.map(r => r.id === roomId ? tempRoom : r);
           
-          const existingModularRooms = getModularRooms(scene.elements).filter(r => r.id !== roomId);
-          const hasOverlap = existingModularRooms.some(other => {
-            const otherRect = {
-              x: other.x,
-              y: other.y,
-              w: other.tilesW * MODULAR_TILE_PX,
-              h: other.tilesH * MODULAR_TILE_PX,
+          // Find all groups this room would be adjacent to at NEW position
+          const adjacentGroupIds = findAdjacentGroups(tempRoom, allRoomsWithNewPosition);
+          
+          let newWallGroupId: string | undefined = room.wallGroupId;
+          let wallGroupsToUpdate = scene.modularRoomsState?.wallGroups || [];
+          const roomUpdatesToApply: { roomId: string; newWallGroupId: string }[] = [];
+          
+          // STEP 1: Check if moving this room splits its original group
+          // We need to check this using the ORIGINAL positions (not the new position)
+          if (room.wallGroupId) {
+            const splitResult = checkGroupSplitAfterRemoval(allRooms, roomId);
+            if (splitResult.needsSplit) {
+              const splitUpdates = generateSplitUpdates(
+                splitResult.components,
+                room.wallGroupId,
+                wallGroupsToUpdate
+              );
+              
+              // Apply split updates to rooms (except the moving room)
+              for (const update of splitUpdates.roomUpdates) {
+                if (update.roomId !== roomId) {
+                  roomUpdatesToApply.push(update);
+                }
+              }
+              
+              // Add new groups and update original group's roomCount
+              wallGroupsToUpdate = [
+                ...wallGroupsToUpdate
+                  .filter(g => g.id !== room.wallGroupId)
+                  .concat(splitUpdates.updatedOriginalGroup ? [splitUpdates.updatedOriginalGroup] : []),
+                ...splitUpdates.newWallGroups
+              ];
+              
+              // The moving room no longer belongs to any group (it will find a new one below)
+              newWallGroupId = undefined;
+            } else {
+              // No split, but room is leaving - decrement old group's roomCount
+              wallGroupsToUpdate = wallGroupsToUpdate.map(g => {
+                if (g.id === room.wallGroupId) {
+                  return { ...g, roomCount: Math.max(0, (g.roomCount || 1) - 1) };
+                }
+                return g;
+              });
+              // Room is leaving this group
+              newWallGroupId = undefined;
+            }
+          }
+          
+          // STEP 2: Check merge/join at new position
+          if (adjacentGroupIds.length > 1) {
+            // Multiple groups - need to merge
+            const mergeResult = generateMergeUpdates(
+              tempRoom,
+              adjacentGroupIds,
+              allRoomsWithNewPosition,
+              wallGroupsToUpdate
+            );
+            
+            if (mergeResult) {
+              newWallGroupId = mergeResult.updatedDominantGroup.id;
+              roomUpdatesToApply.push(...mergeResult.roomUpdates);
+              // Remove merged groups and update dominant group
+              wallGroupsToUpdate = wallGroupsToUpdate
+                .filter(g => !mergeResult.groupsToRemove.includes(g.id))
+                .map(g => g.id === mergeResult.updatedDominantGroup.id ? mergeResult.updatedDominantGroup : g);
+            }
+          } else if (adjacentGroupIds.length === 1) {
+            // Single adjacent group - adopt it and increment roomCount
+            // (decrement of old group already done in STEP 1)
+            newWallGroupId = adjacentGroupIds[0];
+            wallGroupsToUpdate = wallGroupsToUpdate.map(g => {
+              if (g.id === adjacentGroupIds[0]) {
+                return { ...g, roomCount: (g.roomCount || 0) + 1 };
+              }
+              return g;
+            });
+          } else if (adjacentGroupIds.length === 0) {
+            // No adjacent groups - create a new group for this room
+            // Preserve the wall style from the room's original group
+            const originalGroup = (scene.modularRoomsState?.wallGroups || []).find(g => g.id === room.wallGroupId);
+            const preservedWallStyle = originalGroup?.wallStyleId || 'worn-castle';
+            
+            const newGroupId = generateWallGroupId();
+            const newGroup: WallGroup = {
+              id: newGroupId,
+              wallStyleId: preservedWallStyle,
+              roomCount: 1,
             };
-            return roomsOverlapPx(proposedRect, otherRect);
+            newWallGroupId = newGroupId;
+            wallGroupsToUpdate = [...wallGroupsToUpdate, newGroup];
+          }
+          
+          // Apply room updates for merged groups
+          for (const update of roomUpdatesToApply) {
+            if (update.roomId !== roomId) {
+              updateElement(update.roomId, { wallGroupId: update.newWallGroupId });
+            }
+          }
+          
+          // Commit the move (and group change if applicable)
+          updateElement(roomId, {
+            x: ghostPosition.x,
+            y: ghostPosition.y,
+            ...(newWallGroupId !== room.wallGroupId ? { wallGroupId: newWallGroupId } : {}),
           });
           
-          if (hasOverlap) {
-            // Show error and revert
-            setMergeNotification('Modular rooms can only be placed in unoccupied space');
-            setTimeout(() => setMergeNotification(null), 3000);
-          } else {
-            // Commit the move
-            updateElement(roomId, {
-              x: ghostPosition.x,
-              y: ghostPosition.y,
-            });
-          }
+          // Recalculate doors with new positions
+          const updatedRoomsForDoors = allRooms.map(r => 
+            r.id === roomId ? { ...r, x: ghostPosition.x, y: ghostPosition.y, wallGroupId: newWallGroupId || room.wallGroupId } : r
+          );
+          const newDoors = recalculateAllDoors(updatedRoomsForDoors);
+          
+          // Update both wallGroups and doors in one call
+          updateScene(activeSceneId!, {
+            modularRoomsState: {
+              ...scene.modularRoomsState,
+              wallGroups: wallGroupsToUpdate,
+              doors: newDoors,
+            }
+          });
         }
       }
       
@@ -5766,6 +6276,34 @@ const Canvas = ({
       setSelectedElementIds(selected);
       setSelectedElementId(null);
       setSelectionBox(null);
+      return;
+    }
+
+    // Finalize modular room selection box - ONLY selects modular rooms
+    if (modularSelectionBox && scene) {
+      const minX = Math.min(modularSelectionBox.startX, modularSelectionBox.endX);
+      const maxX = Math.max(modularSelectionBox.startX, modularSelectionBox.endX);
+      const minY = Math.min(modularSelectionBox.startY, modularSelectionBox.endY);
+      const maxY = Math.max(modularSelectionBox.startY, modularSelectionBox.endY);
+
+      // Only select modular rooms - ignore all other element types
+      const modularRooms = getModularRooms(scene.elements);
+      const selected = modularRooms.filter(room => {
+        // Get room bounding box in pixels
+        const roomMinX = room.x;
+        const roomMaxX = room.x + room.tilesW * MODULAR_TILE_PX;
+        const roomMinY = room.y;
+        const roomMaxY = room.y + room.tilesH * MODULAR_TILE_PX;
+        
+        // Check if bounding boxes overlap
+        return !(roomMaxX < minX || roomMinX > maxX || roomMaxY < minY || roomMinY > maxY);
+      }).map(r => r.id);
+
+      if (selected.length > 0) {
+        setSelectedElementIds(selected);
+        setSelectedElementId(null);
+      }
+      setModularSelectionBox(null);
       return;
     }
 
@@ -7817,6 +8355,22 @@ const Canvas = ({
               />
             )}
 
+        {/* Modular room selection box - only selects modular rooms */}
+        {scene && modularSelectionBox && (
+              <div
+                style={{
+                  position: 'absolute',
+                  left: viewport.x + Math.min(modularSelectionBox.startX, modularSelectionBox.endX) * viewport.zoom,
+                  top: viewport.y + Math.min(modularSelectionBox.startY, modularSelectionBox.endY) * viewport.zoom,
+                  width: Math.abs(modularSelectionBox.endX - modularSelectionBox.startX) * viewport.zoom,
+                  height: Math.abs(modularSelectionBox.endY - modularSelectionBox.startY) * viewport.zoom,
+                  border: '2px dashed #a78bfa',
+                  backgroundColor: 'rgba(167, 139, 250, 0.1)',
+                  pointerEvents: 'none'
+                }}
+              />
+            )}
+
         {/* Merge Rooms Button - works for both canvas and maps */}
         {scene && (() => {
               
@@ -8041,8 +8595,8 @@ const Canvas = ({
             const screenWidth = roomWidthPx * viewport.zoom;
             const screenHeight = roomHeightPx * viewport.zoom;
             
-            // Wall preview settings
-            const wallStyleId = 'worn-castle'; // Default wall style for preview
+            // Wall preview settings - use selected default wall style
+            const wallStyleId = defaultWallStyleId;
             const wallHeight = 32; // Wall thickness in pixels
             const pillarSize = 64; // Pillar size
             const wall1xUrl = getWallSpriteUrl(wallStyleId, 1);
@@ -8205,6 +8759,43 @@ const Canvas = ({
             onRotateLeft={() => handleRotateModularRoom(selectedRoom.id, 'left')}
             onRotateRight={() => handleRotateModularRoom(selectedRoom.id, 'right')}
           />
+        );
+      })()}
+
+      {/* Debug Panel - Top Right (left of right panel) */}
+      {(() => {
+        const modularRooms = scene ? getModularRooms(scene.elements) : [];
+        const selectedRoom = modularRooms.find(r => r.id === selectedElementId);
+        const wallGroups = scene?.modularRoomsState?.wallGroups || [];
+        const selectedGroup = selectedRoom ? wallGroups.find(g => g.id === selectedRoom.wallGroupId) : null;
+        
+        return (
+          <div
+            style={{
+              position: 'fixed',
+              top: 16,
+              right: 340, // Left of right panel (320px wide + some margin)
+              padding: '8px 12px',
+              backgroundColor: 'rgba(0, 0, 0, 0.85)',
+              borderRadius: 8,
+              border: '1px solid rgba(136, 255, 136, 0.3)',
+              fontFamily: 'monospace',
+              fontSize: 11,
+              color: '#88ff88',
+              zIndex: 1000,
+              minWidth: 200,
+            }}
+          >
+            <div style={{ marginBottom: 4, fontWeight: 'bold', color: '#aaffaa' }}>🔧 Debug Info</div>
+            <div>Room ID: {selectedRoom?.id?.slice(-12) || 'none'}</div>
+            <div>Group ID: {selectedRoom?.wallGroupId?.slice(-12) || 'none'}</div>
+            <div>Group exists: {selectedGroup ? 'yes' : 'no'}</div>
+            <div>Wall style: {selectedGroup?.wallStyleId || 'n/a'}</div>
+            <div>Room count: {selectedGroup?.roomCount ?? 'n/a'}</div>
+            <div style={{ marginTop: 4, fontSize: 9, color: '#666' }}>
+              Total rooms: {modularRooms.length} | Groups: {wallGroups.length}
+            </div>
+          </div>
         );
       })()}
 

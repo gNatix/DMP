@@ -10,6 +10,7 @@ export interface SupabaseScene {
   collection_id: string | null;
   elements: any;
   terrain_tiles: any;
+  modular_rooms_state: any;
   width: number | null;
   height: number | null;
   created_at: string;
@@ -45,6 +46,7 @@ export const saveSceneToSupabase = async (
       collection_id: scene.collectionId || null,
       elements: scene.elements || [],
       terrain_tiles: scene.terrainTiles || {},
+      modular_rooms_state: scene.modularRoomsState || { wallGroups: [], doors: [] },
       width: scene.width || 5000,
       height: scene.height || 5000,
     };
@@ -101,6 +103,7 @@ export const loadScenesFromSupabase = async (userId: string): Promise<{ scenes: 
       collectionId: row.collection_id || undefined,
       elements: row.elements || [],
       terrainTiles: row.terrain_tiles || {},
+      modularRoomsState: row.modular_rooms_state || { wallGroups: [], doors: [] },
       width: row.width || 5000,
       height: row.height || 5000,
     }));

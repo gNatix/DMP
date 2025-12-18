@@ -30,7 +30,7 @@ const TOOLBOX_CONFIG = {
 };
 
 // ========== SUBMENU DEBUG MODE ==========
-const MENU_DEBUG_MODE = true; // Set to false to disable debug logging
+const MENU_DEBUG_MODE = false; // Set to false to disable debug logging
 // ======================================
 
 import { ToolType, TokenTemplate, ColorType, RoomSubTool } from '../../types';

@@ -193,6 +193,7 @@ export interface ModularRoomElement {
 export interface WallGroup {
   id: string;
   wallStyleId: string; // Folder name in modular-rooms/walls/
+  roomCount: number;   // Number of rooms in this group (for dominance calculation)
 }
 
 /**
