@@ -722,11 +722,12 @@ const Canvas = ({
         return () => img.removeEventListener('load', handleImageLoad);
       }
     }
-  }, [scene, hasInitializedViewport]);
+  }, [scene?.id, scene?.backgroundMapUrl, hasInitializedViewport]);
 
   // Reset initialization flag when scene changes
   useEffect(() => {
     setHasInitializedViewport(false);
+    setMapDimensions({ width: 0, height: 0, padding: 0 }); // Reset dimensions to force reload
     hasActivatedSceneRef.current = false; // Reset terrain activation flag
     // Initialize history with current scene state
     if (scene) {
@@ -4280,7 +4281,7 @@ const Canvas = ({
         type: 'token',
         x,
         y,
-        size: 40,
+        size: 128, // Default size matches MODULAR_TILE_PX (one tile)
         name: activeTokenTemplate.name,
         imageUrl: activeTokenTemplate.imageUrl,
         notes: '',
@@ -4670,6 +4671,25 @@ const Canvas = ({
             x: ghostPosition.x,
             y: ghostPosition.y,
             ...(newWallGroupId !== room.wallGroupId ? { wallGroupId: newWallGroupId } : {}),
+          });
+          
+          // Calculate movement delta for linked tokens
+          const deltaX = ghostPosition.x - room.x;
+          const deltaY = ghostPosition.y - room.y;
+          
+          // Find all tokens linked to this room and add movement updates
+          const allTokens = scene.elements.filter(el => el.type === 'token') as TokenElement[];
+          console.log('[TOKEN MOVE] All tokens:', allTokens.map(t => ({ id: t.id.slice(-8), parentRoomId: t.parentRoomId?.slice(-8) || 'none' })));
+          console.log('[TOKEN MOVE] Looking for tokens with parentRoomId:', roomId.slice(-8));
+          
+          allTokens.forEach(token => {
+            if (token.parentRoomId === roomId) {
+              console.log('[TOKEN MOVE] Found linked token:', token.id.slice(-8), 'moving by', deltaX, deltaY);
+              elementUpdatesMap.set(token.id, {
+                x: token.x + deltaX,
+                y: token.y + deltaY,
+              });
+            }
           });
           
           // Log final state
@@ -5982,19 +6002,36 @@ const Canvas = ({
             wallGroupsToUpdate = [...wallGroupsToUpdate, newGroup];
           }
           
+          // Build all element updates in a map to apply in a single updateScene call
+          const elementUpdatesMap = new Map<string, Partial<MapElement>>();
+          
           // Apply room updates for merged groups
           for (const update of roomUpdatesToApply) {
             if (update.roomId !== roomId) {
-              updateElement(update.roomId, { wallGroupId: update.newWallGroupId });
+              elementUpdatesMap.set(update.roomId, { wallGroupId: update.newWallGroupId });
             }
           }
           
-          // Commit the move (and group change if applicable)
-          updateElement(roomId, {
+          // Add the moving room's update
+          elementUpdatesMap.set(roomId, {
             x: ghostPosition.x,
             y: ghostPosition.y,
             ...(newWallGroupId !== room.wallGroupId ? { wallGroupId: newWallGroupId } : {}),
           });
+          
+          // Move linked tokens with the room (pointer tool path)
+          const deltaX = ghostPosition.x - room.x;
+          const deltaY = ghostPosition.y - room.y;
+          const linkedTokens = scene.elements.filter(el => 
+            el.type === 'token' && (el as TokenElement).parentRoomId === roomId
+          ) as TokenElement[];
+          
+          for (const token of linkedTokens) {
+            elementUpdatesMap.set(token.id, {
+              x: token.x + deltaX,
+              y: token.y + deltaY,
+            });
+          }
           
           // Recalculate doors with new positions
           const updatedRoomsForDoors = allRooms.map(r => 
@@ -6002,8 +6039,17 @@ const Canvas = ({
           );
           const newDoors = recalculateAllDoors(updatedRoomsForDoors);
           
-          // Update both wallGroups and doors in one call
+          // Apply all updates in a single updateScene call to avoid race conditions
+          const updatedElements = scene.elements.map(el => {
+            const updates = elementUpdatesMap.get(el.id);
+            if (updates) {
+              return { ...el, ...updates };
+            }
+            return el;
+          }) as MapElement[];
+          
           updateScene(activeSceneId!, {
+            elements: updatedElements,
             modularRoomsState: {
               ...scene.modularRoomsState,
               wallGroups: wallGroupsToUpdate,
@@ -6240,6 +6286,33 @@ const Canvas = ({
 
     // Wall Cutter freehand and Door Tool: DISABLED
 
+    // Update token's parentRoomId when a token drag ends
+    if (draggedElement && scene) {
+      const element = scene.elements.find(el => el.id === draggedElement.id);
+      if (element && element.type === 'token') {
+        const token = element as TokenElement;
+        const modularRooms = getModularRooms(scene.elements);
+        
+        // Find if token is now inside any modular room
+        const newParentRoom = modularRooms.find(room => {
+          const roomLeft = room.x;
+          const roomRight = room.x + room.tilesW * MODULAR_TILE_PX;
+          const roomTop = room.y;
+          const roomBottom = room.y + room.tilesH * MODULAR_TILE_PX;
+          return token.x >= roomLeft && token.x <= roomRight && 
+                 token.y >= roomTop && token.y <= roomBottom;
+        });
+        
+        const newParentRoomId = newParentRoom?.id || undefined;
+        
+        // Only update if parentRoomId changed
+        if (token.parentRoomId !== newParentRoomId) {
+          console.log('[TOKEN] Updating parentRoomId:', token.parentRoomId?.slice(-8) || 'none', '->', newParentRoomId?.slice(-8) || 'none');
+          updateElement(token.id, { parentRoomId: newParentRoomId });
+        }
+      }
+    }
+
     // Clear drag/resize/rotate states
     // Note: History was already saved when these operations started
     setDraggedElement(null);
@@ -6390,7 +6463,26 @@ const Canvas = ({
 
     // Finalize element creation
     if (isCreating && tempElement && tempElement.id === 'temp') {
-      const finalElement = { ...tempElement, id: `${tempElement.type}-${Date.now()}` };
+      let finalElement = { ...tempElement, id: `${tempElement.type}-${Date.now()}` };
+      
+      // For tokens, check if they're placed on a modular room and link them
+      if (finalElement.type === 'token' && scene) {
+        const token = finalElement as TokenElement;
+        const modularRooms = getModularRooms(scene.elements);
+        
+        // Find which modular room (if any) contains this token's center
+        const parentRoom = modularRooms.find(room => {
+          const roomRight = room.x + room.tilesW * MODULAR_TILE_PX;
+          const roomBottom = room.y + room.tilesH * MODULAR_TILE_PX;
+          return token.x >= room.x && token.x <= roomRight &&
+                 token.y >= room.y && token.y <= roomBottom;
+        });
+        
+        if (parentRoom) {
+          console.log('[TOKEN] Linking token to modular room:', parentRoom.id.slice(-8));
+          finalElement = { ...finalElement, parentRoomId: parentRoom.id } as TokenElement;
+        }
+      }
       
       // Save history immediately BEFORE adding - but with the new element included
       if (scene) {
@@ -7275,6 +7367,7 @@ const Canvas = ({
               <>
                 {/* Layer 1: MAP - Hidden img for canvas to trigger load event */}
                 <img
+                  key={scene.id}
                   ref={imgRef}
                   src={scene.backgroundMapUrl}
                   alt="canvas"
@@ -7369,6 +7462,7 @@ const Canvas = ({
                     gridSize={gridSize}
                     dragPreview={modularRoomDragPreview}
                     placingFloor={placingModularFloor}
+                    linkedTokens={scene.elements.filter(el => el.type === 'token') as TokenElement[]}
                   />
                 </div>
 
@@ -7467,6 +7561,7 @@ const Canvas = ({
                     gridSize={gridSize}
                     dragPreview={modularRoomDragPreview}
                     placingFloor={placingModularFloor}
+                    linkedTokens={scene.elements.filter(el => el.type === 'token') as TokenElement[]}
                   />
                   
                 </div>
@@ -7484,7 +7579,17 @@ const Canvas = ({
                 >
                   {/* Other elements (wall elements, tokens, annotations, etc.) */}
                   {scene.elements
-                    .filter(el => el.type !== 'room')
+                    .filter(el => {
+                      if (el.type === 'room') return false;
+                      // Hide tokens that are linked to the currently dragged room (they're shown in the ghost preview)
+                      if (el.type === 'token' && modularRoomDragPreview) {
+                        const token = el as TokenElement;
+                        if (token.parentRoomId === modularRoomDragPreview.roomId) {
+                          return false; // Don't render - it's in the ghost preview
+                        }
+                      }
+                      return true;
+                    })
                     .sort((a, b) => {
                       const getLayerOffset = (el: MapElement) => {
                         if (el.type === 'wall') return 0;
@@ -7540,6 +7645,7 @@ const Canvas = ({
             {/* Layer 1: MAP - Background Map Image */}
             {!scene.backgroundMapUrl.includes('fill=%22transparent%22') && !scene.backgroundMapUrl.includes('fill="transparent"') && (
               <img
+                key={scene.id}
                 ref={imgRef}
                 src={scene.backgroundMapUrl}
                 alt={scene.name}
@@ -7616,6 +7722,7 @@ const Canvas = ({
                 gridSize={gridSize}
                 dragPreview={modularRoomDragPreview}
                 placingFloor={placingModularFloor}
+                linkedTokens={scene.elements.filter(el => el.type === 'token') as TokenElement[]}
               />
             </div>
             
@@ -7694,6 +7801,7 @@ const Canvas = ({
                 gridSize={gridSize}
                 dragPreview={modularRoomDragPreview}
                 placingFloor={placingModularFloor}
+                linkedTokens={scene.elements.filter(el => el.type === 'token') as TokenElement[]}
               />
               
             </div>
@@ -7702,7 +7810,17 @@ const Canvas = ({
             <div style={{ position: 'relative', zIndex: Z_TOKENS }}>
               {/* Other elements (wall elements, tokens, annotations, etc.) */}
               {scene.elements
-                .filter(el => el.type !== 'room')
+                .filter(el => {
+                  if (el.type === 'room') return false;
+                  // Hide tokens that are linked to the currently dragged room (they're shown in the ghost preview)
+                  if (el.type === 'token' && modularRoomDragPreview) {
+                    const token = el as TokenElement;
+                    if (token.parentRoomId === modularRoomDragPreview.roomId) {
+                      return false; // Don't render - it's in the ghost preview
+                    }
+                  }
+                  return true;
+                })
                 .sort((a, b) => {
                   const getLayerOffset = (el: MapElement) => {
                     if (el.type === 'wall') return 0;

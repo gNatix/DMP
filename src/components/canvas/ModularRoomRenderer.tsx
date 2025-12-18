@@ -13,6 +13,7 @@ import {
   ModularRoomElement,
   WallGroup,
   ModularDoor,
+  TokenElement,
 } from '../../types';
 import {
   MODULAR_WALL_THICKNESS_PX,
@@ -57,6 +58,8 @@ interface ModularRoomRendererProps {
     tilesH: number;
     imageUrl: string;
   } | null;
+  // Tokens linked to rooms (for showing in drag preview)
+  linkedTokens?: TokenElement[];
 }
 
 /**
@@ -536,6 +539,7 @@ const ModularRoomRenderer: React.FC<ModularRoomRendererProps> = ({
   gridSize: _gridSize, // Reserved for future use
   dragPreview,
   placingFloor,
+  linkedTokens,
 }) => {
   // When dragging, exclude the dragged room from static rendering
   const staticRooms = useMemo(() => 
@@ -604,6 +608,13 @@ const ModularRoomRenderer: React.FC<ModularRoomRendererProps> = ({
               y: dragPreview.ghostPosition.y,
             };
             
+            // Calculate movement delta for tokens
+            const deltaX = dragPreview.ghostPosition.x - room.x;
+            const deltaY = dragPreview.ghostPosition.y - room.y;
+            
+            // Get tokens linked to this room
+            const roomTokens = linkedTokens?.filter(t => t.parentRoomId === room.id) || [];
+            
             // Get wall style from room's wall group
             const wallGroup = wallGroups.find(g => g.id === room.wallGroupId);
             const wallStyleId = wallGroup?.wallStyleId || 'worn-castle';
@@ -623,6 +634,36 @@ const ModularRoomRenderer: React.FC<ModularRoomRendererProps> = ({
                 />
                 {/* Walls around floating room */}
                 <FloatingWalls room={floatingRoom} wallStyleId={wallStyleId} />
+                
+                {/* Linked tokens preview */}
+                {roomTokens.map(token => (
+                  <div
+                    key={`ghost-token-${token.id}`}
+                    style={{
+                      position: 'absolute',
+                      left: token.x + deltaX - token.size / 2,
+                      top: token.y + deltaY - token.size / 2,
+                      width: token.size,
+                      height: token.size,
+                      borderRadius: '50%',
+                      overflow: 'hidden',
+                      border: `2px solid ${token.color || '#8b5cf6'}`,
+                      backgroundColor: token.isShape ? (token.color || '#8b5cf6') : 'transparent',
+                    }}
+                  >
+                    {token.imageUrl && (
+                      <img
+                        src={token.imageUrl}
+                        alt={token.name}
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover',
+                        }}
+                      />
+                    )}
+                  </div>
+                ))}
                 
                 {/* Dashed border indicator - same as initial placement */}
                 <div style={{

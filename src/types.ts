@@ -71,6 +71,7 @@ export interface TokenElement {
   showBadge?: boolean; // For displaying name badge above token
   locked?: boolean; // Prevent movement when true
   playlistObject?: boolean; // Display in game mode playlist
+  parentRoomId?: string; // Link to modular room - token moves with room
 }
 
 // Legacy WallGap (deprecated - keeping for reference during migration)
