@@ -23,6 +23,7 @@ import {
   generateSplitUpdates,
   findAdjacentGroups,
   generateMergeUpdates,
+  areRoomsAdjacent,
 } from '../utils/modularRooms';
 
 // Helper function to create rounded polygon path (for room shapes)
@@ -1379,6 +1380,10 @@ const Canvas = ({
       return el?.type === 'modularRoom';
     });
     
+    // Start with elements after deletion
+    let updatedElements = scene.elements.filter(e => !idsToDelete.includes(e.id));
+    let updatedWallGroups = scene.modularRoomsState?.wallGroups || [];
+    
     if (modularRoomsToDelete.length > 0) {
       const allRooms = getModularRooms(scene.elements);
       const wallGroups = scene.modularRoomsState?.wallGroups || [];
@@ -1396,12 +1401,15 @@ const Canvas = ({
         processedGroups.add(room.wallGroupId);
         
         const splitResult = checkGroupSplitAfterRemoval(allRooms, roomId);
+        console.log('[handleDelete] Split result for room', roomId.slice(-8), ':', splitResult.needsSplit, 'components:', splitResult.components.length);
+        
         if (splitResult.needsSplit) {
           const updates = generateSplitUpdates(
             splitResult.components,
             room.wallGroupId,
             wallGroups
           );
+          console.log('[handleDelete] Split updates:', updates.roomUpdates.length, 'rooms,', updates.newWallGroups.length, 'new groups');
           allRoomUpdates.push(...updates.roomUpdates);
           allNewWallGroups.push(...updates.newWallGroups);
           if (updates.updatedOriginalGroup) {
@@ -1416,33 +1424,45 @@ const Canvas = ({
         }
       }
       
-      // Apply room updates and new wall groups
-      if (allRoomUpdates.length > 0 || allNewWallGroups.length > 0 || groupsToUpdate.length > 0) {
-        // Build updated wall groups: start with existing, apply updates, add new
-        let updatedWallGroups = wallGroups.map(g => {
+      // Apply room updates to elements
+      if (allRoomUpdates.length > 0) {
+        console.log('[handleDelete] Applying', allRoomUpdates.length, 'room updates');
+        updatedElements = updatedElements.map(el => {
+          const update = allRoomUpdates.find(u => u.roomId === el.id);
+          if (update) {
+            console.log('[handleDelete] Updating room', el.id.slice(-8), '-> group:', update.newWallGroupId.slice(-8));
+            return { ...el, wallGroupId: update.newWallGroupId } as MapElement;
+          }
+          return el;
+        });
+      }
+      
+      // Build updated wall groups: start with existing, apply updates, add new
+      if (groupsToUpdate.length > 0 || allNewWallGroups.length > 0) {
+        updatedWallGroups = wallGroups.map(g => {
           const updated = groupsToUpdate.find(u => u.id === g.id);
           return updated || g;
         });
         updatedWallGroups = [...updatedWallGroups, ...allNewWallGroups];
-        
-        // Update rooms with new group IDs
-        for (const update of allRoomUpdates) {
-          updateElement(update.roomId, { wallGroupId: update.newWallGroupId });
-        }
-        
-        // Update wall groups in scene state
-        updateScene(activeSceneId, {
-          modularRoomsState: {
-            ...scene.modularRoomsState,
-            wallGroups: updatedWallGroups,
-            doors: scene.modularRoomsState?.doors || [],
-          }
-        });
       }
     }
     
-    // Now delete the elements
-    deleteElements(idsToDelete);
+    // Recalculate doors after deletion
+    const remainingRooms = getModularRooms(updatedElements);
+    const newDoors = recalculateAllDoors(remainingRooms);
+    
+    // Do everything in ONE updateScene call to prevent overwrites
+    updateScene(activeSceneId, {
+      elements: updatedElements,
+      modularRoomsState: {
+        ...scene.modularRoomsState,
+        wallGroups: updatedWallGroups,
+        doors: newDoors,
+      }
+    });
+    
+    setSelectedElementId(null);
+    setSelectedElementIds([]);
   };
 
   const handleLayerUp = () => {
@@ -4385,15 +4405,57 @@ const Canvas = ({
       // Create automatic doors for adjacent rooms
       const newDoors = createDoorsForNewRoom(newModularRoom, existingModularRooms, currentState.doors);
       
+      // Check if this new room connects multiple different groups (merge needed)
+      const adjacentRooms = existingModularRooms.filter(other => areRoomsAdjacent(newModularRoom, other));
+      const adjacentGroupIds = [...new Set(adjacentRooms.map(r => r.wallGroupId).filter(Boolean))] as string[];
+      
+      console.log('[MODULAR ROOM] Adjacent rooms:', adjacentRooms.map(r => r.id.slice(-8)));
+      console.log('[MODULAR ROOM] Adjacent group IDs:', adjacentGroupIds.map(id => id.slice(-8)));
+      
+      // Prepare element updates for merging groups
+      let updatedElements = [...scene.elements, newModularRoom];
+      
+      if (adjacentGroupIds.length > 1) {
+        // Multiple groups need to be merged into the primary group (wallGroupId)
+        const groupsToMerge = adjacentGroupIds.filter(id => id !== wallGroupId);
+        console.log('[MODULAR ROOM] Merging groups:', groupsToMerge.map(id => id.slice(-8)), 'into', wallGroupId.slice(-8));
+        
+        // Count total rooms that will be in the merged group
+        let totalRoomCount = 1; // The new room
+        
+        // Update all rooms in the groups being merged
+        updatedElements = updatedElements.map(el => {
+          if (el.type === 'modularRoom') {
+            const room = el as ModularRoomElement;
+            if (room.wallGroupId === wallGroupId) {
+              totalRoomCount++;
+              return el;
+            }
+            if (room.wallGroupId && groupsToMerge.includes(room.wallGroupId)) {
+              totalRoomCount++;
+              console.log('[MODULAR ROOM] Updating room', el.id.slice(-8), 'from group', room.wallGroupId.slice(-8), 'to', wallGroupId.slice(-8));
+              return { ...el, wallGroupId } as MapElement;
+            }
+          }
+          return el;
+        });
+        
+        // Remove the merged groups from wallGroups and update the primary group's roomCount
+        updatedWallGroups = updatedWallGroups
+          .filter(g => !groupsToMerge.includes(g.id))
+          .map(g => g.id === wallGroupId ? { ...g, roomCount: totalRoomCount } : g);
+        
+        console.log('[MODULAR ROOM] After merge - total room count:', totalRoomCount);
+      }
+      
       const updatedState = {
         wallGroups: updatedWallGroups,
         doors: [...currentState.doors, ...newDoors],
       };
       
       // Save to history before adding
-      const newElements = [...scene.elements, newModularRoom];
       const newHistoryEntry = {
-        elements: newElements,
+        elements: updatedElements,
         terrainTiles: (() => {
           const tilesObj: { [key: string]: TerrainTile } = {};
           terrainTiles.forEach((tile, key) => {
@@ -4405,10 +4467,12 @@ const Canvas = ({
       setHistory(prev => [...prev.slice(0, historyIndex + 1), newHistoryEntry]);
       setHistoryIndex(prev => prev + 1);
       
-      // Add the element and update scene state
-      addElement(newModularRoom);
+      // Do everything in ONE updateScene call to prevent overwrites
       if (activeSceneId) {
-        updateScene(activeSceneId, { modularRoomsState: updatedState });
+        updateScene(activeSceneId, { 
+          elements: updatedElements,
+          modularRoomsState: updatedState 
+        });
       }
       
       // Select the new room
