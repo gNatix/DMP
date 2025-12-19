@@ -112,7 +112,7 @@ export const preloadModuleStyles = (): void => {
             styles.push({
               id: styleId,
               name: styleId.split('-').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
-              floors: floors.sort((a, b) => (a.tilesW * a.tilesH) - (b.tilesW * b.tilesH)),
+              floors: floors.sort((a, b) => a.filename.localeCompare(b.filename, undefined, { numeric: true })),
             });
           }
         }
@@ -241,7 +241,7 @@ const ModulesTab = ({
             styles.push({
               id: styleId,
               name: styleId.split('-').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
-              floors: floors.sort((a, b) => (a.tilesW * a.tilesH) - (b.tilesW * b.tilesH)),
+              floors: floors.sort((a, b) => a.filename.localeCompare(b.filename, undefined, { numeric: true })),
             });
           }
         }
@@ -508,7 +508,7 @@ const ModulesTab = ({
                   
                   {/* Floor Images */}
                   {expandedStyles.has(style.id) && (
-                    <div className="p-2 grid grid-cols-2 gap-2">
+                    <div className="p-1.5 grid grid-cols-4 gap-1">
                       {style.floors.map(floor => (
                         <div
                           key={floor.filename}
@@ -520,13 +520,15 @@ const ModulesTab = ({
                           }`}
                           title={`${floor.tilesW}×${floor.tilesH} tiles`}
                         >
-                          <img
-                            src={floor.url}
-                            alt={`${floor.tilesW}×${floor.tilesH}`}
-                            className="w-full h-auto"
-                            draggable={false}
-                          />
-                          <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-1 py-0.5 text-[10px] text-gray-300 text-center">
+                          <div className="aspect-square">
+                            <img
+                              src={floor.url}
+                              alt={`${floor.tilesW}×${floor.tilesH}`}
+                              className="w-full h-full object-cover"
+                              draggable={false}
+                            />
+                          </div>
+                          <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-0.5 py-0 text-[9px] text-gray-300 text-center">
                             {floor.tilesW}×{floor.tilesH}
                           </div>
                         </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Settings, Boxes } from 'lucide-react';
+import { Settings, Boxes, Map, Users, Paintbrush } from 'lucide-react';
 import { Scene, MapElement, TokenTemplate, ToolType, Collection, CollectionAppearance, RoomSubTool, TerrainShapeMode, ModularRoomElement, WallGroup } from '../../types';
 import ScenesTab from './ScenesTab';
 import TokensTab from './TokensTab';
@@ -184,53 +184,56 @@ const RightPanel = ({
       <div className="flex border-b border-dm-border">
         <button
           onClick={() => setActiveTab('scenes')}
-          className={`flex-1 py-3 text-sm font-medium transition-colors ${
+          className={`flex-1 py-3 text-sm font-medium transition-colors flex items-center justify-center ${
             activeTab === 'scenes'
               ? 'bg-dm-dark text-dm-highlight border-b-2 border-dm-highlight'
               : 'text-gray-400 hover:text-gray-200'
           }`}
+          title="Maps - Manage your battle maps and scenes"
         >
-          Maps
+          <Map className="w-4 h-4" />
         </button>
         <button
           onClick={() => setActiveTab('tokens')}
-          className={`flex-1 py-3 text-sm font-medium transition-colors ${
+          className={`flex-1 py-3 text-sm font-medium transition-colors flex items-center justify-center ${
             activeTab === 'tokens'
               ? 'bg-dm-dark text-dm-highlight border-b-2 border-dm-highlight'
               : 'text-gray-400 hover:text-gray-200'
           }`}
+          title="Tokens - Characters, monsters and objects"
         >
-          Tokens
+          <Users className="w-4 h-4" />
         </button>
         <button
           onClick={() => setActiveTab('draw')}
-          className={`flex-1 py-3 text-sm font-medium transition-colors ${
+          className={`flex-1 py-3 text-sm font-medium transition-colors flex items-center justify-center ${
             activeTab === 'draw'
               ? 'bg-dm-dark text-dm-highlight border-b-2 border-dm-highlight'
               : 'text-gray-400 hover:text-gray-200'
           }`}
+          title="Draw - Terrain brushes, walls and room builder"
         >
-          Draw
+          <Paintbrush className="w-4 h-4" />
         </button>
         <button
           onClick={() => setActiveTab('modules')}
-          className={`flex-1 py-3 text-sm font-medium transition-colors flex items-center justify-center gap-1 ${
+          className={`flex-1 py-3 text-sm font-medium transition-colors flex items-center justify-center ${
             activeTab === 'modules'
               ? 'bg-dm-dark text-dm-highlight border-b-2 border-dm-highlight'
               : 'text-gray-400 hover:text-gray-200'
           }`}
-          title="Modular Rooms"
+          title="Modules - Modular room floor and wall styles"
         >
           <Boxes className="w-4 h-4" />
         </button>
         <button
           onClick={() => setActiveTab('settings')}
-          className={`flex-1 py-3 text-sm font-medium transition-colors flex items-center justify-center gap-1 ${
+          className={`flex-1 py-3 text-sm font-medium transition-colors flex items-center justify-center ${
             activeTab === 'settings'
               ? 'bg-dm-dark text-dm-highlight border-b-2 border-dm-highlight'
               : 'text-gray-400 hover:text-gray-200'
           }`}
-          title="Settings"
+          title="Settings - Grid, display and preferences"
         >
           <Settings className="w-4 h-4" />
         </button>

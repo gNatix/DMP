@@ -667,9 +667,13 @@ const Canvas = ({
       const container = containerRef.current;
       
       const handleImageLoad = () => {
-        const width = img.naturalWidth;
-        const height = img.naturalHeight;
-        console.log('[MAP LOAD] Image loaded!', { width, height, src: img.src?.slice(0, 50) });
+        const naturalWidth = img.naturalWidth;
+        const naturalHeight = img.naturalHeight;
+        // Scale maps by 2x to better match modular room grid (128px tiles)
+        const MAP_SCALE = 2;
+        const width = naturalWidth * MAP_SCALE;
+        const height = naturalHeight * MAP_SCALE;
+        console.log('[MAP LOAD] Image loaded!', { naturalWidth, naturalHeight, scaledWidth: width, scaledHeight: height, src: img.src?.slice(0, 50) });
         
         // Check if this is a canvas (transparent background) - infinite drawing area
         const isCanvas = scene.backgroundMapUrl.includes('fill="transparent"') ||
@@ -4256,6 +4260,20 @@ const Canvas = ({
             offsetX = x - centerX;
             offsetY = y - centerY;
           } else if (clickedElement.type === 'modularRoom') {
+            // Before starting modular room drag, check if there's a selected token with a resize handle at this position
+            // Token resizing should take priority over modular room dragging
+            if (selectedElementId) {
+              const selectedElement = scene.elements.find(el => el.id === selectedElementId);
+              if (selectedElement && (selectedElement.type === 'token' || selectedElement.type === 'annotation')) {
+                const handle = getResizeHandleAtPosition(x, y, selectedElementId, scene.elements);
+                if (handle) {
+                  saveToHistory();
+                  setResizingElement({ id: selectedElementId, handle });
+                  return;
+                }
+              }
+            }
+            
             // For modular rooms: use drag-to-pick-up, click-to-drop
             // On pointer down, we just set up pending drag - actual drag starts on move
             const modRoom = clickedElement as ModularRoomElement;
@@ -4329,7 +4347,7 @@ const Canvas = ({
         type: 'token',
         x,
         y,
-        size: 128, // Default size matches MODULAR_TILE_PX (one tile)
+        size: MODULAR_TILE_PX, // Default size = one tile (128px)
         name: activeTokenTemplate.name,
         imageUrl: activeTokenTemplate.imageUrl,
         notes: '',
@@ -8871,10 +8889,10 @@ const Canvas = ({
               <div
                 style={{
                   position: 'absolute',
-                  left: viewport.x + cursorPosition.x * viewport.zoom - 30,
-                  top: viewport.y + cursorPosition.y * viewport.zoom - 30,
-                  width: 60,
-                  height: 60,
+                  left: viewport.x + cursorPosition.x * viewport.zoom - (MODULAR_TILE_PX / 2) * viewport.zoom,
+                  top: viewport.y + cursorPosition.y * viewport.zoom - (MODULAR_TILE_PX / 2) * viewport.zoom,
+                  width: MODULAR_TILE_PX * viewport.zoom,
+                  height: MODULAR_TILE_PX * viewport.zoom,
                   pointerEvents: 'none',
                   opacity: 0.7,
                   zIndex: 40
@@ -8886,7 +8904,7 @@ const Canvas = ({
                     const color = getColorHex(activeTokenTemplate.color || 'blue');
                     return (
                       <IconComponent
-                        size={60}
+                        size={MODULAR_TILE_PX * viewport.zoom}
                         style={{ color }}
                         fill={activeTokenTemplate.isShape ? color : 'none'}
                         strokeWidth={activeTokenTemplate.isPOI ? 2 : 1.5}
