@@ -66,12 +66,27 @@ DM Planner er en webbaseret kampagneplanlægningsapplikation designet specifikt 
 - Fit-to-view lock indicator (rød kant)
 - Undo/Redo med state management
 - Konsistent størrelse (border-2 border-transparent box-content forhindrer vækst)
+- **Toolbar Settings System** (Settings → System):
+  - 3 presets: Beginner (alle tools), Advanced (fokuseret), Minimalistic (essentiel)
+  - Custom mode aktiveres automatisk ved individuelle ændringer
+  - Auto-detektion skifter tilbage til preset hvis custom matcher
+  - Gemmes per bruger i cloud
 
-### 7. **Data Integration**
+### 7. **Settings System**
+- **System Tab**: Toolbar presets og avancerede indstillinger
+- **Account Tab**: Login, OAuth (Google/Discord), brugerinfo
+- **Beta Tab**: Eksperimentelle features (kommer snart)
+- Cloud sync af alle brugerindstillinger
+
+### 8. **Data Integration**
 - Webhotel API integration for maps og tokens
 - Dynamic loading fra kategoriserede mapper
 - Automatic rotation detection for landscape billeder
 - Config-driven endpoints
+- **Supabase Cloud Storage**:
+  - User settings (collections, toolbar presets)
+  - Scenes med alle elementer
+  - Profiles med OAuth info
 
 ## Teknisk Stack
 

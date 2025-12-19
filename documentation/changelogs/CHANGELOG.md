@@ -8,10 +8,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Toolbar Settings System**: Customizable toolbar with preset profiles
+  - 3 built-in presets: Beginner (all tools), Advanced (focused toolset), Minimalistic (essential only)
+  - Custom mode auto-activates when settings don't match any preset
+  - Auto-detection switches back to preset if custom settings match
+  - Settings saved per user to cloud (Supabase)
+  - Individual button toggles in Advanced Settings section
+  - Preset config files for easy customization (`src/config/toolbarPresets/`)
 - **Wall Cutter Tool**: Added tooltip label "Wall Cutter (A)" for better tool identification
 - **Lock System Enhancement**: Arrow key movement now properly respects locked element status
+- **Name Badges Global Toggle**: Badge toggle now affects all tokens globally (keybind: N)
+- **Layer Up/Down Keybinds**: Changed from `]`/`[` to `Ctrl+↑`/`Ctrl+↓` for better ergonomics
 
 ### Fixed
+- **Toolbar Button Visibility**: Fixed ID mismatches preventing buttons from hiding/showing
+  - Fixed: fit-to-view, color-picker, layer-up, layer-down, badge-toggle, wallCutterTool, doorTool
 - **Wall Cutter**: Now works atomically across all 4 wall types simultaneously (wall line, polyline walls, room outer walls, and hole walls)
 - **Undo/Redo System**: Comprehensive quality fixes
   - History now saves BEFORE operations start (not after), ensuring correct state restoration

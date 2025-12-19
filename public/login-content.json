@@ -4,6 +4,11 @@
     "items": [
       {
         "date": "2024-12-19",
+        "title": "🛠️ Toolbar Customization!",
+        "content": "Customize your toolbar with 3 presets: Beginner (all tools), Advanced (focused), and Minimalistic (essentials). Your settings sync to the cloud!"
+      },
+      {
+        "date": "2024-12-19",
         "title": "🏰 Modular Rooms Released!",
         "content": "Build dungeons with our new modular room system! Drag and drop floor tiles, connect rooms seamlessly, and customize with 3 wall styles. Rooms snap together automatically."
       },
@@ -57,6 +62,18 @@
   "changelog": {
     "title": "Changelog",
     "versions": [
+      {
+        "version": "0.9.3",
+        "date": "2024-12-19",
+        "changes": [
+          "Added Toolbar Settings with 3 presets: Beginner, Advanced, Minimalistic",
+          "Toolbar customization saves to cloud per user",
+          "Auto-detection of custom vs preset toolbar configurations",
+          "Name badges toggle now affects all tokens globally (N key)",
+          "Layer up/down keybinds changed to Ctrl+Arrow keys",
+          "Fixed multiple toolbar button visibility issues"
+        ]
+      },
       {
         "version": "0.9.2",
         "date": "2024-12-19",

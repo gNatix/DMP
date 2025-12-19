@@ -1,9 +1,10 @@
 # 🧭 Submenu System Status
 
-**Sidst opdateret:** 6. december 2024  
+**Sidst opdateret:** 19. december 2024  
 **Status:** GridButton + ColorButton migrated to GRID_PATTERN ✅  
 **Liste-tool shortcut behavior:** Implemented for all list-tools (token, terrain, room, color) ✅  
-**Keybind system:** Dynamic keybind mapping from button configs ✅
+**Keybind system:** Dynamic keybind mapping from button configs ✅  
+**Toolbar Settings:** Preset system with Beginner/Advanced/Minimalistic + Custom mode ✅
 
 ---
 
@@ -26,18 +27,22 @@
 
 ### **Nuværende keybinds:**
 - **Pointer tool:** `V` (defineret i `PointerButton.tsx`)
-- **Token tool:** `B` (defineret i `TokenButton.tsx`)
-- **Terrain tool:** `T` (defineret i `TerrainButton.tsx`)
+- **Token tool:** `Q` (defineret i `TokenButton.tsx`)
+- **Terrain tool:** `E` (defineret i `TerrainButton.tsx`)
 - **Room tool:** `R` (defineret in `RoomButton.tsx`)
+- **Modular Room:** `M` (defineret i `ModularRoomButton.tsx`)
+- **Wall tool:** `W` (defineret i `WallButton.tsx`)
+- **Wall Cutter:** `A` (defineret i `WallCutterToolButton.tsx`)
+- **Door tool:** `D` (defineret i `DoorToolButton.tsx`)
 - **Pan tool:** `H` (defineret i `PanButton.tsx`)
 - **Zoom tool:** `Z` (defineret i `ZoomButton.tsx`)
 - **Undo:** `Ctrl+Z` (defineret i `UndoButton.tsx`)
 - **Redo:** `Ctrl+Y` (defineret i `RedoButton.tsx`)
-- **Duplicate:** `D` (defineret i `DuplicateButton.tsx`)
+- **Duplicate:** `Ctrl+D` (defineret i `DuplicateButton.tsx`)
 - **Delete:** `Del` (defineret i `DeleteButton.tsx`)
-- **Layer Up:** `]` (defineret i `LayerUpButton.tsx`)
-- **Layer Down:** `[` (defineret i `LayerDownButton.tsx`)
-- **Toggle Badges:** `N` (defineret in `BadgeToggleButton.tsx`)
+- **Layer Up:** `Ctrl+↑` (defineret i `LayerUpButton.tsx`)
+- **Layer Down:** `Ctrl+↓` (defineret i `LayerDownButton.tsx`)
+- **Toggle Badges:** `N` (defineret in `BadgeToggleButton.tsx`) - Global toggle for alle tokens
 - **Lock:** `L` (defineret in `LockButton.tsx`)
 - **Grid:** `G` (defineret i `GridButton.tsx`)
 - **Color picker:** `C` (defineret i `ColorPickerButton.tsx`)
