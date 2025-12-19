@@ -1099,6 +1099,8 @@ function App() {
         wallTextures={wallTextures}
         onSelectWallTexture={setSelectedWallTexture}
         onSwitchToDrawTab={() => setRightPanelActiveTab('draw')}
+        onSwitchToTokensTab={() => setRightPanelActiveTab('tokens')}
+        onSwitchToModulesTab={() => setRightPanelActiveTab('modules')}
         wallCutterToolBrushSize={wallCutterToolBrushSize}
         setWallCutterToolBrushSize={setWallCutterToolBrushSize}
         xlabShapeMode={xlabShapeMode}

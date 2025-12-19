@@ -54,6 +54,122 @@ interface WallStyle {
   doorSprite: string;
 }
 
+// Module-level cache to avoid reloading on every mount
+let cachedFloorStyles: FloorStyle[] | null = null;
+let cachedWallStyles: WallStyle[] | null = null;
+let floorStylesPromise: Promise<FloorStyle[]> | null = null;
+let wallStylesPromise: Promise<WallStyle[]> | null = null;
+let imagesPreloaded = false;
+
+/**
+ * Preload images into browser cache
+ */
+const preloadImages = (urls: string[]): void => {
+  urls.forEach(url => {
+    const img = new Image();
+    img.src = url;
+  });
+};
+
+/**
+ * Preload floor and wall styles during loading screen.
+ * This starts the fetch early so data is ready when user opens Modules tab.
+ * Also preloads all floor and wall sprite images into browser cache.
+ */
+export const preloadModuleStyles = (): void => {
+  // Start loading floor styles if not already cached or loading
+  if (!cachedFloorStyles && !floorStylesPromise) {
+    floorStylesPromise = (async (): Promise<FloorStyle[]> => {
+      try {
+        const response = await fetch(getFloorStylesApiUrl());
+        const data = await response.json();
+        const folders = data.folders || [];
+        
+        const styles: FloorStyle[] = [];
+        const allFloorImageUrls: string[] = [];
+        
+        for (const folder of folders) {
+          const styleId = folder.name.replace(/\/$/, '');
+          const imagesResponse = await fetch(getFloorImagesApiUrl(styleId));
+          const imagesData = await imagesResponse.json();
+          const files = imagesData.files || imagesData || [];
+          
+          const floors: FloorImage[] = [];
+          for (const file of files) {
+            const dimensions = parseFloorFilename(file.name);
+            if (dimensions) {
+              floors.push({
+                url: file.download_url,
+                tilesW: dimensions.tilesW,
+                tilesH: dimensions.tilesH,
+                filename: file.name,
+              });
+              allFloorImageUrls.push(file.download_url);
+            }
+          }
+          
+          if (floors.length > 0) {
+            styles.push({
+              id: styleId,
+              name: styleId.split('-').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+              floors: floors.sort((a, b) => (a.tilesW * a.tilesH) - (b.tilesW * b.tilesH)),
+            });
+          }
+        }
+        
+        // Preload all floor images
+        if (!imagesPreloaded) {
+          console.log(`[Preload] Preloading ${allFloorImageUrls.length} floor tile images...`);
+          preloadImages(allFloorImageUrls);
+        }
+        
+        cachedFloorStyles = styles;
+        return styles;
+      } catch (error) {
+        console.error('Failed to preload floor styles:', error);
+        return [];
+      }
+    })();
+  }
+
+  // Start loading wall styles if not already cached or loading
+  if (!cachedWallStyles && !wallStylesPromise) {
+    wallStylesPromise = (async (): Promise<WallStyle[]> => {
+      try {
+        const response = await fetch(getWallStylesApiUrl());
+        const data = await response.json();
+        const folders = data.folders || [];
+        
+        const styles: WallStyle[] = folders.map((folder: { name: string }) => {
+          const styleId = folder.name.replace(/\/$/, '');
+          return {
+            id: styleId,
+            name: styleId.split('-').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+            wallSprite1x: getWallSpriteUrl(styleId, 1),
+            wallSprite2x: getWallSpriteUrl(styleId, 2),
+            pillarSprite: getPillarSpriteUrl(styleId),
+            doorSprite: getDoorSpriteUrl(styleId),
+          };
+        });
+        
+        // Preload all wall sprite images
+        if (!imagesPreloaded) {
+          const wallImageUrls = styles.flatMap(s => [s.wallSprite1x, s.wallSprite2x, s.pillarSprite, s.doorSprite]);
+          console.log(`[Preload] Preloading ${wallImageUrls.length} wall sprite images...`);
+          preloadImages(wallImageUrls);
+          imagesPreloaded = true;
+        }
+        
+        cachedWallStyles = styles;
+        return styles;
+      } catch (error) {
+        console.error('Failed to preload wall styles:', error);
+        return [];
+      }
+    })();
+  }
+};
+
 const ModulesTab = ({
   selectedModularRoom,
   selectedModularRooms = [],
@@ -65,16 +181,32 @@ const ModulesTab = ({
   onDefaultWallStyleChange,
 }: ModulesTabProps) => {
   const [activeSubTab, setActiveSubTab] = useState<'rooms' | 'walls'>('rooms');
-  const [floorStyles, setFloorStyles] = useState<FloorStyle[]>([]);
-  const [wallStyles, setWallStyles] = useState<WallStyle[]>([]);
+  const [floorStyles, setFloorStyles] = useState<FloorStyle[]>(cachedFloorStyles || []);
+  const [wallStyles, setWallStyles] = useState<WallStyle[]>(cachedWallStyles || []);
   const [expandedStyles, setExpandedStyles] = useState<Set<string>>(new Set([DEFAULT_FLOOR_STYLE_ID]));
-  const [loadingFloors, setLoadingFloors] = useState(true);
-  const [loadingWalls, setLoadingWalls] = useState(true);
+  const [loadingFloors, setLoadingFloors] = useState(!cachedFloorStyles);
+  const [loadingWalls, setLoadingWalls] = useState(!cachedWallStyles);
   const [draggedFloor, setDraggedFloor] = useState<{ styleId: string; tilesW: number; tilesH: number; imageUrl: string } | null>(null);
 
-  // Load floor styles
+  // Load floor styles (with caching)
   useEffect(() => {
-    const loadFloorStyles = async () => {
+    // If already cached, use cached data
+    if (cachedFloorStyles) {
+      setFloorStyles(cachedFloorStyles);
+      setLoadingFloors(false);
+      return;
+    }
+
+    // If already loading, wait for the existing promise
+    if (floorStylesPromise) {
+      floorStylesPromise.then(styles => {
+        setFloorStyles(styles);
+        setLoadingFloors(false);
+      });
+      return;
+    }
+
+    const loadFloorStyles = async (): Promise<FloorStyle[]> => {
       try {
         setLoadingFloors(true);
         
@@ -114,20 +246,41 @@ const ModulesTab = ({
           }
         }
         
-        setFloorStyles(styles);
+        // Cache the results
+        cachedFloorStyles = styles;
+        return styles;
       } catch (error) {
         console.error('Failed to load floor styles:', error);
-      } finally {
-        setLoadingFloors(false);
+        return [];
       }
     };
 
-    loadFloorStyles();
+    floorStylesPromise = loadFloorStyles();
+    floorStylesPromise.then(styles => {
+      setFloorStyles(styles);
+      setLoadingFloors(false);
+    });
   }, []);
 
-  // Load wall styles
+  // Load wall styles (with caching)
   useEffect(() => {
-    const loadWallStyles = async () => {
+    // If already cached, use cached data
+    if (cachedWallStyles) {
+      setWallStyles(cachedWallStyles);
+      setLoadingWalls(false);
+      return;
+    }
+
+    // If already loading, wait for the existing promise
+    if (wallStylesPromise) {
+      wallStylesPromise.then(styles => {
+        setWallStyles(styles);
+        setLoadingWalls(false);
+      });
+      return;
+    }
+
+    const loadWallStyles = async (): Promise<WallStyle[]> => {
       try {
         setLoadingWalls(true);
         
@@ -147,15 +300,20 @@ const ModulesTab = ({
           };
         });
         
-        setWallStyles(styles);
+        // Cache the results
+        cachedWallStyles = styles;
+        return styles;
       } catch (error) {
         console.error('Failed to load wall styles:', error);
-      } finally {
-        setLoadingWalls(false);
+        return [];
       }
     };
 
-    loadWallStyles();
+    wallStylesPromise = loadWallStyles();
+    wallStylesPromise.then(styles => {
+      setWallStyles(styles);
+      setLoadingWalls(false);
+    });
   }, []);
 
   const toggleStyleExpanded = (styleId: string) => {

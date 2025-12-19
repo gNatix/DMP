@@ -113,12 +113,15 @@ interface ToolboxProps {
   wallCutterToolBrushSize: number;
   setWallCutterToolBrushSize: (size: number) => void;
   onSwitchToDrawTab?: () => void;
+  onSwitchToTokensTab?: () => void;
+  onSwitchToModulesTab?: () => void;
   forceShowTerrainSubmenu?: boolean;
   forceShowGridSubmenu?: boolean;
   onSwitchToXLab?: () => void;
   isLeftPanelOpen: boolean;
   onToggleLeftPanel: () => void;
   viewMode?: 'planning' | 'game'; // Add viewMode prop
+  activeSceneId?: string | null; // Used to reset submenus when scene changes
 }
 
 // Registry of all available buttons with their configs
@@ -190,10 +193,13 @@ const Toolbox = (props: ToolboxProps) => {
     wallCutterToolBrushSize,
     setWallCutterToolBrushSize,
     onSwitchToDrawTab,
+    onSwitchToTokensTab,
+    onSwitchToModulesTab,
     onSwitchToXLab,
     isLeftPanelOpen,
     onToggleLeftPanel,
     viewMode = 'planning', // Default to planning mode
+    activeSceneId,
   } = props;
 
   // ========== CENTRAL SUBMENU STATE (SINGLE SOURCE OF TRUTH) ==========
@@ -204,6 +210,12 @@ const Toolbox = (props: ToolboxProps) => {
   const [submenuOpenedBy, setSubmenuOpenedBy] = useState<OpenedBy>(null);
   const hoverCloseTimerRef = useRef<number | null>(null);
   const shortcutInactivityTimerRef = useRef<number | null>(null);
+
+  // Reset submenus when scene changes
+  useEffect(() => {
+    setOpenSubmenuId(null);
+    setSubmenuOpenedBy(null);
+  }, [activeSceneId]);
 
   // ========== LAST-USED STATE FOR LIST-TOOLS ==========
   const [lastUsedTokenIndex, setLastUsedTokenIndex] = useState<number>(0);
@@ -818,6 +830,7 @@ const Toolbox = (props: ToolboxProps) => {
                     onSelectToken,
                     cycleToken,
                     selectLastUsedToken,
+                    onSwitchToTokensTab,
                   };
                   break;
 
@@ -839,6 +852,7 @@ const Toolbox = (props: ToolboxProps) => {
                     onSelectWallTexture,
                     cycleWall,
                     selectLastUsedWall,
+                    onSwitchToDrawTab,
                   };
                   break;
 
@@ -857,6 +871,7 @@ const Toolbox = (props: ToolboxProps) => {
                     setAutoMergeRooms,
                     cycleRoomSubTool,
                     selectLastUsedRoomSubTool,
+                    onSwitchToDrawTab,
                   };
                   break;
 
@@ -942,6 +957,12 @@ const Toolbox = (props: ToolboxProps) => {
                   specificProps = {
                     isLeftPanelOpen,
                     onToggleLeftPanel,
+                  };
+                  break;
+
+                case 'modularRoom':
+                  specificProps = {
+                    onSwitchToModulesTab,
                   };
                   break;
 

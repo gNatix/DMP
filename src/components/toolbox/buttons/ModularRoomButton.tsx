@@ -22,12 +22,13 @@ export const modularRoomButtonConfig: ToolButtonConfig = {
 // ==========================================
 
 interface ModularRoomButtonProps extends ToolButtonProps {
-  // No additional props needed for now
+  onSwitchToModulesTab?: () => void;
 }
 
 const ModularRoomButton = ({
   activeTool,
   setActiveTool,
+  onSwitchToModulesTab,
 }: ModularRoomButtonProps) => {
   const isActive = activeTool === modularRoomButtonConfig.tool;
 
@@ -36,6 +37,7 @@ const ModularRoomButton = ({
     modularRoomButtonConfig.shortcutKey!,
     () => {
       setActiveTool(modularRoomButtonConfig.tool!);
+      if (onSwitchToModulesTab) onSwitchToModulesTab();
     },
     { 
       preventDefault: true
@@ -44,6 +46,7 @@ const ModularRoomButton = ({
 
   const handleClick = () => {
     setActiveTool(modularRoomButtonConfig.tool!);
+    if (onSwitchToModulesTab) onSwitchToModulesTab();
   };
 
   return (

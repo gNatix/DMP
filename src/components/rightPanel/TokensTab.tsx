@@ -14,6 +14,10 @@ interface TokensTabProps {
 type TokenCategory = 'monsters' | 'npcs' | 'items' | 'objects' | 'other' | 'shapes' | 'poi' | 'environment';
 type ViewMode = 'grid' | 'list';
 
+// Module-level cache for tokens
+let cachedDriveTokens: TokenTemplate[] | null = null;
+let driveTokensPromise: Promise<TokenTemplate[]> | null = null;
+
 // Predefined POI tokens
 const POI_TOKENS: TokenTemplate[] = [
   { id: 'poi-quest', name: 'Quest Marker', isPOI: true, icon: 'quest', category: 'poi' },
@@ -37,7 +41,91 @@ const SHAPE_TOKENS: TokenTemplate[] = [
 ];
 
 const LIBRARY_TOKENS: TokenTemplate[] = [...SHAPE_TOKENS, ...POI_TOKENS];
-// const COLORS: ColorType[] = ['red', 'blue', 'green', 'yellow', 'purple', 'orange'];
+
+/**
+ * Load tokens from webhotel (shared between preload and component)
+ */
+const loadTokensFromWebhotel = async (): Promise<TokenTemplate[]> => {
+  try {
+    const configResponse = await fetch('/config.json');
+    const config = await configResponse.json();
+    
+    const categories: TokenCategory[] = ['monsters', 'npcs', 'items', 'objects', 'other', 'environment'];
+    const allTokens: TokenTemplate[] = [];
+    
+    // Recursive function to fetch tokens from a path (including subfolders)
+    const fetchTokensRecursive = async (path: string, category: TokenCategory): Promise<TokenTemplate[]> => {
+      const tokens: TokenTemplate[] = [];
+      
+      try {
+        const response = await fetch(`${config.webhotelApiUrl}?path=${path}`);
+        if (!response.ok) return tokens;
+        
+        const data = await response.json();
+        
+        // Handle new format with folders and files
+        const files = data.files || data;
+        const folders = data.folders || [];
+        
+        // Process files in this directory
+        if (Array.isArray(files)) {
+          const imageTokens = files
+            .filter((file: any) => 
+              file.type === 'file' && 
+              /\.(jpg|jpeg|png|webp|gif)$/i.test(file.name)
+            )
+            .map((file: any, index: number) => {
+              const fileName = file.name.replace(/\.[^/.]+$/, '');
+              const pathForId = file.path 
+                ? file.path.replace(/\.[^/.]+$/, '').replace(/[/\\]/g, '-') 
+                : `${path.replace(/[/\\]/g, '-')}-${fileName}`;
+              return {
+                id: `token-${pathForId}-${index}`,
+                name: fileName.replace(/-/g, ' '),
+                imageUrl: file.download_url,
+                category: category
+              };
+            });
+          tokens.push(...imageTokens);
+        }
+        
+        // Recursively fetch from subfolders
+        for (const folder of folders) {
+          const subTokens = await fetchTokensRecursive(folder.path, category);
+          tokens.push(...subTokens);
+        }
+      } catch (err) {
+        console.log(`No files in ${path}`);
+      }
+      
+      return tokens;
+    };
+    
+    // Fetch tokens from all categories (with recursive subfolder support)
+    for (const category of categories) {
+      const categoryTokens = await fetchTokensRecursive(`tokens/${category}`, category);
+      allTokens.push(...categoryTokens);
+    }
+    
+    return allTokens;
+  } catch (error) {
+    console.error('Failed to load tokens from webhotel:', error);
+    return [];
+  }
+};
+
+/**
+ * Preload tokens during loading screen.
+ * This starts the fetch early so data is ready when user opens Tokens tab.
+ */
+export const preloadTokens = (): void => {
+  if (!cachedDriveTokens && !driveTokensPromise) {
+    driveTokensPromise = loadTokensFromWebhotel().then(tokens => {
+      cachedDriveTokens = tokens;
+      return tokens;
+    });
+  }
+};
 
 const TokensTab = ({
   tokenTemplates: _tokenTemplates,
@@ -50,82 +138,32 @@ const TokensTab = ({
   const [selectedCategory, setSelectedCategory] = useState<TokenCategory | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [selectedColor] = useState<ColorType>('red');
-  const [driveTokens, setDriveTokens] = useState<TokenTemplate[]>([]);
+  const [driveTokens, setDriveTokens] = useState<TokenTemplate[]>(cachedDriveTokens || []);
   const [selectedTokenId, setSelectedTokenId] = useState<string | null>(null);
   const [currentTemplate, setCurrentTemplate] = useState<TokenTemplate | null>(null);
 
-  // Load tokens from webhotel (recursively fetches from subfolders)
+  // Load tokens from webhotel (with caching)
   useEffect(() => {
-    const loadTokensFromWebhotel = async () => {
-      try {
-        const configResponse = await fetch('/config.json');
-        const config = await configResponse.json();
-        
-        const categories: TokenCategory[] = ['monsters', 'npcs', 'items', 'objects', 'other', 'environment'];
-        const allTokens: TokenTemplate[] = [];
-        
-        // Recursive function to fetch tokens from a path (including subfolders)
-        const fetchTokensRecursive = async (path: string, category: TokenCategory): Promise<TokenTemplate[]> => {
-          const tokens: TokenTemplate[] = [];
-          
-          try {
-            const response = await fetch(`${config.webhotelApiUrl}?path=${path}`);
-            if (!response.ok) return tokens;
-            
-            const data = await response.json();
-            
-            // Handle new format with folders and files
-            const files = data.files || data; // Support both old (array) and new ({folders, files}) format
-            const folders = data.folders || [];
-            
-            // Process files in this directory
-            if (Array.isArray(files)) {
-              const imageTokens = files
-                .filter((file: any) => 
-                  file.type === 'file' && 
-                  /\.(jpg|jpeg|png|webp|gif)$/i.test(file.name)
-                )
-                .map((file: any, index: number) => {
-                  // Use full path for unique ID, include current path as fallback
-                  const fileName = file.name.replace(/\.[^/.]+$/, '');
-                  const pathForId = file.path 
-                    ? file.path.replace(/\.[^/.]+$/, '').replace(/[/\\]/g, '-') 
-                    : `${path.replace(/[/\\]/g, '-')}-${fileName}`;
-                  return {
-                    id: `token-${pathForId}-${index}`,
-                    name: fileName.replace(/-/g, ' '),
-                    imageUrl: file.download_url,
-                    category: category
-                  };
-                });
-              tokens.push(...imageTokens);
-            }
-            
-            // Recursively fetch from subfolders
-            for (const folder of folders) {
-              const subTokens = await fetchTokensRecursive(folder.path, category);
-              tokens.push(...subTokens);
-            }
-          } catch (err) {
-            console.log(`No files in ${path}`);
-          }
-          
-          return tokens;
-        };
-        
-        // Fetch tokens from all categories (with recursive subfolder support)
-        for (const category of categories) {
-          const categoryTokens = await fetchTokensRecursive(`tokens/${category}`, category);
-          allTokens.push(...categoryTokens);
-        }
-        
-        setDriveTokens(allTokens);
-      } catch (error) {
-        console.error('Failed to load tokens from webhotel:', error);
-      }
-    };
+    // If already cached, use cached data
+    if (cachedDriveTokens) {
+      setDriveTokens(cachedDriveTokens);
+      return;
+    }
 
-    loadTokensFromWebhotel();
+    // If already loading, wait for the existing promise
+    if (driveTokensPromise) {
+      driveTokensPromise.then(tokens => {
+        setDriveTokens(tokens);
+      });
+      return;
+    }
+
+    // Otherwise, start loading
+    driveTokensPromise = loadTokensFromWebhotel().then(tokens => {
+      cachedDriveTokens = tokens;
+      setDriveTokens(tokens);
+      return tokens;
+    });
   }, []);
 
   // Update active token template when color changes

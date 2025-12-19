@@ -40,6 +40,8 @@ interface RoomButtonPropsExtended extends ToolButtonProps {
   // Cycling functions
   cycleRoomSubTool: () => void;
   selectLastUsedRoomSubTool: () => void;
+  // Tab switch callback
+  onSwitchToDrawTab?: () => void;
 }
 
 const RoomButton = ({
@@ -57,7 +59,8 @@ const RoomButton = ({
   onSubmenuMouseEnter,
   onSubmenuMouseLeave,
   cycleRoomSubTool,
-  selectLastUsedRoomSubTool
+  selectLastUsedRoomSubTool,
+  onSwitchToDrawTab
 }: RoomButtonPropsExtended) => {
   const isActive = activeTool === roomButtonConfig.tool;
   const roomButtonRef = useRef<HTMLButtonElement>(null);
@@ -104,6 +107,8 @@ const RoomButton = ({
     } else {
       onOpenSubmenu('room', 'click'); // Open (or switch from hover/shortcut to click)
     }
+    // Always switch to draw tab
+    if (onSwitchToDrawTab) onSwitchToDrawTab();
   };
 
   // Handle keyboard shortcut
@@ -126,6 +131,8 @@ const RoomButton = ({
       selectLastUsedRoomSubTool();
       onOpenSubmenu('room', 'shortcut');
     }
+    // Always switch to draw tab
+    if (onSwitchToDrawTab) onSwitchToDrawTab();
   });
 
   return (

@@ -5,6 +5,9 @@ import Toolbox from './toolbox/Toolbox';
 import polygonClipping from 'polygon-clipping';
 import ModularRoomRenderer from './canvas/ModularRoomRenderer';
 import ModularRoomContextMenu from './canvas/ModularRoomContextMenu';
+import { preloadModuleStyles } from './rightPanel/ModulesTab';
+import { preloadTokens } from './rightPanel/TokensTab';
+import { preloadTerrainBrushes, preloadWallTextures } from '../utils/preloadTextures';
 import {
   MODULAR_TILE_PX,
 } from '../constants';
@@ -186,6 +189,8 @@ interface CanvasProps {
   wallTextures?: Array<{ name: string; download_url: string }>;
   onSelectWallTexture?: (url: string) => void;
   onSwitchToDrawTab: () => void;
+  onSwitchToTokensTab?: () => void;
+  onSwitchToModulesTab?: () => void;
   wallCutterToolBrushSize: number;
   setWallCutterToolBrushSize: (size: number) => void;
   xlabShapeMode: TerrainShapeMode;
@@ -279,6 +284,9 @@ const Canvas = ({
   onSelectTerrainBrush,
   wallTextures = [],
   onSelectWallTexture = () => {},
+  onSwitchToDrawTab,
+  onSwitchToTokensTab,
+  onSwitchToModulesTab,
   wallCutterToolBrushSize: wallCutterToolBrushSizeProp,
   setWallCutterToolBrushSize: setWallCutterToolBrushSizeProp,
   xlabShapeMode,
@@ -7397,6 +7405,16 @@ const Canvas = ({
     setIsLoading(true);
     setLoadProgress(0);
     
+    // Preload module styles during loading screen
+    preloadModuleStyles();
+    
+    // Preload tokens during loading screen
+    preloadTokens();
+    
+    // Preload terrain brushes and wall textures
+    preloadTerrainBrushes(terrainBrushes);
+    preloadWallTextures(wallTextures);
+    
     // Animate progress bar over 1.2 seconds
     const startTime = Date.now();
     const duration = 1200;
@@ -9214,6 +9232,10 @@ const Canvas = ({
         isLeftPanelOpen={leftPanelOpen}
         onToggleLeftPanel={onToggleLeftPanel}
         viewMode={viewMode}
+        activeSceneId={activeSceneId}
+        onSwitchToDrawTab={onSwitchToDrawTab}
+        onSwitchToTokensTab={onSwitchToTokensTab}
+        onSwitchToModulesTab={onSwitchToModulesTab}
       />
 
       {/* Zoom Limit Error Message */}

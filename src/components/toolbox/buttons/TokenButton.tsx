@@ -39,6 +39,8 @@ interface TokenButtonPropsExtended extends ToolButtonProps {
   // Cycling functions
   cycleToken: () => void;
   selectLastUsedToken: () => void;
+  // Tab switch callback
+  onSwitchToTokensTab?: () => void;
 }
 
 const TokenButton = ({ 
@@ -55,7 +57,8 @@ const TokenButton = ({
   onSubmenuMouseEnter,
   onSubmenuMouseLeave,
   cycleToken,
-  selectLastUsedToken
+  selectLastUsedToken,
+  onSwitchToTokensTab
 }: TokenButtonPropsExtended) => {
   const isActive = activeTool === tokenButtonConfig.tool;
   const tokenButtonRef = useRef<HTMLButtonElement>(null);
@@ -101,6 +104,8 @@ const TokenButton = ({
     } else {
       onOpenSubmenu('token', 'click'); // Open (or switch from hover/shortcut to click)
     }
+    // Always switch to tokens tab
+    if (onSwitchToTokensTab) onSwitchToTokensTab();
   };
 
   // Handle keyboard shortcut
@@ -114,6 +119,8 @@ const TokenButton = ({
       selectLastUsedToken();
       onOpenSubmenu('token', 'shortcut');
     }
+    // Always switch to tokens tab (even if tool was already active)
+    if (onSwitchToTokensTab) onSwitchToTokensTab();
   });
   
   return (

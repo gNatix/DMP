@@ -38,6 +38,8 @@ interface WallButtonPropsExtended extends ToolButtonProps {
   // Cycling functions
   cycleWall: () => void;
   selectLastUsedWall: () => void;
+  // Tab switch callback
+  onSwitchToDrawTab?: () => void;
 }
 
 const WallButton = ({
@@ -54,7 +56,8 @@ const WallButton = ({
   onSubmenuMouseEnter,
   onSubmenuMouseLeave,
   cycleWall,
-  selectLastUsedWall
+  selectLastUsedWall,
+  onSwitchToDrawTab
 }: WallButtonPropsExtended) => {
   const isActive = activeTool === wallButtonConfig.tool;
   const wallButtonRef = useRef<HTMLButtonElement>(null);
@@ -100,6 +103,8 @@ const WallButton = ({
     } else {
       onOpenSubmenu('wall', 'click'); // Open (or switch from hover/shortcut to click)
     }
+    // Always switch to draw tab
+    if (onSwitchToDrawTab) onSwitchToDrawTab();
   };
 
   // Handle keyboard shortcut
@@ -113,6 +118,8 @@ const WallButton = ({
       selectLastUsedWall();
       onOpenSubmenu('wall', 'shortcut');
     }
+    // Always switch to draw tab
+    if (onSwitchToDrawTab) onSwitchToDrawTab();
   });
 
   return (
