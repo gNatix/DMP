@@ -173,6 +173,9 @@ function App() {
   // X-Lab experimental features
   const [xlabShapeMode, setXlabShapeMode] = useState<TerrainShapeMode>(null);
 
+  // Toolbar customization - which buttons are hidden
+  const [hiddenToolbarButtons, setHiddenToolbarButtons] = useState<Set<string>>(new Set());
+
   // Reset cloud load state when user logs out
   useEffect(() => {
     if (!user && hasLoadedFromCloud) {
@@ -220,6 +223,11 @@ function App() {
         // Restore collections
         if (settingsResult.settings.collections.length > 0) {
           setCollections(settingsResult.settings.collections);
+        }
+        
+        // Restore hidden toolbar buttons
+        if (settingsResult.settings.hiddenToolbarButtons && settingsResult.settings.hiddenToolbarButtons.length > 0) {
+          setHiddenToolbarButtons(new Set(settingsResult.settings.hiddenToolbarButtons));
         }
         
         // NOTE: We do NOT restore viewport from cloud settings.
@@ -280,12 +288,13 @@ function App() {
       await saveUserSettings(user.id, {
         collections,
         activeSceneId,
+        hiddenToolbarButtons: Array.from(hiddenToolbarButtons),
         // NOTE: We don't save viewport - each scene centers itself when opened
       }, user.handle, user.authProvider);
     }, 500);
 
     return () => clearTimeout(timeoutId);
-  }, [collections, activeSceneId, user, hasLoadedFromCloud]);
+  }, [collections, activeSceneId, hiddenToolbarButtons, user, hasLoadedFromCloud]);
 
   // Load terrain brushes on mount
   useEffect(() => {
@@ -1111,6 +1120,7 @@ function App() {
         placingModularFloor={placingModularFloor}
         setPlacingModularFloor={setPlacingModularFloor}
         defaultWallStyleId={defaultWallStyleId}
+        hiddenToolbarButtons={hiddenToolbarButtons}
       />
 
       {/* Right Panel (Planning Mode Only) */}
@@ -1178,6 +1188,8 @@ function App() {
             defaultWallStyleId={defaultWallStyleId}
             onDefaultWallStyleChange={setDefaultWallStyleId}
             selectedElementIds={selectedElementIds}
+            hiddenToolbarButtons={hiddenToolbarButtons}
+            onHiddenToolbarButtonsChange={setHiddenToolbarButtons}
           />
       )}
 

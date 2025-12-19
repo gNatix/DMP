@@ -212,6 +212,8 @@ interface CanvasProps {
     imageUrl: string;
   } | null) => void;
   defaultWallStyleId?: string;
+  // Toolbar customization
+  hiddenToolbarButtons?: Set<string>;
 }
 
 // Visual stacking order (back → front):
@@ -255,7 +257,7 @@ const Canvas = ({
   leftPanelOpen,
   onToggleLeftPanel,
   showTokenBadges,
-  setShowTokenBadges: _setShowTokenBadges,
+  setShowTokenBadges,
   onDoubleClickElement,
   recentTokens,
   tokenTemplates,
@@ -297,6 +299,7 @@ const Canvas = ({
   placingModularFloor,
   setPlacingModularFloor,
   defaultWallStyleId = 'worn-castle',
+  hiddenToolbarButtons,
 }: CanvasProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
@@ -364,7 +367,7 @@ const Canvas = ({
   const [wallLineStart, setWallLineStart] = useState<{ x: number; y: number } | null>(null);
   const [wallLinePreview, setWallLinePreview] = useState<{ x: number; y: number } | null>(null);
   const [showGrid, setShowGrid] = useState(false);
-  const [gridSize, setGridSize] = useState(20);
+  const [gridSize, setGridSize] = useState(MODULAR_TILE_PX); // Default to 1 tile size (128px)
   const [showTokenSubmenuForShift, setShowTokenSubmenuForShift] = useState(false);
   const [showTerrainSubmenuForT, setShowTerrainSubmenuForT] = useState(false);
   const [showGridSubmenuForG, setShowGridSubmenuForG] = useState(false);
@@ -1273,20 +1276,9 @@ const Canvas = ({
     }
   };
 
-  // Toggle badges on selected tokens individually
+  // Toggle name badges globally for all tokens
   const handleToggleBadges = () => {
-    const idsToUpdate = selectedElementIds.length > 0 ? selectedElementIds : (selectedElementId ? [selectedElementId] : []);
-    if (idsToUpdate.length === 0) return;
-    
-    const updates = new Map<string, Partial<MapElement>>();
-    idsToUpdate.forEach(id => {
-      const element = scene?.elements.find(e => e.id === id);
-      if (element && element.type === 'token') {
-        const tokenElement = element as TokenElement;
-        updates.set(id, { showBadge: !tokenElement.showBadge });
-      }
-    });
-    updateElements(updates);
+    setShowTokenBadges(!showTokenBadges);
   };
 
   // Toggle lock on selected elements
@@ -9254,6 +9246,7 @@ const Canvas = ({
         onSwitchToDrawTab={onSwitchToDrawTab}
         onSwitchToTokensTab={onSwitchToTokensTab}
         onSwitchToModulesTab={onSwitchToModulesTab}
+        hiddenToolbarButtons={hiddenToolbarButtons}
       />
 
       {/* Zoom Limit Error Message */}

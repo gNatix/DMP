@@ -1,17 +1,150 @@
-import { User, LogOut, Mail, Lock } from 'lucide-react';
-import { useState } from 'react';
+import { User, LogOut, Mail, Lock, Monitor, UserCircle, FlaskConical, ChevronDown, ChevronRight, Keyboard, Settings2 } from 'lucide-react';
+import { useState, useMemo } from 'react';
 import { useAuth } from '../../auth/AuthContext';
+import { TOOLBAR_PRESETS, detectMatchingPreset, getPresetById, ToolbarPresetId } from '../../config/toolbarPresets';
 
 interface SettingsTabProps {
-  // Future props for user data, logout, etc.
+  hiddenToolbarButtons?: Set<string>;
+  onHiddenToolbarButtonsChange?: (buttons: Set<string>) => void;
 }
 
-const SettingsTab = ({}: SettingsTabProps) => {
+type SettingsSubTab = 'system' | 'account' | 'beta';
+
+// ========== TOOLBAR KEYBIND DEFINITIONS ==========
+// Organized by category matching Toolbox.tsx categories
+interface KeybindItem {
+  id: string;
+  label: string;
+  keybind: string;
+  canToggle: boolean; // Whether this button can be shown/hidden in toolbar
+  tip?: string; // Optional tip for alternative usage
+}
+
+interface KeybindCategory {
+  id: string;
+  label: string;
+  items: KeybindItem[];
+}
+
+const KEYBIND_CATEGORIES: KeybindCategory[] = [
+  {
+    id: 'selection',
+    label: 'Selection',
+    items: [
+      { id: 'pointer', label: 'Pointer Tool', keybind: 'V', canToggle: false },
+    ],
+  },
+  {
+    id: 'drawing',
+    label: 'Drawing Tools',
+    items: [
+      { id: 'token', label: 'Token Tool', keybind: 'Q', canToggle: false, tip: 'Press Q again or scroll on button to cycle tokens' },
+      { id: 'terrain', label: 'Terrain Brush', keybind: 'E', canToggle: false, tip: 'Press E again or scroll on button to cycle brushes' },
+      { id: 'room', label: 'Room Builder', keybind: 'R', canToggle: false },
+      { id: 'modularRoom', label: 'Modular Room', keybind: 'M', canToggle: false },
+      { id: 'wall', label: 'Wall Tool', keybind: 'W', canToggle: false, tip: 'Press W again or scroll on button to cycle textures' },
+      { id: 'wallCutterTool', label: 'Wall Cutter', keybind: 'A', canToggle: true },
+      { id: 'doorTool', label: 'Door Tool', keybind: 'D', canToggle: true },
+    ],
+  },
+  {
+    id: 'navigation',
+    label: 'Navigation',
+    items: [
+      { id: 'pan', label: 'Pan Tool', keybind: 'H', canToggle: true, tip: 'Middle-click + drag to pan anytime' },
+      { id: 'zoom', label: 'Zoom Tool', keybind: 'Z', canToggle: true, tip: 'Scroll anywhere to zoom in/out' },
+    ],
+  },
+  {
+    id: 'history',
+    label: 'History',
+    items: [
+      { id: 'undo', label: 'Undo', keybind: 'Ctrl+Z', canToggle: true },
+      { id: 'redo', label: 'Redo', keybind: 'Ctrl+Y', canToggle: true },
+    ],
+  },
+  {
+    id: 'layers',
+    label: 'Layers & Elements',
+    items: [
+      { id: 'duplicate', label: 'Duplicate', keybind: 'Ctrl+D', canToggle: true },
+      { id: 'delete', label: 'Delete', keybind: 'Del', canToggle: true },
+      { id: 'layer-up', label: 'Layer Up', keybind: 'Ctrl+↑', canToggle: true },
+      { id: 'layer-down', label: 'Layer Down', keybind: 'Ctrl+↓', canToggle: true },
+    ],
+  },
+  {
+    id: 'toggle',
+    label: 'Toggles',
+    items: [
+      { id: 'grid', label: 'Toggle Grid', keybind: 'G', canToggle: true, tip: 'Scroll on button to resize grid' },
+      { id: 'fit-to-view', label: 'Fit to View', keybind: 'F', canToggle: true },
+      { id: 'info', label: 'Info Panel', keybind: 'I', canToggle: true },
+      { id: 'lock', label: 'Lock Element', keybind: 'L', canToggle: false },
+    ],
+  },
+  {
+    id: 'utilities',
+    label: 'Utilities',
+    items: [
+      { id: 'color-picker', label: 'Color Picker', keybind: 'C', canToggle: true, tip: 'Press C again or scroll on button to cycle colors' },
+      { id: 'badge-toggle', label: 'Name Badges', keybind: 'N', canToggle: true, tip: 'Toggle name badges on all tokens globally' },
+    ],
+  },
+];
+
+const SettingsTab = ({ 
+  hiddenToolbarButtons = new Set(), 
+  onHiddenToolbarButtonsChange = () => {} 
+}: SettingsTabProps) => {
   const { user, loading, signIn, signUp, signInWithGoogle, signInWithDiscord, signOut } = useAuth();
+  const [activeSubTab, setActiveSubTab] = useState<SettingsSubTab>('system');
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  
+  // Toolbar settings state
+  const [isToolbarSectionOpen, setIsToolbarSectionOpen] = useState(true);
+  const [isAdvancedSettingsOpen, setIsAdvancedSettingsOpen] = useState(false);
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['selection', 'drawing']));
+  
+  // Detect which preset matches current settings
+  const activePreset = useMemo<ToolbarPresetId>(() => {
+    return detectMatchingPreset(hiddenToolbarButtons);
+  }, [hiddenToolbarButtons]);
+  
+  // Apply a preset
+  const applyPreset = (presetId: ToolbarPresetId) => {
+    if (presetId === 'custom') return; // Can't manually select custom
+    
+    const preset = getPresetById(presetId);
+    if (preset) {
+      onHiddenToolbarButtonsChange(new Set(preset.hiddenButtons));
+    }
+  };
+  
+  const toggleCategory = (categoryId: string) => {
+    setExpandedCategories(prev => {
+      const next = new Set(prev);
+      if (next.has(categoryId)) {
+        next.delete(categoryId);
+      } else {
+        next.add(categoryId);
+      }
+      return next;
+    });
+  };
+  
+  const toggleButtonVisibility = (buttonId: string) => {
+    const next = new Set(hiddenToolbarButtons);
+    if (next.has(buttonId)) {
+      next.delete(buttonId);
+    } else {
+      next.add(buttonId);
+    }
+    onHiddenToolbarButtonsChange(next);
+  };
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -106,14 +239,209 @@ const SettingsTab = ({}: SettingsTabProps) => {
     );
   }
 
-  return (
+  // ========== SYSTEM TAB CONTENT ==========
+  const renderSystemTab = () => (
+    <div className="p-4 space-y-4">
+      {/* Toolbar Settings Section */}
+      <div className="bg-dm-dark rounded-lg overflow-hidden">
+        {/* Section Header - Collapsible */}
+        <button
+          onClick={() => setIsToolbarSectionOpen(!isToolbarSectionOpen)}
+          className="w-full flex items-center justify-between p-3 hover:bg-dm-panel/50 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <Keyboard className="w-4 h-4 text-dm-highlight" />
+            <span className="text-sm font-medium text-gray-200">Toolbar Settings</span>
+          </div>
+          {isToolbarSectionOpen ? (
+            <ChevronDown className="w-4 h-4 text-gray-400" />
+          ) : (
+            <ChevronRight className="w-4 h-4 text-gray-400" />
+          )}
+        </button>
+        
+        {/* Section Content */}
+        {isToolbarSectionOpen && (
+          <div className="border-t border-dm-border">
+            {/* Preset Selector */}
+            <div className="px-3 py-3 space-y-2">
+              <p className="text-xs text-gray-500 mb-2">
+                Choose a toolbar preset or customize individual buttons below.
+              </p>
+              
+              {/* Preset Toggles */}
+              <div className="space-y-1.5">
+                {TOOLBAR_PRESETS.map(preset => (
+                  <button
+                    key={preset.id}
+                    onClick={() => applyPreset(preset.id as ToolbarPresetId)}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-all ${
+                      activePreset === preset.id
+                        ? 'bg-dm-highlight/20 border border-dm-highlight/40'
+                        : 'bg-dm-panel/30 border border-transparent hover:bg-dm-panel/50'
+                    }`}
+                  >
+                    <div className="flex flex-col items-start">
+                      <span className={`text-sm font-medium ${
+                        activePreset === preset.id ? 'text-dm-highlight' : 'text-gray-300'
+                      }`}>
+                        {preset.name}
+                      </span>
+                      <span className="text-[10px] text-gray-500">{preset.description}</span>
+                    </div>
+                    {/* Toggle Indicator */}
+                    <div className={`w-8 h-4 rounded-full transition-colors ${
+                      activePreset === preset.id ? 'bg-dm-highlight' : 'bg-gray-600'
+                    }`}>
+                      <div className={`w-3 h-3 rounded-full bg-white shadow transition-transform mt-0.5 ${
+                        activePreset === preset.id ? 'translate-x-4' : 'translate-x-0.5'
+                      }`} />
+                    </div>
+                  </button>
+                ))}
+                
+                {/* Custom Indicator (read-only) */}
+                <div className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-all ${
+                  activePreset === 'custom'
+                    ? 'bg-amber-500/20 border border-amber-500/40'
+                    : 'bg-dm-panel/20 border border-transparent opacity-50'
+                }`}>
+                  <div className="flex flex-col items-start">
+                    <span className={`text-sm font-medium ${
+                      activePreset === 'custom' ? 'text-amber-400' : 'text-gray-500'
+                    }`}>
+                      Custom
+                    </span>
+                    <span className="text-[10px] text-gray-500">
+                      {activePreset === 'custom' ? 'You have custom settings' : 'Modify settings below to customize'}
+                    </span>
+                  </div>
+                  <div className={`w-8 h-4 rounded-full transition-colors ${
+                    activePreset === 'custom' ? 'bg-amber-500' : 'bg-gray-700'
+                  }`}>
+                    <div className={`w-3 h-3 rounded-full bg-white shadow transition-transform mt-0.5 ${
+                      activePreset === 'custom' ? 'translate-x-4' : 'translate-x-0.5'
+                    }`} />
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Advanced Settings Toggle */}
+            <button
+              onClick={() => setIsAdvancedSettingsOpen(!isAdvancedSettingsOpen)}
+              className="w-full flex items-center justify-between px-3 py-2 border-t border-dm-border hover:bg-dm-panel/30 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <Settings2 className="w-3.5 h-3.5 text-gray-500" />
+                <span className="text-xs font-medium text-gray-400">Advanced Settings</span>
+              </div>
+              {isAdvancedSettingsOpen ? (
+                <ChevronDown className="w-3 h-3 text-gray-500" />
+              ) : (
+                <ChevronRight className="w-3 h-3 text-gray-500" />
+              )}
+            </button>
+            
+            {/* Advanced Settings Content - Individual Button Toggles */}
+            {isAdvancedSettingsOpen && (
+              <div className="border-t border-dm-border/50">
+                <p className="text-[10px] text-gray-500 px-3 py-2 bg-dm-panel/10 border-b border-dm-border/30">
+                  Toggle individual buttons. Changes will switch to &quot;Custom&quot; mode if they don&apos;t match a preset.
+                </p>
+                
+                {/* Keybind Categories */}
+                <div className="divide-y divide-dm-border/30">
+                  {KEYBIND_CATEGORIES.map(category => (
+                    <div key={category.id}>
+                      {/* Category Header */}
+                      <button
+                        onClick={() => toggleCategory(category.id)}
+                        className="w-full flex items-center justify-between px-3 py-2 hover:bg-dm-panel/30 transition-colors"
+                      >
+                        <span className="text-xs font-medium text-gray-400 uppercase tracking-wide">
+                          {category.label}
+                        </span>
+                        {expandedCategories.has(category.id) ? (
+                          <ChevronDown className="w-3 h-3 text-gray-500" />
+                        ) : (
+                          <ChevronRight className="w-3 h-3 text-gray-500" />
+                        )}
+                      </button>
+                      
+                      {/* Category Items */}
+                      {expandedCategories.has(category.id) && (
+                        <div className="bg-dm-panel/20">
+                          {category.items.map(item => (
+                            <div
+                              key={item.id}
+                              className="px-4 py-1.5 hover:bg-dm-panel/30"
+                            >
+                              <div className="flex items-center justify-between">
+                                {/* Label and Keybind */}
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm text-gray-300">{item.label}</span>
+                                  <span className="px-1.5 py-0.5 bg-dm-dark rounded text-[10px] font-mono text-gray-500 border border-dm-border/50">
+                                    {item.keybind}
+                                  </span>
+                                </div>
+                                
+                                {/* Toggle Switch */}
+                                {item.canToggle ? (
+                                  <button
+                                    onClick={() => toggleButtonVisibility(item.id)}
+                                    className={`relative w-8 h-4 rounded-full transition-colors ${
+                                      !hiddenToolbarButtons.has(item.id)
+                                        ? 'bg-green-500'
+                                        : 'bg-gray-600'
+                                    }`}
+                                  >
+                                    <div
+                                      className={`absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-transform ${
+                                        !hiddenToolbarButtons.has(item.id)
+                                          ? 'translate-x-4'
+                                          : 'translate-x-0.5'
+                                      }`}
+                                    />
+                                  </button>
+                                ) : (
+                                  <span className="text-[10px] text-gray-600 italic">Required</span>
+                                )}
+                              </div>
+                              {/* Tip */}
+                              {item.tip && (
+                                <p className="text-[10px] text-gray-500 mt-0.5 italic pl-0.5">
+                                  💡 {item.tip}
+                                </p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* App Info */}
+      <div className="border-t border-dm-border pt-4">
+        <div className="text-xs text-gray-500 space-y-1">
+          <p>DM Planner v1.0.0</p>
+          <p>© 2025 All rights reserved</p>
+        </div>
+      </div>
+    </div>
+  );
+
+  // ========== ACCOUNT TAB CONTENT ==========
+  const renderAccountTab = () => (
     <div className="p-4 space-y-6">
       {/* Account Section */}
       <div className="space-y-4">
-        <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">
-          Account
-        </h3>
-        
         {/* Avatar & User Info */}
         <div className="bg-dm-dark rounded-lg p-4 space-y-4">
           {/* Avatar */}
@@ -266,7 +594,7 @@ const SettingsTab = ({}: SettingsTabProps) => {
         {user && (
           <div className="bg-dm-dark rounded-lg p-4">
             <h4 className="text-sm font-medium text-gray-300 mb-3">
-              Settings
+              Account Options
             </h4>
             <div className="space-y-2">
               <button className="w-full text-left text-sm text-gray-400 hover:text-gray-200 py-2 px-3 rounded hover:bg-dm-panel transition-colors">
@@ -282,13 +610,65 @@ const SettingsTab = ({}: SettingsTabProps) => {
           </div>
         )}
       </div>
+    </div>
+  );
 
-      {/* App Info */}
-      <div className="border-t border-dm-border pt-4">
-        <div className="text-xs text-gray-500 space-y-1">
-          <p>DM Planner v1.0.0</p>
-          <p>© 2025 All rights reserved</p>
-        </div>
+  // ========== BETA TAB CONTENT ==========
+  const renderBetaTab = () => (
+    <div className="p-4 space-y-6">
+      {/* Placeholder for beta settings */}
+      <div className="text-center text-gray-500 py-8">
+        <FlaskConical className="w-12 h-12 mx-auto mb-3 opacity-50" />
+        <p className="text-sm">Beta features coming soon</p>
+        <p className="text-xs mt-2 text-gray-600">Experimental options will appear here</p>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="h-full flex flex-col bg-dm-panel overflow-hidden">
+      {/* Sub-tab Navigation */}
+      <div className="flex gap-1 p-2 border-b border-dm-border">
+        <button
+          onClick={() => setActiveSubTab('system')}
+          className={`flex-1 px-3 py-1.5 text-xs font-medium rounded transition-all ${
+            activeSubTab === 'system'
+              ? 'bg-dm-highlight/20 text-dm-highlight border border-dm-highlight/30'
+              : 'bg-dm-dark/30 text-gray-400 hover:text-gray-300 border border-transparent'
+          }`}
+        >
+          <Monitor className="w-3 h-3 inline-block mr-1" />
+          System
+        </button>
+        <button
+          onClick={() => setActiveSubTab('account')}
+          className={`flex-1 px-3 py-1.5 text-xs font-medium rounded transition-all ${
+            activeSubTab === 'account'
+              ? 'bg-dm-highlight/20 text-dm-highlight border border-dm-highlight/30'
+              : 'bg-dm-dark/30 text-gray-400 hover:text-gray-300 border border-transparent'
+          }`}
+        >
+          <UserCircle className="w-3 h-3 inline-block mr-1" />
+          Account
+        </button>
+        <button
+          onClick={() => setActiveSubTab('beta')}
+          className={`flex-1 px-3 py-1.5 text-xs font-medium rounded transition-all ${
+            activeSubTab === 'beta'
+              ? 'bg-dm-highlight/20 text-dm-highlight border border-dm-highlight/30'
+              : 'bg-dm-dark/30 text-gray-400 hover:text-gray-300 border border-transparent'
+          }`}
+        >
+          <FlaskConical className="w-3 h-3 inline-block mr-1" />
+          Beta
+        </button>
+      </div>
+
+      {/* Tab Content */}
+      <div className="flex-1 overflow-y-auto">
+        {activeSubTab === 'system' && renderSystemTab()}
+        {activeSubTab === 'account' && renderAccountTab()}
+        {activeSubTab === 'beta' && renderBetaTab()}
       </div>
     </div>
   );

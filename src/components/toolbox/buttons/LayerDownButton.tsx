@@ -11,7 +11,7 @@ export const layerDownButtonConfig: ToolButtonConfig = {
   
   icon: <ChevronsDown size={18} />,
   label: 'Move Layer Down',
-  shortcutKey: '[',
+  shortcutKey: 'Ctrl+↓',
   
   buttonType: 'action',         // OPTIONS: 'tool' | 'toggle' | 'action' | 'submenu'
   highlightStyle: null,         // OPTIONS: 'full' (colored bg) | 'border' (colored border) | null (no highlight)
@@ -26,12 +26,12 @@ interface LayerDownButtonPropsExtended extends ToolButtonProps {
 }
 
 const LayerDownButton = ({ onLayerDown, hasSelection }: LayerDownButtonPropsExtended) => {
-  // Handle keyboard shortcut
-  useKeyboardShortcut('[', () => {
+  // Handle keyboard shortcut (Ctrl+Arrow Down)
+  useKeyboardShortcut('ArrowDown', () => {
     if (hasSelection) {
       onLayerDown();
     }
-  });
+  }, { ctrl: true });
 
   return (
     <div

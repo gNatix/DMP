@@ -9,14 +9,14 @@ export const badgeToggleButtonConfig: ToolButtonConfig = {
   enabledInGameMode: true, // Show in game mode
   enabledInPlanningMode: true, // Show in planning mode
   category: 'toggle',
-  weight: 2, // First in utilities category
+  weight: 2, // In toggle category
   
   icon: <Tag size={18} />,
-  label: 'Toggle Badges',
+  label: 'Name Badges',
   shortcutKey: 'N',
   
   buttonType: 'toggle',         // OPTIONS: 'tool' | 'toggle' | 'action' | 'submenu'
-  highlightStyle: 'border',     // OPTIONS: 'full' (colored bg) | 'border' (colored border) | null (no highlight)
+  highlightStyle: 'full',       // OPTIONS: 'full' (colored bg) | 'border' (colored border) | null (no highlight)
   
   hasSubmenu: false,
 };
@@ -25,21 +25,17 @@ export const badgeToggleButtonConfig: ToolButtonConfig = {
 interface BadgeToggleButtonPropsExtended extends ToolButtonProps {
   onToggleBadges: () => void;
   showTokenBadges: boolean;
-  selectedTokenHasBadge: boolean;
-  hasSelection: boolean;
+  selectedTokenHasBadge?: boolean;
+  hasSelection?: boolean;
 }
 
 const BadgeToggleButton = ({
   onToggleBadges,
   showTokenBadges,
-  selectedTokenHasBadge,
-  hasSelection
 }: BadgeToggleButtonPropsExtended) => {
-  // Handle keyboard shortcut
+  // Handle keyboard shortcut - always works (global toggle)
   useKeyboardShortcut('n', () => {
-    if (hasSelection) {
-      onToggleBadges();
-    }
+    onToggleBadges();
   });
 
   return (
@@ -56,15 +52,12 @@ const BadgeToggleButton = ({
     >
       <button
         onClick={onToggleBadges}
-        className={`p-2.5 rounded transition-colors ${
+        className={`p-2.5 rounded transition-colors border-2 border-transparent box-content ${
           showTokenBadges
             ? 'bg-dm-highlight text-white'
             : 'bg-dm-dark hover:bg-dm-border text-gray-300 hover:text-white'
-        } ${
-          selectedTokenHasBadge && hasSelection
-            ? 'border-2 border-yellow-500 box-content'
-            : 'border-2 border-transparent box-content'
         }`}
+        title={showTokenBadges ? 'Hide all name badges (N)' : 'Show all name badges (N)'}
       >
         {badgeToggleButtonConfig.icon}
       </button>
@@ -91,7 +84,7 @@ const BadgeToggleButton = ({
           zIndex: 1000
         }}
       >
-        {badgeToggleButtonConfig.label} ({badgeToggleButtonConfig.shortcutKey})
+        {showTokenBadges ? 'Hide' : 'Show'} Name Badges ({badgeToggleButtonConfig.shortcutKey})
       </div>
     </div>
   );

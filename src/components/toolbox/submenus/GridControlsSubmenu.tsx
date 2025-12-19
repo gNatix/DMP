@@ -4,6 +4,17 @@ interface GridControlsSubmenuProps {
   onWheel?: (e: React.WheelEvent) => void;
 }
 
+// Snap threshold - values within this range of 128 will snap to 128
+const SNAP_TARGET = 128;
+const SNAP_RANGE = 12; // +/- 12px from 128 will snap
+
+const snapToTarget = (value: number): number => {
+  if (Math.abs(value - SNAP_TARGET) <= SNAP_RANGE) {
+    return SNAP_TARGET;
+  }
+  return value;
+};
+
 const GridControlsSubmenu = ({ 
   gridSize,
   onGridSizeChange,
@@ -45,14 +56,14 @@ const GridControlsSubmenu = ({
           </div>
           <input
             type="range"
-            min="5"
-            max="500"
-            step="5"
+            min="4"
+            max="512"
+            step="4"
             value={gridSize}
-            onChange={(e) => onGridSizeChange(parseInt(e.target.value))}
+            onChange={(e) => onGridSizeChange(snapToTarget(parseInt(e.target.value)))}
             className="w-full h-2 bg-dm-dark rounded-lg appearance-none cursor-pointer slider"
             style={{
-              background: `linear-gradient(to right, #8b5cf6 0%, #8b5cf6 ${((gridSize - 5) / 495) * 100}%, #1f2937 ${((gridSize - 5) / 495) * 100}%, #1f2937 100%)`
+              background: `linear-gradient(to right, #8b5cf6 0%, #8b5cf6 ${((gridSize - 4) / 508) * 100}%, #1f2937 ${((gridSize - 4) / 508) * 100}%, #1f2937 100%)`
             }}
           />
         </div>

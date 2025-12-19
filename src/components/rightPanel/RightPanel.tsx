@@ -72,6 +72,9 @@ interface RightPanelProps {
   onStartDragModularFloor?: (floorStyleId: string, tilesW: number, tilesH: number, imageUrl: string) => void;
   defaultWallStyleId?: string;
   onDefaultWallStyleChange?: (styleId: string) => void;
+  // Toolbar customization
+  hiddenToolbarButtons?: Set<string>;
+  onHiddenToolbarButtonsChange?: (buttons: Set<string>) => void;
 }
 
 type TabType = 'scenes' | 'tokens' | 'draw' | 'modules' | 'xlab' | 'settings';
@@ -139,6 +142,8 @@ const RightPanel = ({
   onStartDragModularFloor = () => {},
   defaultWallStyleId = 'worn-castle',
   onDefaultWallStyleChange = () => {},
+  hiddenToolbarButtons = new Set(),
+  onHiddenToolbarButtonsChange = () => {},
 }: RightPanelProps) => {
   const [internalActiveTab, setInternalActiveTab] = useState<TabType>('scenes');
   const [activeDrawTab, setActiveDrawTab] = useState<'room' | 'terrain' | 'walls'>('room');
@@ -205,17 +210,6 @@ const RightPanel = ({
           <Users className="w-4 h-4" />
         </button>
         <button
-          onClick={() => setActiveTab('draw')}
-          className={`flex-1 py-3 text-sm font-medium transition-colors flex items-center justify-center ${
-            activeTab === 'draw'
-              ? 'bg-dm-dark text-dm-highlight border-b-2 border-dm-highlight'
-              : 'text-gray-400 hover:text-gray-200'
-          }`}
-          title="Draw - Terrain brushes, walls and room builder"
-        >
-          <Paintbrush className="w-4 h-4" />
-        </button>
-        <button
           onClick={() => setActiveTab('modules')}
           className={`flex-1 py-3 text-sm font-medium transition-colors flex items-center justify-center ${
             activeTab === 'modules'
@@ -225,6 +219,17 @@ const RightPanel = ({
           title="Modules - Modular room floor and wall styles"
         >
           <Boxes className="w-4 h-4" />
+        </button>
+        <button
+          onClick={() => setActiveTab('draw')}
+          className={`flex-1 py-3 text-sm font-medium transition-colors flex items-center justify-center ${
+            activeTab === 'draw'
+              ? 'bg-dm-dark text-dm-highlight border-b-2 border-dm-highlight'
+              : 'text-gray-400 hover:text-gray-200'
+          }`}
+          title="Draw - Terrain brushes, walls and room builder"
+        >
+          <Paintbrush className="w-4 h-4" />
         </button>
         <button
           onClick={() => setActiveTab('settings')}
@@ -329,7 +334,10 @@ const RightPanel = ({
           />
         )}
         {activeTab === 'settings' && (
-          <SettingsTab />
+          <SettingsTab 
+            hiddenToolbarButtons={hiddenToolbarButtons}
+            onHiddenToolbarButtonsChange={onHiddenToolbarButtonsChange}
+          />
         )}
       </div>
     </div>

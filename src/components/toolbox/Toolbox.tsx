@@ -122,6 +122,7 @@ interface ToolboxProps {
   onToggleLeftPanel: () => void;
   viewMode?: 'planning' | 'game'; // Add viewMode prop
   activeSceneId?: string | null; // Used to reset submenus when scene changes
+  hiddenToolbarButtons?: Set<string>; // Button IDs hidden by user in settings
 }
 
 // Registry of all available buttons with their configs
@@ -200,6 +201,7 @@ const Toolbox = (props: ToolboxProps) => {
     onToggleLeftPanel,
     viewMode = 'planning', // Default to planning mode
     activeSceneId,
+    hiddenToolbarButtons = new Set(),
   } = props;
 
   // ========== CENTRAL SUBMENU STATE (SINGLE SOURCE OF TRUTH) ==========
@@ -671,11 +673,18 @@ const Toolbox = (props: ToolboxProps) => {
 
   // ========== GRID SCROLL HANDLER ==========
   // Grid is special - it doesn't have a cycling list, just adjusts size
+  // Snap to 128 when within range
+  const SNAP_TARGET = 128;
+  const SNAP_RANGE = 12;
 
   const handleGridScroll = (e: React.WheelEvent) => {
     e.preventDefault();
-    const delta = e.deltaY > 0 ? -10 : 10;
-    const newSize = Math.max(5, Math.min(500, gridSize + delta));
+    const delta = e.deltaY > 0 ? -4 : 4;
+    let newSize = Math.max(4, Math.min(512, gridSize + delta));
+    // Snap to 128 if within range
+    if (Math.abs(newSize - SNAP_TARGET) <= SNAP_RANGE) {
+      newSize = SNAP_TARGET;
+    }
     onGridSizeChange(newSize);
   };
 
@@ -736,7 +745,10 @@ const Toolbox = (props: ToolboxProps) => {
         ? button.config.enabledInGameMode ?? false
         : button.config.enabledInPlanningMode ?? button.config.enabled;
       
-      if (isEnabledInCurrentMode) {
+      // Check if button is hidden by user in settings
+      const isHiddenByUser = hiddenToolbarButtons.has(button.config.id);
+      
+      if (isEnabledInCurrentMode && !isHiddenByUser) {
         const category = button.config.category;
         if (!grouped[category]) {
           grouped[category] = [];

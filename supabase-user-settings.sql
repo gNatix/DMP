@@ -17,6 +17,8 @@ CREATE TABLE user_settings (
   auth_provider TEXT,
   collections JSONB DEFAULT '[]'::jsonb,
   active_scene_id TEXT,
+  hidden_toolbar_buttons JSONB DEFAULT '[]'::jsonb,
+  viewport JSONB DEFAULT '{"x": 0, "y": 0, "zoom": 1}'::jsonb,
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -108,3 +110,20 @@ CREATE TRIGGER update_user_settings_updated_at
 --
 -- auth_provider: 'google', 'discord', or 'email'
 --
+
+
+-- ============================================
+-- MIGRATION: Add hidden_toolbar_buttons column
+-- Run this if you already have the user_settings table
+-- ============================================
+
+-- Add hidden_toolbar_buttons column if it doesn't exist
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'user_settings' AND column_name = 'hidden_toolbar_buttons') THEN
+    ALTER TABLE user_settings ADD COLUMN hidden_toolbar_buttons JSONB DEFAULT '[]'::jsonb;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'user_settings' AND column_name = 'viewport') THEN
+    ALTER TABLE user_settings ADD COLUMN viewport JSONB DEFAULT '{"x": 0, "y": 0, "zoom": 1}'::jsonb;
+  END IF;
+END $$;

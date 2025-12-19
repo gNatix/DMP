@@ -11,7 +11,7 @@ export const layerUpButtonConfig: ToolButtonConfig = {
   
   icon: <ChevronsUp size={18} />,
   label: 'Move Layer Up',
-  shortcutKey: ']',
+  shortcutKey: 'Ctrl+↑',
   
   buttonType: 'action',         // OPTIONS: 'tool' | 'toggle' | 'action' | 'submenu'
   highlightStyle: null,         // OPTIONS: 'full' (colored bg) | 'border' (colored border) | null (no highlight)
@@ -26,12 +26,12 @@ interface LayerUpButtonPropsExtended extends ToolButtonProps {
 }
 
 const LayerUpButton = ({ onLayerUp, hasSelection }: LayerUpButtonPropsExtended) => {
-  // Handle keyboard shortcut
-  useKeyboardShortcut(']', () => {
+  // Handle keyboard shortcut (Ctrl+Arrow Up)
+  useKeyboardShortcut('ArrowUp', () => {
     if (hasSelection) {
       onLayerUp();
     }
-  });
+  }, { ctrl: true });
 
   return (
     <div

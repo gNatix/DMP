@@ -14,6 +14,7 @@ export interface UserSettings {
   collections: Collection[];
   activeSceneId: string | null;
   viewport?: { x: number; y: number; zoom: number };
+  hiddenToolbarButtons?: string[]; // Button IDs hidden by user in toolbar settings
   // Add more settings as needed
 }
 
@@ -23,6 +24,7 @@ interface SupabaseUserSettings {
   collections: Collection[];
   active_scene_id: string | null;
   viewport: { x: number; y: number; zoom: number } | null;
+  hidden_toolbar_buttons: string[] | null;
   updated_at: string;
 }
 
@@ -49,6 +51,7 @@ export const saveUserSettings = async (
       collections: settings.collections,
       active_scene_id: settings.activeSceneId,
       viewport: settings.viewport || { x: 0, y: 0, zoom: 1 },
+      hidden_toolbar_buttons: settings.hiddenToolbarButtons || [],
       updated_at: new Date().toISOString(),
     };
 
@@ -109,6 +112,7 @@ export const loadUserSettings = async (
       collections: row.collections || [],
       activeSceneId: row.active_scene_id,
       viewport: row.viewport || undefined,
+      hiddenToolbarButtons: row.hidden_toolbar_buttons || [],
     };
 
     return { settings, error: null };
