@@ -290,6 +290,7 @@ export interface Scene {
   terrainStamps?: Array<{ x: number; y: number; size: number; textureUrl: string }>; // Terrain brush stamps (deprecated - use terrainTiles)
   terrainTiles?: { [key: string]: TerrainTile }; // New tile-based terrain system
   modularRoomsState?: ModularRoomsState; // Modular rooms wall groups and doors
+  viewport?: { x: number; y: number; zoom: number }; // Saved viewport position per scene
   width: number;
   height: number;
   collectionId?: string; // Optional reference to a collection

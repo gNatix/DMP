@@ -222,10 +222,9 @@ function App() {
           setCollections(settingsResult.settings.collections);
         }
         
-        // Restore viewport position
-        if (settingsResult.settings.viewport) {
-          setViewport(settingsResult.settings.viewport);
-        }
+        // NOTE: We do NOT restore viewport from cloud settings.
+        // Each scene should center itself when opened based on its map dimensions.
+        // Restoring a global viewport causes issues when switching between scenes.
         
         // Restore active scene (if it exists in loaded scenes)
         if (settingsResult.settings.activeSceneId) {
@@ -252,13 +251,19 @@ function App() {
   // Auto-save active scene to Supabase when it changes
   useEffect(() => {
     // Only save if logged in and we've already loaded from cloud
-    if (!user || !activeSceneId || !hasLoadedFromCloud) return;
+    if (!user || !activeSceneId || !hasLoadedFromCloud) {
+      if (user && activeSceneId && !hasLoadedFromCloud) {
+        console.warn('[AUTO-SAVE BLOCKED] hasLoadedFromCloud is false!');
+      }
+      return;
+    }
 
     const activeScene = scenes.find(s => s.id === activeSceneId);
     if (!activeScene) return;
 
     // Debounce auto-save (wait 1 second after last change)
     const timeoutId = setTimeout(async () => {
+      console.log('[AUTO-SAVE] Saving scene to Supabase:', activeScene.name);
       await saveSceneToSupabase(activeScene, user.id, user.handle, user.authProvider);
     }, 1000);
 
@@ -275,12 +280,12 @@ function App() {
       await saveUserSettings(user.id, {
         collections,
         activeSceneId,
-        viewport,
+        // NOTE: We don't save viewport - each scene centers itself when opened
       }, user.handle, user.authProvider);
     }, 500);
 
     return () => clearTimeout(timeoutId);
-  }, [collections, activeSceneId, viewport, user, hasLoadedFromCloud]);
+  }, [collections, activeSceneId, user, hasLoadedFromCloud]);
 
   // Load terrain brushes on mount
   useEffect(() => {

@@ -85,12 +85,15 @@ const TokensTab = ({
                   file.type === 'file' && 
                   /\.(jpg|jpeg|png|webp|gif)$/i.test(file.name)
                 )
-                .map((file: any) => {
-                  // Use full path for unique ID to avoid duplicates from subfolders
-                  const pathForId = file.path ? file.path.replace(/\.[^/.]+$/, '').replace(/[/\\]/g, '-') : `${category}-${file.name.replace(/\.[^/.]+$/, '')}`;
+                .map((file: any, index: number) => {
+                  // Use full path for unique ID, include current path as fallback
+                  const fileName = file.name.replace(/\.[^/.]+$/, '');
+                  const pathForId = file.path 
+                    ? file.path.replace(/\.[^/.]+$/, '').replace(/[/\\]/g, '-') 
+                    : `${path.replace(/[/\\]/g, '-')}-${fileName}`;
                   return {
-                    id: `token-${pathForId}`,
-                    name: file.name.replace(/\.[^/.]+$/, '').replace(/-/g, ' '),
+                    id: `token-${pathForId}-${index}`,
+                    name: fileName.replace(/-/g, ' '),
                     imageUrl: file.download_url,
                     category: category
                   };

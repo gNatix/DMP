@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect, useCallback } from 'react';
 import { Scene, MapElement, AnnotationElement, TokenElement, RoomElement, WallElement, ModularRoomElement, ToolType, IconType, ColorType, TokenTemplate, RoomSubTool, Point, TerrainTile, TerrainStamp, TerrainShapeMode, ViewMode, WallOpening, WallGroup } from '../types';
 import { Circle, Square, Triangle, Star, Diamond, Heart, Skull, MapPin, Search, Eye, DoorOpen, Landmark, Footprints, Info, Gamepad2, StopCircle } from 'lucide-react';
 import Toolbox from './toolbox/Toolbox';
@@ -299,6 +299,10 @@ const Canvas = ({
   const tileCanvasRefs = useRef<Map<string, HTMLCanvasElement>>(new Map());
   const hasActivatedSceneRef = useRef(false); // Track if we've activated auto-created scene
   const isFillingShapeRef = useRef(false); // Track if we're currently filling a shape (prevents clearing tiles during activation)
+  
+  // Loading state - initialized to true to show loading immediately
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadProgress, setLoadProgress] = useState(0);
   
   const [viewport, setViewport] = useState(initialViewport || { x: 0, y: 0, zoom: 1 });
   const [mapDimensions, setMapDimensions] = useState({ width: 0, height: 0, padding: 0 });
@@ -657,6 +661,7 @@ const Canvas = ({
       const handleImageLoad = () => {
         const width = img.naturalWidth;
         const height = img.naturalHeight;
+        console.log('[MAP LOAD] Image loaded!', { width, height, src: img.src?.slice(0, 50) });
         
         // Check if this is a canvas (transparent background) - infinite drawing area
         const isCanvas = scene.backgroundMapUrl.includes('fill="transparent"') ||
@@ -695,7 +700,9 @@ const Canvas = ({
           
           setMapDimensions({ width, height, padding });
         
-          // If NOT fit-to-view locked, center the map
+          // Center the map in viewport when not fit-to-view locked
+          // Always center on scene change (hasInitializedViewport will be false)
+          console.log('[MAP LOAD] Checking viewport centering:', { fitToViewLocked, hasInitializedViewport });
           if (!fitToViewLocked && !hasInitializedViewport) {
             // Center the map in viewport only on initial load when not locked
             const containerRect = container.getBoundingClientRect();
@@ -704,11 +711,13 @@ const Canvas = ({
             const totalWidth = visualWidth + padding * 2;
             const totalHeight = visualHeight + padding * 2;
             
-            setViewport({
+            const newViewport = {
               x: (containerRect.width - totalWidth) / 2,
               y: (containerRect.height - totalHeight) / 2,
               zoom: 1
-            });
+            };
+            console.log('[MAP LOAD] Centering viewport:', newViewport);
+            setViewport(newViewport);
             setHasInitializedViewport(true);
           }
         }
@@ -716,40 +725,71 @@ const Canvas = ({
       };
       
       if (img.complete) {
+        console.log('[MAP LOAD] Image already complete, calling handleImageLoad');
         handleImageLoad();
       } else {
+        console.log('[MAP LOAD] Image not complete, adding load listener');
         img.addEventListener('load', handleImageLoad);
-        return () => img.removeEventListener('load', handleImageLoad);
+        
+        // Also listen for error
+        const handleError = () => {
+          console.error('[MAP LOAD] Image failed to load!', img.src?.slice(0, 100));
+        };
+        img.addEventListener('error', handleError);
+        
+        return () => {
+          img.removeEventListener('load', handleImageLoad);
+          img.removeEventListener('error', handleError);
+        };
       }
+    } else {
+      console.log('[MAP LOAD] Missing requirements', { 
+        scene: !!scene, 
+        imgRef: !!imgRef.current, 
+        containerRef: !!containerRef.current 
+      });
     }
   }, [scene?.id, scene?.backgroundMapUrl, hasInitializedViewport]);
 
   // Reset initialization flag when scene changes
+  // If scene has a saved viewport, use it. Otherwise let map load handler center it.
   useEffect(() => {
-    setHasInitializedViewport(false);
-    setMapDimensions({ width: 0, height: 0, padding: 0 }); // Reset dimensions to force reload
+    console.log('[SCENE CHANGE] Scene changed:', scene?.id?.slice(-8), 'saved viewport:', scene?.viewport);
     hasActivatedSceneRef.current = false; // Reset terrain activation flag
+    
     // Initialize history with current scene state
     if (scene) {
       setHistory([{ elements: JSON.parse(JSON.stringify(scene.elements)) }]);
       setHistoryIndex(0);
+      
+      // If scene has a saved viewport, use it
+      if (scene.viewport) {
+        setViewport(scene.viewport);
+        setHasInitializedViewport(true);
+      } else {
+        // No saved viewport - let the map load handler center it
+        setHasInitializedViewport(false);
+      }
     }
   }, [scene?.id]);
 
-  // Sync viewport with initialViewport from parent (e.g., when restored from saved settings)
-  useEffect(() => {
-    if (initialViewport && !hasInitializedViewport) {
-      setViewport(initialViewport);
-      setHasInitializedViewport(true);
-    }
-  }, [initialViewport, hasInitializedViewport]);
+  // Track last saved viewport to prevent infinite loops
+  const lastSavedViewportRef = useRef<{ x: number; y: number; zoom: number } | null>(null);
 
-  // Notify parent about viewport changes
+  // Save viewport to scene when it changes (debounced via parent's auto-save)
   useEffect(() => {
     if (onViewportChange) {
       onViewportChange(viewport);
     }
-  }, [viewport, onViewportChange]);
+    // Also update scene's viewport for saving - but only if it actually changed
+    if (scene && hasInitializedViewport && activeSceneId) {
+      const lastSaved = lastSavedViewportRef.current;
+      if (!lastSaved || lastSaved.x !== viewport.x || lastSaved.y !== viewport.y || lastSaved.zoom !== viewport.zoom) {
+        lastSavedViewportRef.current = { ...viewport };
+        updateScene(activeSceneId, { viewport });
+      }
+    }
+  }, [viewport, hasInitializedViewport, activeSceneId, updateScene]);
 
   // Load terrain tiles from scene
   useEffect(() => {
@@ -5344,6 +5384,8 @@ const Canvas = ({
           y: newY
         };
       });
+      // User actively panned, so viewport is now initialized
+      setHasInitializedViewport(true);
       return;
     }
 
@@ -7005,7 +7047,7 @@ const Canvas = ({
     setTempElement(null);
   };
 
-  const handleWheel = (e: React.WheelEvent) => {
+  const handleWheel = useCallback((e: WheelEvent) => {
     // Check if shift is pressed and token tool is active
     if (e.shiftKey && activeTool === 'token' && tokenTemplates.length > 0) {
       e.preventDefault();
@@ -7096,7 +7138,18 @@ const Canvas = ({
         y: newY
       };
     });
-  };
+    // User actively zoomed, so viewport is now initialized
+    setHasInitializedViewport(true);
+  }, [activeTool, tokenTemplates, activeTokenTemplate, onSelectToken, isShiftPressed, mapDimensions, leftPanelOpen, shouldRotateMap, fitToViewLocked]);
+
+  // Add wheel event listener with passive: false to allow preventDefault
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    
+    container.addEventListener('wheel', handleWheel, { passive: false });
+    return () => container.removeEventListener('wheel', handleWheel);
+  }, [handleWheel]);
 
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -7337,16 +7390,98 @@ const Canvas = ({
     return iconMap[icon];
   };
 
+  // Detect scene change SYNCHRONOUSLY before render to ensure loading shows first
+  // Show loading bar for at least 1.2 seconds when scene changes
+  useEffect(() => {
+    // Reset and start animation
+    setIsLoading(true);
+    setLoadProgress(0);
+    
+    // Animate progress bar over 1.2 seconds
+    const startTime = Date.now();
+    const duration = 1200;
+    
+    const animateProgress = () => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min((elapsed / duration) * 100, 100);
+      setLoadProgress(progress);
+      
+      if (elapsed < duration) {
+        requestAnimationFrame(animateProgress);
+      } else {
+        // After 1.2 seconds, check if ready
+        const isCanvas = scene?.backgroundMapUrl.includes('fill="transparent"') || scene?.backgroundMapUrl.includes('fill=%22transparent%22');
+        const isReady = hasInitializedViewport && (mapDimensions.width > 0 || isCanvas);
+        if (isReady) {
+          setIsLoading(false);
+        }
+      }
+    };
+    
+    requestAnimationFrame(animateProgress);
+  }, [scene?.id]);
+  
+  // Also check readiness when viewport/dimensions change (after 1.2 second minimum)
+  useEffect(() => {
+    if (loadProgress < 100) return; // Still in minimum load time
+    
+    const isCanvas = scene?.backgroundMapUrl.includes('fill="transparent"') || scene?.backgroundMapUrl.includes('fill=%22transparent%22');
+    const isReady = hasInitializedViewport && (mapDimensions.width > 0 || isCanvas);
+    if (isReady && isLoading) {
+      setIsLoading(false);
+    }
+  }, [hasInitializedViewport, mapDimensions.width, scene?.backgroundMapUrl, isLoading, loadProgress]);
+
   return (
     <div className="flex-1 relative bg-dm-dark overflow-hidden">
-      {/* Canvas Container */}
+      {/* Loading indicator with progress bar - only show when there's actually a scene to load */}
+      {scene && (
+        <div 
+          className="absolute inset-0 flex items-center justify-center bg-dm-dark transition-opacity duration-300"
+          style={{ 
+            zIndex: 100,
+            opacity: isLoading ? 1 : 0,
+            pointerEvents: isLoading ? 'auto' : 'none'
+          }}
+        >
+        <div className="flex flex-col items-center gap-4 w-72">
+          <span className="text-gray-300 text-base font-medium">Loading map...</span>
+          <div 
+            style={{ 
+              width: '100%',
+              height: '12px',
+              backgroundColor: '#1f2937',
+              borderRadius: '9999px',
+              overflow: 'hidden',
+              border: '1px solid #374151'
+            }}
+          >
+            <div 
+              style={{ 
+                width: `${loadProgress}%`,
+                height: '100%',
+                backgroundColor: '#22c55e',
+                borderRadius: '9999px'
+              }}
+            />
+          </div>
+          <span className="text-gray-400 text-sm font-mono">{Math.round(loadProgress)}%</span>
+        </div>
+      </div>
+      )}
+      
+      {/* Canvas Container - only hide while loading if there's actually a scene */}
       <div
         ref={containerRef}
         className={`w-full h-full relative ${getCursor()}`}
+        style={{ 
+          visibility: (scene && isLoading) ? 'hidden' : 'visible',
+          opacity: (scene && isLoading) ? 0 : 1,
+          transition: 'opacity 300ms ease-out'
+        }}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
-        onWheel={handleWheel}
         onContextMenu={handleContextMenu}
         onDragOver={handleDragOver}
       >
