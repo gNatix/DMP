@@ -79,6 +79,16 @@ DM Planner is a web-based virtual tabletop (VTT) application designed for Dungeo
 
 #### 🚧 **In Progress**
 
+**Modular Room System**
+- ✅ Multi-select modular rooms with shift-click
+- ✅ Group drag with ghost preview (pointer tool)
+- ✅ Tokens follow parent rooms during drag
+- ✅ Connected component logic for wallGroupId
+- ✅ Wall style per room in ghost preview
+- ✅ Orphan token auto-linking on scene load
+- 🔄 Interior walls within modular rooms
+- 🔄 Door placement UI improvements
+
 **Game Mode Features**
 - ✅ Playlist panel with element filtering
 - ✅ InfoBox system with widgets

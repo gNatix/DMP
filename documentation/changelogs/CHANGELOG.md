@@ -8,6 +8,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Modular Room Multi-Select Drag**: Pointer tool now supports dragging multiple modular rooms together
+  - Shift-click to select multiple modular rooms
+  - All selected rooms move together with ghost preview
+  - Tokens linked to rooms follow automatically with correct offsets
+  - Magnetic snapping works for the entire group
+  - Connected component logic for wallGroupId management (merge/split)
+- **Orphan Token Auto-Linking**: Tokens placed on modular rooms are automatically linked with `parentRoomId` on scene load
+- **Modular Room Tool Error Message**: Shows "Modular Room tool can only interact with modular rooms" when trying to interact with other element types
+
+### Fixed
+- **Pointer Tool Ghost Preview**: Multi-selected modular rooms now show proper ghost preview during drag (was using wrong drag system)
+- **Token Movement with Rooms**: Tokens with `parentRoomId` now correctly move when their parent room is dragged via pointer tool
+- **Door Recalculation Spam**: Fixed excessive console logging and re-renders during modular room drag operations
+- **Wall Style Per Room in Preview**: Ghost preview now shows each room's own wall style instead of using primary room's style for all
+
+### Changed
+- Pointer tool uses modular room drag system (with ghost preview) when all selected elements are modular rooms
+- Door recalculation is skipped during active drag operations for better performance
+
+---
+
+### Added (Previous Session)
 - **Toolbar Settings System**: Customizable toolbar with preset profiles
   - 3 built-in presets: Beginner (all tools), Advanced (focused toolset), Minimalistic (essential only)
   - Custom mode auto-activates when settings don't match any preset

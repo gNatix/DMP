@@ -24,8 +24,8 @@ import {
   roomsOverlapPx,
   checkGroupSplitAfterRemoval,
   generateSplitUpdates,
-  findAdjacentGroups,
-  generateMergeUpdates,
+  // findAdjacentGroups, // Currently unused - new connected component logic replaces this
+  // generateMergeUpdates, // Currently unused - group drag doesn't use merge updates the same way
   areRoomsAdjacent,
 } from '../utils/modularRooms';
 
@@ -400,12 +400,16 @@ const Canvas = ({
   const [clipboard, setClipboard] = useState<MapElement[]>([]);
 
   // Modular Rooms state - now using pixels for free movement with magnetic snap
+  // Supports moving entire wall groups together
   const [modularRoomDragPreview, setModularRoomDragPreview] = useState<{
-    roomId: string;
-    originalPosition: { x: number; y: number };  // Pixels
-    ghostPosition: { x: number; y: number };     // Pixels (snapped or free)
+    roomId: string;  // The primary room being dragged (the one clicked)
+    groupRoomIds: string[];  // All rooms in the wall group (including roomId)
+    groupTokenIds: string[];  // All tokens linked to rooms in the group
+    originalPositions: Map<string, { x: number; y: number }>;  // Original positions of all rooms and tokens
+    ghostPosition: { x: number; y: number };     // Pixels (snapped or free) - offset for primary room
     cursorPosition: { x: number; y: number };    // Pixels (raw cursor)
-    snappedToRoom: string | null;  // ID of room we snapped to
+    delta: { x: number; y: number };             // Movement delta from original
+    snappedToRoom: string | null;  // ID of room we snapped to (outside our group)
     sharedEdgeTiles: number;       // How many tiles shared (0 if free)
   } | null>(null);
   // Note: placingModularFloor is now passed as a prop from App.tsx
@@ -950,6 +954,9 @@ const Canvas = ({
   useEffect(() => {
     if (!scene || !activeSceneId) return;
     
+    // Don't recalculate doors during a drag operation
+    if (modularRoomDragPreview) return;
+    
     const modularRooms = getModularRooms(scene.elements);
     if (modularRooms.length === 0) return;
     
@@ -962,18 +969,10 @@ const Canvas = ({
     const doorsAreMissing = currentDoors.length === 0 && newDoors.length > 0;
     
     // Check if doors have changed (compare by checking edge positions)
-    const doorsChanged = doorsAreMissing || newDoors.length !== currentDoors.length ||
-      newDoors.some((newDoor) => {
-        const oldDoor = currentDoors.find(d => 
-          (d.roomAId === newDoor.roomAId && d.roomBId === newDoor.roomBId) ||
-          (d.roomAId === newDoor.roomBId && d.roomBId === newDoor.roomAId)
-        );
-        if (!oldDoor) return true; // New door pair
-        // Check if edge position changed
-        return oldDoor.edgePosition !== newDoor.edgePosition ||
-               oldDoor.edgeRangeStart !== newDoor.edgeRangeStart ||
-               oldDoor.edgeRangeEnd !== newDoor.edgeRangeEnd;
-      });
+    // Use a more stable comparison that doesn't cause re-renders
+    const newDoorsKey = newDoors.map(d => `${d.roomAId}-${d.roomBId}:${d.edgePosition}:${d.edgeRangeStart}-${d.edgeRangeEnd}`).sort().join('|');
+    const currentDoorsKey = currentDoors.map(d => `${d.roomAId}-${d.roomBId}:${d.edgePosition}:${d.edgeRangeStart}-${d.edgeRangeEnd}`).sort().join('|');
+    const doorsChanged = doorsAreMissing || newDoorsKey !== currentDoorsKey;
     
     if (doorsChanged) {
       console.log('[MODULAR ROOMS] Doors recalculated:', newDoors.length, 'doors (missing:', doorsAreMissing, ')');
@@ -992,9 +991,49 @@ const Canvas = ({
       .filter((el): el is ModularRoomElement => el.type === 'modularRoom')
       .map(r => `${r.id}:${r.x},${r.y}`)
       .join('|'),
-    // Also include current doors count to detect when doors are missing after reload
-    scene?.modularRoomsState?.doors?.length ?? 0
+    // Also trigger when drag ends
+    modularRoomDragPreview === null
   ]);
+
+  // Link orphan tokens to modular rooms they're inside
+  // This ensures tokens placed on rooms before this feature existed get parentRoomId set
+  useEffect(() => {
+    if (!scene || !activeSceneId) return;
+    
+    const modularRooms = getModularRooms(scene.elements);
+    if (modularRooms.length === 0) return;
+    
+    const allTokens = scene.elements.filter(el => el.type === 'token') as TokenElement[];
+    const orphanTokens = allTokens.filter(t => !t.parentRoomId);
+    
+    if (orphanTokens.length === 0) return;
+    
+    // Check each orphan token to see if it's inside a modular room
+    const updatesToApply = new Map<string, Partial<TokenElement>>();
+    
+    for (const token of orphanTokens) {
+      const parentRoom = modularRooms.find(room => {
+        const roomRight = room.x + room.tilesW * MODULAR_TILE_PX;
+        const roomBottom = room.y + room.tilesH * MODULAR_TILE_PX;
+        return token.x >= room.x && token.x <= roomRight &&
+               token.y >= room.y && token.y <= roomBottom;
+      });
+      
+      if (parentRoom) {
+        const parentRoomOffset = { x: token.x - parentRoom.x, y: token.y - parentRoom.y };
+        console.log('[ORPHAN TOKEN] Linking token', token.id.slice(-8), 'to room', parentRoom.id.slice(-8));
+        updatesToApply.set(token.id, {
+          parentRoomId: parentRoom.id,
+          parentRoomOffset,
+        });
+      }
+    }
+    
+    if (updatesToApply.size > 0) {
+      console.log('[ORPHAN TOKEN] Linking', updatesToApply.size, 'orphan tokens to modular rooms');
+      updateElements(updatesToApply as Map<string, Partial<MapElement>>);
+    }
+  }, [activeSceneId, scene?.id]);
 
   // Render terrain tiles based on visible tiles
   useEffect(() => {
@@ -4149,6 +4188,23 @@ const Canvas = ({
             return;
           }
           
+          // Check if ALL selected elements are modular rooms - use modular room drag system
+          const allAreModularRooms = selectedElementIds.every(id => {
+            const el = scene.elements.find(e => e.id === id);
+            return el?.type === 'modularRoom';
+          });
+          
+          if (allAreModularRooms && clickedElement.type === 'modularRoom') {
+            // Use the modular room drag system with ghost preview
+            const modRoom = clickedElement as ModularRoomElement;
+            setPendingModularRoomDrag({
+              roomId: modRoom.id,
+              startX: x,
+              startY: y,
+            });
+            return; // Don't use draggedMultiple
+          }
+          
           // Start dragging multiple elements - DON'T change selection
           const dragOffsets = new Map<string, {x: number, y: number}>();
           selectedElementIds.forEach(id => {
@@ -4571,205 +4627,289 @@ const Canvas = ({
     } else if (effectiveTool === 'modularRoom' && !placingModularFloor) {
       // Modular Room tool - click-to-pickup, click-to-drop behavior
       
-      // If we're already carrying a room, this click drops it
+      // If we're already carrying a room GROUP, this click drops it
       if (modularRoomDragPreview) {
-        const { roomId, ghostPosition, originalPosition } = modularRoomDragPreview;
+        const { roomId, groupRoomIds, groupTokenIds, originalPositions, delta } = modularRoomDragPreview;
         
-        const room = scene.elements.find(el => el.id === roomId) as ModularRoomElement | undefined;
-        if (!room) {
+        const primaryRoom = scene.elements.find(el => el.id === roomId) as ModularRoomElement | undefined;
+        if (!primaryRoom) {
           setModularRoomDragPreview(null);
           return;
         }
         
         // Only update if position actually changed
-        if (ghostPosition.x !== originalPosition.x || ghostPosition.y !== originalPosition.y) {
-          // Check if final position overlaps with any existing room (excluding the one being moved)
-          const roomWidthPx = room.tilesW * MODULAR_TILE_PX;
-          const roomHeightPx = room.tilesH * MODULAR_TILE_PX;
-          const proposedRect = { x: ghostPosition.x, y: ghostPosition.y, w: roomWidthPx, h: roomHeightPx };
+        if (delta.x !== 0 || delta.y !== 0) {
+          // Check if any room in the group would overlap with rooms OUTSIDE the group
+          const allModularRooms = getModularRooms(scene.elements);
+          const roomsOutsideGroup = allModularRooms.filter(r => !groupRoomIds.includes(r.id));
           
-          const existingModularRooms = getModularRooms(scene.elements).filter(r => r.id !== roomId);
-          const hasOverlap = existingModularRooms.some(other => {
-            const otherRect = {
-              x: other.x,
-              y: other.y,
-              w: other.tilesW * MODULAR_TILE_PX,
-              h: other.tilesH * MODULAR_TILE_PX,
+          // Check overlap for each room in the group at its new position
+          let hasOverlap = false;
+          for (const groupRoomId of groupRoomIds) {
+            const groupRoom = allModularRooms.find(r => r.id === groupRoomId);
+            if (!groupRoom) continue;
+            
+            const originalPos = originalPositions.get(groupRoomId);
+            const newX = (originalPos?.x || groupRoom.x) + delta.x;
+            const newY = (originalPos?.y || groupRoom.y) + delta.y;
+            
+            const proposedRect = {
+              x: newX,
+              y: newY,
+              w: groupRoom.tilesW * MODULAR_TILE_PX,
+              h: groupRoom.tilesH * MODULAR_TILE_PX,
             };
-            return roomsOverlapPx(proposedRect, otherRect);
-          });
+            
+            for (const otherRoom of roomsOutsideGroup) {
+              const otherRect = {
+                x: otherRoom.x,
+                y: otherRoom.y,
+                w: otherRoom.tilesW * MODULAR_TILE_PX,
+                h: otherRoom.tilesH * MODULAR_TILE_PX,
+              };
+              if (roomsOverlapPx(proposedRect, otherRect)) {
+                hasOverlap = true;
+                break;
+              }
+            }
+            if (hasOverlap) break;
+          }
           
           if (hasOverlap) {
-            // Show error message but STAY in placement mode - don't drop the room
-            setMergeNotification('Modular rooms can only be placed in unoccupied space');
+            // Show error message but STAY in placement mode - don't drop the group
+            setMergeNotification('Group cannot be placed - overlaps with existing rooms');
             setTimeout(() => setMergeNotification(null), 3000);
-            // Keep modularRoomDragPreview active - user can try another position
             return;
           }
           
-          // Create a temporary room at new position to check adjacencies
-          const tempRoom = { ...room, x: ghostPosition.x, y: ghostPosition.y };
-          const allRooms = getModularRooms(scene.elements);
-          const allRoomsWithNewPosition = allRooms.map(r => r.id === roomId ? tempRoom : r);
+          console.log('[GROUP DROP] Moving', groupRoomIds.length, 'rooms and', groupTokenIds.length, 'tokens by delta:', delta);
           
-          console.log('[Canvas modularRoom] Moving room', roomId.slice(-8), 'from', room.x, room.y, 'to', ghostPosition.x, ghostPosition.y);
-          console.log('[Canvas modularRoom] allRooms for split check:', allRooms.map(r => ({
-            id: r.id.slice(-8),
-            groupId: r.wallGroupId?.slice(-8),
-            x: Math.round(r.x),
-            y: Math.round(r.y)
-          })));
+          // Build updated rooms at new positions for adjacency checks
+          const updatedGroupRooms = groupRoomIds.map(id => {
+            const room = allModularRooms.find(r => r.id === id)!;
+            const originalPos = originalPositions.get(id);
+            return {
+              ...room,
+              x: (originalPos?.x || room.x) + delta.x,
+              y: (originalPos?.y || room.y) + delta.y,
+            };
+          });
           
-          // Find all groups this room would be adjacent to at NEW position
-          const adjacentGroupIds = findAdjacentGroups(tempRoom, allRoomsWithNewPosition);
+          // Build all rooms at their new positions for adjacency checking
+          const allRoomsAtNewPosition = [
+            ...roomsOutsideGroup,
+            ...updatedGroupRooms,
+          ];
           
-          let newWallGroupId: string | undefined = room.wallGroupId;
-          let wallGroupsToUpdate = scene.modularRoomsState?.wallGroups || [];
+          let wallGroupsToUpdate = [...(scene.modularRoomsState?.wallGroups || [])];
           const roomUpdatesToApply: { roomId: string; newWallGroupId: string }[] = [];
           
-          // STEP 1: Check if moving this room splits its original group
-          // We need to check this using the ORIGINAL positions (not the new position)
-          if (room.wallGroupId) {
-            const splitResult = checkGroupSplitAfterRemoval(allRooms, roomId);
-            if (splitResult.needsSplit) {
-              const splitUpdates = generateSplitUpdates(
-                splitResult.components,
-                room.wallGroupId,
-                wallGroupsToUpdate
-              );
+          // ========== CONNECTED COMPONENT LOGIC ==========
+          // This ensures rooms only share wallGroupId if they are PHYSICALLY connected
+          // AND handles splits where rooms in the same original group are now disconnected
+          
+          // Build adjacency graph for all rooms at new positions
+          const roomAdjacency = new Map<string, Set<string>>();
+          for (const room of allRoomsAtNewPosition) {
+            roomAdjacency.set(room.id, new Set());
+          }
+          
+          // Check every pair of rooms for adjacency
+          for (let i = 0; i < allRoomsAtNewPosition.length; i++) {
+            for (let j = i + 1; j < allRoomsAtNewPosition.length; j++) {
+              const roomA = allRoomsAtNewPosition[i];
+              const roomB = allRoomsAtNewPosition[j];
+              if (areRoomsAdjacent(roomA, roomB)) {
+                roomAdjacency.get(roomA.id)!.add(roomB.id);
+                roomAdjacency.get(roomB.id)!.add(roomA.id);
+              }
+            }
+          }
+          
+          // Find connected components using BFS
+          const visited = new Set<string>();
+          const connectedComponents: string[][] = [];
+          
+          for (const room of allRoomsAtNewPosition) {
+            if (visited.has(room.id)) continue;
+            
+            const component: string[] = [];
+            const queue = [room.id];
+            
+            while (queue.length > 0) {
+              const currentId = queue.shift()!;
+              if (visited.has(currentId)) continue;
+              visited.add(currentId);
+              component.push(currentId);
               
-              // Apply split updates to rooms (except the moving room)
-              for (const update of splitUpdates.roomUpdates) {
-                if (update.roomId !== roomId) {
-                  roomUpdatesToApply.push(update);
+              const neighbors = roomAdjacency.get(currentId) || new Set();
+              for (const neighborId of neighbors) {
+                if (!visited.has(neighborId)) {
+                  queue.push(neighborId);
                 }
               }
+            }
+            
+            if (component.length > 0) {
+              connectedComponents.push(component);
+            }
+          }
+          
+          console.log('[GROUP DROP] Found', connectedComponents.length, 'connected components');
+          
+          // Track which groups have been assigned to which components
+          const groupIdAssignments = new Map<string, string>(); // componentKey -> assigned groupId
+          const newWallGroups: WallGroup[] = [];
+          const groupIdsStillInUse = new Set<string>();
+          
+          // Process each connected component
+          for (const component of connectedComponents) {
+            // Get all current wallGroupIds in this component (from rooms at their current positions)
+            const groupIdsInComponent = new Set<string>();
+            for (const roomId of component) {
+              const room = allRoomsAtNewPosition.find(r => r.id === roomId);
+              if (room?.wallGroupId) {
+                groupIdsInComponent.add(room.wallGroupId);
+              }
+            }
+            
+            // Find the groups and determine dominant (largest roomCount)
+            const groups = wallGroupsToUpdate.filter(g => groupIdsInComponent.has(g.id));
+            let dominantGroup = groups.reduce((dom, g) => 
+              (g.roomCount || 0) > (dom?.roomCount || 0) ? g : dom, 
+              groups[0]);
+            
+            // Check if the dominant group is already assigned to another component
+            // This handles SPLIT: same wallGroupId but now in different components
+            let assignedGroupId: string;
+            
+            if (dominantGroup && !groupIdAssignments.has(dominantGroup.id)) {
+              // Use this group for this component
+              assignedGroupId = dominantGroup.id;
+              groupIdAssignments.set(dominantGroup.id, 'used');
+              groupIdsStillInUse.add(dominantGroup.id);
               
-              // Add new groups and update original group's roomCount
-              wallGroupsToUpdate = [
-                ...wallGroupsToUpdate
-                  .filter(g => g.id !== room.wallGroupId)
-                  .concat(splitUpdates.updatedOriginalGroup ? [splitUpdates.updatedOriginalGroup] : []),
-                ...splitUpdates.newWallGroups
-              ];
-              
-              // The moving room no longer belongs to any group (it will find a new one below)
-              newWallGroupId = undefined;
+              // Update room count
+              const idx = wallGroupsToUpdate.findIndex(g => g.id === dominantGroup.id);
+              if (idx >= 0) {
+                wallGroupsToUpdate[idx] = { ...wallGroupsToUpdate[idx], roomCount: component.length };
+              }
             } else {
-              // No split, but room is leaving - decrement old group's roomCount
-              wallGroupsToUpdate = wallGroupsToUpdate.map(g => {
-                if (g.id === room.wallGroupId) {
-                  return { ...g, roomCount: Math.max(0, (g.roomCount || 1) - 1) };
-                }
-                return g;
+              // Need a new group - either no dominant, or dominant is already used (SPLIT case)
+              // Get the wall style from one of the existing groups
+              const styleGroup = groups[0] || dominantGroup;
+              const wallStyleId = styleGroup?.wallStyleId || 'worn-castle';
+              
+              assignedGroupId = generateWallGroupId();
+              newWallGroups.push({
+                id: assignedGroupId,
+                wallStyleId,
+                roomCount: component.length,
               });
-              // Room is leaving this group
-              newWallGroupId = undefined;
+              groupIdsStillInUse.add(assignedGroupId);
+              
+              console.log('[GROUP DROP] Created new group for split component:', assignedGroupId.slice(-12));
             }
-          }
-          
-          // STEP 2: Check merge/join at new position
-          if (adjacentGroupIds.length > 1) {
-            // Multiple groups - need to merge
-            const mergeResult = generateMergeUpdates(
-              tempRoom,
-              adjacentGroupIds,
-              allRoomsWithNewPosition,
-              wallGroupsToUpdate
-            );
             
-            if (mergeResult) {
-              newWallGroupId = mergeResult.updatedDominantGroup.id;
-              roomUpdatesToApply.push(...mergeResult.roomUpdates);
-              // Remove merged groups and update dominant group
-              wallGroupsToUpdate = wallGroupsToUpdate
-                .filter(g => !mergeResult.groupsToRemove.includes(g.id))
-                .map(g => g.id === mergeResult.updatedDominantGroup.id ? mergeResult.updatedDominantGroup : g);
-            }
-          } else if (adjacentGroupIds.length === 1) {
-            // Single adjacent group - adopt it and increment roomCount
-            // (decrement of old group already done in STEP 1)
-            newWallGroupId = adjacentGroupIds[0];
-            wallGroupsToUpdate = wallGroupsToUpdate.map(g => {
-              if (g.id === adjacentGroupIds[0]) {
-                return { ...g, roomCount: (g.roomCount || 0) + 1 };
+            // Update all rooms in this component to use the assigned group
+            for (const roomId of component) {
+              const room = allRoomsAtNewPosition.find(r => r.id === roomId);
+              if (room && room.wallGroupId !== assignedGroupId) {
+                roomUpdatesToApply.push({ roomId, newWallGroupId: assignedGroupId });
               }
-              return g;
-            });
-          } else if (adjacentGroupIds.length === 0) {
-            // No adjacent groups - create a new group for this room
-            // Preserve the wall style from the room's original group
-            const originalGroup = (scene.modularRoomsState?.wallGroups || []).find(g => g.id === room.wallGroupId);
-            const preservedWallStyle = originalGroup?.wallStyleId || 'worn-castle';
-            
-            const newGroupId = generateWallGroupId();
-            const newGroup: WallGroup = {
-              id: newGroupId,
-              wallStyleId: preservedWallStyle,
-              roomCount: 1,
-            };
-            newWallGroupId = newGroupId;
-            wallGroupsToUpdate = [...wallGroupsToUpdate, newGroup];
+            }
           }
           
-          // Build element updates map for all rooms that need wallGroupId changes
-          console.log('[Canvas modularRoom] roomUpdatesToApply:', roomUpdatesToApply);
+          // Add new wall groups
+          wallGroupsToUpdate = [...wallGroupsToUpdate, ...newWallGroups];
+          
+          // Remove groups that are no longer used by any room
+          const allGroupIdsInUse = new Set<string>();
+          for (const room of allRoomsAtNewPosition) {
+            const update = roomUpdatesToApply.find(u => u.roomId === room.id);
+            allGroupIdsInUse.add(update?.newWallGroupId || room.wallGroupId || '');
+          }
+          
+          wallGroupsToUpdate = wallGroupsToUpdate.filter(g => allGroupIdsInUse.has(g.id));
+          
+          const mergeCount = roomUpdatesToApply.length;
+          if (mergeCount > 0) {
+            setMergeNotification(`Updated ${mergeCount} room group connections`);
+            setTimeout(() => setMergeNotification(null), 2000);
+          }
+          
+          // Build element updates map
           const elementUpdatesMap = new Map<string, Partial<MapElement>>();
           
-          // Add updates for rooms affected by split/merge
+          // Build a map of room new positions for token calculations
+          const roomNewPositions = new Map<string, { x: number; y: number }>();
+          
+          // Add position updates for all rooms in the group
+          for (const gRoomId of groupRoomIds) {
+            const originalPos = originalPositions.get(gRoomId);
+            if (originalPos) {
+              const newX = originalPos.x + delta.x;
+              const newY = originalPos.y + delta.y;
+              const updates: Partial<ModularRoomElement> = { x: newX, y: newY };
+              roomNewPositions.set(gRoomId, { x: newX, y: newY });
+              
+              // Add wallGroupId update if needed (from connected component analysis)
+              const roomUpdate = roomUpdatesToApply.find(u => u.roomId === gRoomId);
+              if (roomUpdate) {
+                updates.wallGroupId = roomUpdate.newWallGroupId;
+              }
+              elementUpdatesMap.set(gRoomId, updates);
+            }
+          }
+          
+          // Add wallGroupId updates for merged rooms (outside our group)
           for (const update of roomUpdatesToApply) {
-            if (update.roomId !== roomId) {
-              console.log('[Canvas modularRoom] Queueing room update:', update.roomId.slice(-8), '-> group:', update.newWallGroupId.slice(-8));
+            if (!groupRoomIds.includes(update.roomId)) {
               elementUpdatesMap.set(update.roomId, { wallGroupId: update.newWallGroupId });
             }
           }
           
-          // Add update for the moved room itself
-          elementUpdatesMap.set(roomId, {
-            x: ghostPosition.x,
-            y: ghostPosition.y,
-            ...(newWallGroupId !== room.wallGroupId ? { wallGroupId: newWallGroupId } : {}),
-          });
-          
-          // Calculate movement delta for linked tokens
-          const deltaX = ghostPosition.x - room.x;
-          const deltaY = ghostPosition.y - room.y;
-          
-          // Find all tokens linked to this room and add movement updates
+          // Update ALL tokens linked to any selected room using parentRoomOffset
           const allTokens = scene.elements.filter(el => el.type === 'token') as TokenElement[];
-          console.log('[TOKEN MOVE] All tokens:', allTokens.map(t => ({ id: t.id.slice(-8), parentRoomId: t.parentRoomId?.slice(-8) || 'none' })));
-          console.log('[TOKEN MOVE] Looking for tokens with parentRoomId:', roomId.slice(-8));
-          
-          allTokens.forEach(token => {
-            if (token.parentRoomId === roomId) {
-              console.log('[TOKEN MOVE] Found linked token:', token.id.slice(-8), 'moving by', deltaX, deltaY);
-              elementUpdatesMap.set(token.id, {
-                x: token.x + deltaX,
-                y: token.y + deltaY,
-              });
+          for (const token of allTokens) {
+            if (token.parentRoomId && groupRoomIds.includes(token.parentRoomId)) {
+              const roomNewPos = roomNewPositions.get(token.parentRoomId);
+              const roomOrigPos = originalPositions.get(token.parentRoomId);
+              
+              if (roomNewPos && token.parentRoomOffset) {
+                // Use stored offset to calculate new position
+                elementUpdatesMap.set(token.id, {
+                  x: roomNewPos.x + token.parentRoomOffset.x,
+                  y: roomNewPos.y + token.parentRoomOffset.y,
+                });
+              } else if (roomNewPos && roomOrigPos) {
+                // Fallback: calculate offset from room's ORIGINAL position (before drag)
+                const currentOffset = { x: token.x - roomOrigPos.x, y: token.y - roomOrigPos.y };
+                elementUpdatesMap.set(token.id, {
+                  x: roomNewPos.x + currentOffset.x,
+                  y: roomNewPos.y + currentOffset.y,
+                  parentRoomOffset: currentOffset,
+                } as Partial<TokenElement>);
+              }
             }
-          });
+          }
           
-          // Log final state
-          console.log('[Canvas modularRoom STEP 3] wallGroupsToUpdate:', wallGroupsToUpdate);
-          console.log('[Canvas modularRoom STEP 3] newWallGroupId:', newWallGroupId);
-          console.log('[Canvas modularRoom STEP 3] elementUpdatesMap size:', elementUpdatesMap.size);
+          console.log('[GROUP DROP] elementUpdatesMap size:', elementUpdatesMap.size);
           
-          // Apply all element updates to get updated elements array
+          // Apply all element updates
           const updatedElements = scene.elements.map(el => {
             const updates = elementUpdatesMap.get(el.id);
             if (updates) {
-              console.log('[Canvas modularRoom] Applying update to element:', el.id.slice(-8), updates);
               return { ...el, ...updates } as MapElement;
             }
             return el;
           });
           
-          // Recalculate doors with updated rooms (including wallGroupId changes)
+          // Recalculate doors with updated rooms
           const updatedRooms = getModularRooms(updatedElements);
           const newDoors = recalculateAllDoors(updatedRooms);
           
-          // Update BOTH elements AND modularRoomsState in ONE call to prevent overwrites
+          // Update BOTH elements AND modularRoomsState in ONE call
           updateScene(activeSceneId!, {
             elements: updatedElements,
             modularRoomsState: {
@@ -4788,22 +4928,69 @@ const Canvas = ({
       if (clickedElement && clickedElement.type === 'modularRoom') {
         const modRoom = clickedElement as ModularRoomElement;
         
-        // Select the room and prepare for potential drag
-        setSelectedElementId(modRoom.id);
-        setSelectedElementIds([]);
+        // Shift-click to add/remove from multi-selection
+        if (e.shiftKey) {
+          const isAlreadySelected = selectedElementId === modRoom.id || selectedElementIds.includes(modRoom.id);
+          
+          if (isAlreadySelected) {
+            // Remove from selection
+            if (selectedElementId === modRoom.id) {
+              // It was the primary - promote first from selectedElementIds
+              if (selectedElementIds.length > 0) {
+                setSelectedElementId(selectedElementIds[0]);
+                setSelectedElementIds(selectedElementIds.slice(1));
+              } else {
+                setSelectedElementId(null);
+                setSelectedElementIds([]);
+              }
+            } else {
+              // It was in the secondary list
+              setSelectedElementIds(selectedElementIds.filter(id => id !== modRoom.id));
+            }
+          } else {
+            // Add to selection
+            if (selectedElementId && scene.elements.find(el => el.id === selectedElementId)?.type === 'modularRoom') {
+              // Already have a primary modular room selected - add this to secondary
+              setSelectedElementIds([...selectedElementIds, modRoom.id]);
+            } else {
+              // No modular room selected yet - make this primary
+              setSelectedElementId(modRoom.id);
+              setSelectedElementIds([]);
+            }
+          }
+          // Don't start drag on shift-click
+          return;
+        }
         
-        // Set pending drag - actual drag starts on mousemove
-        setPendingModularRoomDrag({
-          roomId: modRoom.id,
-          startX: x,
-          startY: y,
-        });
+        // Check if clicked room is already part of current multi-selection
+        const isPartOfMultiSelection = selectedElementId === modRoom.id || selectedElementIds.includes(modRoom.id);
+        
+        if (isPartOfMultiSelection) {
+          // Clicked on an already selected room - keep multi-selection, start drag from this room
+          setPendingModularRoomDrag({
+            roomId: modRoom.id,
+            startX: x,
+            startY: y,
+          });
+        } else {
+          // Normal click on unselected room - select only this room
+          setSelectedElementId(modRoom.id);
+          setSelectedElementIds([]);
+          
+          // Set pending drag - actual drag starts on mousemove
+          setPendingModularRoomDrag({
+            roomId: modRoom.id,
+            startX: x,
+            startY: y,
+          });
+        }
         
         return;
       } else if (clickedElement) {
-        // Clicked on a non-modular element - just select it
-        setSelectedElementId(clickedElement.id);
-        setSelectedElementIds([]);
+        // Clicked on a non-modular element with modular room tool - show error
+        setMergeNotification('Modular Room tool can only interact with modular rooms');
+        setTimeout(() => setMergeNotification(null), 3000);
+        return;
       } else {
         // Click on empty space - start modular selection box
         setModularSelectionBox({ startX: x, startY: y, endX: x, endY: y });
@@ -5057,38 +5244,95 @@ const Canvas = ({
         if (modRoom) {
           saveToHistory();
           
-          // Remove doors for this room immediately when starting drag
+          // Only move the SELECTED rooms, not the entire wall group
+          const allModularRooms = getModularRooms(scene.elements);
+          
+          // Get currently selected room IDs (primary + multi-selected + the room being dragged)
+          const allSelectedIds = new Set<string>();
+          
+          // Add the room being dragged
+          allSelectedIds.add(pendingModularRoomDrag.roomId);
+          
+          // Add primary selected if it's a modular room
+          if (selectedElementId) {
+            const primaryEl = scene.elements.find(e => e.id === selectedElementId);
+            if (primaryEl?.type === 'modularRoom') {
+              allSelectedIds.add(selectedElementId);
+            }
+          }
+          
+          // Add all multi-selected modular rooms
+          selectedElementIds.forEach(id => {
+            const el = scene.elements.find(e => e.id === id);
+            if (el?.type === 'modularRoom') {
+              allSelectedIds.add(id);
+            }
+          });
+          
+          const selectedRoomIdsList = Array.from(allSelectedIds);
+          
+          // Only include modular rooms that are actually selected
+          const selectedRooms = allModularRooms.filter(r => selectedRoomIdsList.includes(r.id));
+          const groupRoomIds = selectedRooms.map(r => r.id);
+          
+          // Find all tokens linked to any SELECTED room (not entire wall group)
+          const allTokens = scene.elements.filter(el => el.type === 'token') as TokenElement[];
+          const groupTokens = allTokens.filter(t => t.parentRoomId && groupRoomIds.includes(t.parentRoomId));
+          const groupTokenIds = groupTokens.map(t => t.id);
+          
+          // Store original positions for selected rooms and their tokens
+          const originalPositions = new Map<string, { x: number; y: number }>();
+          selectedRooms.forEach(r => originalPositions.set(r.id, { x: r.x, y: r.y }));
+          groupTokens.forEach(t => originalPositions.set(t.id, { x: t.x, y: t.y }));
+          
+          console.log('[SELECTION DRAG] === DRAG START DEBUG ===');
+          console.log('[SELECTION DRAG] selectedElementId:', selectedElementId?.slice(-8));
+          console.log('[SELECTION DRAG] selectedElementIds:', selectedElementIds.map(id => id.slice(-8)));
+          console.log('[SELECTION DRAG] pendingModularRoomDrag.roomId:', pendingModularRoomDrag.roomId.slice(-8));
+          console.log('[SELECTION DRAG] allSelectedIds:', Array.from(allSelectedIds).map(id => id.slice(-8)));
+          console.log('[SELECTION DRAG] groupRoomIds:', groupRoomIds.map(id => id.slice(-8)));
+          console.log('[SELECTION DRAG] groupTokenIds:', groupTokenIds.map(id => id.slice(-8)));
+          console.log('[SELECTION DRAG] originalPositions keys:', Array.from(originalPositions.keys()).map(id => id.slice(-8)));
+          console.log('[SELECTION DRAG] Starting drag of', groupRoomIds.length, 'selected rooms and', groupTokenIds.length, 'tokens');
+          
+          // Remove doors involving any selected room immediately when starting drag
           if (activeSceneId && scene.modularRoomsState) {
             const currentDoors = scene.modularRoomsState.doors || [];
-            const doorsWithoutThisRoom = currentDoors.filter(
-              d => d.roomAId !== modRoom.id && d.roomBId !== modRoom.id
+            const doorsWithoutGroup = currentDoors.filter(
+              d => !groupRoomIds.includes(d.roomAId) && !groupRoomIds.includes(d.roomBId)
             );
-            if (doorsWithoutThisRoom.length !== currentDoors.length) {
+            if (doorsWithoutGroup.length !== currentDoors.length) {
               updateScene(activeSceneId, {
                 modularRoomsState: {
                   ...scene.modularRoomsState,
-                  doors: doorsWithoutThisRoom,
+                  doors: doorsWithoutGroup,
                 }
               });
             }
           }
           
-          // Start "carrying" the room - center it under cursor
+          // Start "carrying" the group - center primary room under cursor
           const roomWidthPx = modRoom.tilesW * MODULAR_TILE_PX;
           const roomHeightPx = modRoom.tilesH * MODULAR_TILE_PX;
           const centeredX = x - roomWidthPx / 2;
           const centeredY = y - roomHeightPx / 2;
           
-          // Calculate snap position
-          const allModularRooms = getModularRooms(scene.elements);
-          const otherRooms = allModularRooms.filter(r => r.id !== modRoom.id);
+          // Calculate snap position - exclude all rooms in our group from snap targets
+          const otherRooms = allModularRooms.filter(r => !groupRoomIds.includes(r.id));
           const snapResult = findMagneticSnapPosition(modRoom, centeredX, centeredY, otherRooms);
+          
+          // Calculate snap delta from original position
+          const snapDeltaX = snapResult.x - modRoom.x;
+          const snapDeltaY = snapResult.y - modRoom.y;
           
           setModularRoomDragPreview({
             roomId: modRoom.id,
-            originalPosition: { x: modRoom.x, y: modRoom.y },
+            groupRoomIds,
+            groupTokenIds,
+            originalPositions,
             ghostPosition: { x: snapResult.x, y: snapResult.y },
             cursorPosition: { x: centeredX, y: centeredY },
+            delta: { x: snapDeltaX, y: snapDeltaY },
             snappedToRoom: snapResult.snappedToRoom,
             sharedEdgeTiles: snapResult.sharedEdgeTiles,
           });
@@ -5339,24 +5583,30 @@ const Canvas = ({
       // Update cursor position for modular floor preview
       setCursorPosition({ x, y });
     } else if (modularRoomDragPreview && scene && !isOverUI) {
-      // Update carried modular room position (works with any tool)
+      // Update carried modular room GROUP position (works with any tool)
       const room = scene.elements.find(el => el.id === modularRoomDragPreview.roomId) as ModularRoomElement | undefined;
       if (room) {
-        // Center room under cursor
+        // Center primary room under cursor
         const roomWidthPx = room.tilesW * MODULAR_TILE_PX;
         const roomHeightPx = room.tilesH * MODULAR_TILE_PX;
         const centeredX = x - roomWidthPx / 2;
         const centeredY = y - roomHeightPx / 2;
         
-        // Get other rooms for magnetic snap
+        // Get other rooms for magnetic snap - exclude all rooms in our group
         const allModularRooms = getModularRooms(scene.elements);
-        const otherRooms = allModularRooms.filter(r => r.id !== room.id);
+        const otherRooms = allModularRooms.filter(r => !modularRoomDragPreview.groupRoomIds.includes(r.id));
         const snapResult = findMagneticSnapPosition(room, centeredX, centeredY, otherRooms);
+        
+        // Calculate delta from original position of primary room
+        const originalPos = modularRoomDragPreview.originalPositions.get(room.id);
+        const deltaX = snapResult.x - (originalPos?.x || room.x);
+        const deltaY = snapResult.y - (originalPos?.y || room.y);
         
         setModularRoomDragPreview({
           ...modularRoomDragPreview,
           ghostPosition: { x: snapResult.x, y: snapResult.y },
           cursorPosition: { x: centeredX, y: centeredY },
+          delta: { x: deltaX, y: deltaY },
           snappedToRoom: snapResult.snappedToRoom,
           sharedEdgeTiles: snapResult.sharedEdgeTiles,
         });
@@ -5932,174 +6182,277 @@ const Canvas = ({
       return;
     }
     
-    // Finalize modular room drag (for pointer tool - modularRoom tool uses click-to-drop)
-    if (modularRoomDragPreview && activeTool !== 'modularRoom' && scene) {
-      const { roomId, ghostPosition, originalPosition } = modularRoomDragPreview;
+    // Finalize modular room GROUP drag (for pointer tool - modularRoom tool uses click-to-drop)
+    if (modularRoomDragPreview && activeTool !== 'modularRoom' && scene && activeSceneId) {
+      const { roomId, groupRoomIds, originalPositions, delta } = modularRoomDragPreview;
       
-      const room = scene.elements.find(el => el.id === roomId) as ModularRoomElement | undefined;
-      if (!room) {
+      const primaryRoom = scene.elements.find(el => el.id === roomId) as ModularRoomElement | undefined;
+      if (!primaryRoom) {
         setModularRoomDragPreview(null);
         return;
       }
       
-      // Only update if position actually changed
-      if (ghostPosition.x !== originalPosition.x || ghostPosition.y !== originalPosition.y) {
-        // Check if final position overlaps with any existing room
-        const roomWidthPx = room.tilesW * MODULAR_TILE_PX;
-        const roomHeightPx = room.tilesH * MODULAR_TILE_PX;
-        const proposedRect = { x: ghostPosition.x, y: ghostPosition.y, w: roomWidthPx, h: roomHeightPx };
+      // Check if the group actually moved
+      const hasMoved = delta.x !== 0 || delta.y !== 0;
+      
+      if (hasMoved) {
+        const allModularRooms = getModularRooms(scene.elements);
+        const groupRoomIdsSet = new Set(groupRoomIds);
         
-        const existingModularRooms = getModularRooms(scene.elements).filter(r => r.id !== roomId);
-        const hasOverlap = existingModularRooms.some(other => {
-          const otherRect = {
-            x: other.x,
-            y: other.y,
-            w: other.tilesW * MODULAR_TILE_PX,
-            h: other.tilesH * MODULAR_TILE_PX,
+        // Check overlap for ALL rooms in the group against rooms OUTSIDE the group
+        let hasOverlap = false;
+        for (const grId of groupRoomIds) {
+          const grRoom = allModularRooms.find(r => r.id === grId);
+          if (!grRoom) continue;
+          
+          const origPos = originalPositions.get(grId);
+          if (!origPos) continue;
+          
+          const newX = origPos.x + delta.x;
+          const newY = origPos.y + delta.y;
+          const proposedRect = {
+            x: newX,
+            y: newY,
+            w: grRoom.tilesW * MODULAR_TILE_PX,
+            h: grRoom.tilesH * MODULAR_TILE_PX,
           };
-          return roomsOverlapPx(proposedRect, otherRect);
-        });
+          
+          // Check against rooms outside our group
+          for (const otherRoom of allModularRooms) {
+            if (groupRoomIdsSet.has(otherRoom.id)) continue;
+            const otherRect = {
+              x: otherRoom.x,
+              y: otherRoom.y,
+              w: otherRoom.tilesW * MODULAR_TILE_PX,
+              h: otherRoom.tilesH * MODULAR_TILE_PX,
+            };
+            if (roomsOverlapPx(proposedRect, otherRect)) {
+              hasOverlap = true;
+              break;
+            }
+          }
+          if (hasOverlap) break;
+        }
         
         if (hasOverlap) {
-          // Show error and revert
           setMergeNotification('Modular rooms can only be placed in unoccupied space');
           setTimeout(() => setMergeNotification(null), 3000);
         } else {
-          // Create a temporary room at new position to check adjacencies
-          const tempRoom = { ...room, x: ghostPosition.x, y: ghostPosition.y };
-          const allRooms = getModularRooms(scene.elements);
-          const allRoomsWithNewPosition = allRooms.map(r => r.id === roomId ? tempRoom : r);
-          
-          // Find all groups this room would be adjacent to at NEW position
-          const adjacentGroupIds = findAdjacentGroups(tempRoom, allRoomsWithNewPosition);
-          
-          let newWallGroupId: string | undefined = room.wallGroupId;
-          let wallGroupsToUpdate = scene.modularRoomsState?.wallGroups || [];
-          const roomUpdatesToApply: { roomId: string; newWallGroupId: string }[] = [];
-          
-          // STEP 1: Check if moving this room splits its original group
-          // We need to check this using the ORIGINAL positions (not the new position)
-          if (room.wallGroupId) {
-            const splitResult = checkGroupSplitAfterRemoval(allRooms, roomId);
-            if (splitResult.needsSplit) {
-              const splitUpdates = generateSplitUpdates(
-                splitResult.components,
-                room.wallGroupId,
-                wallGroupsToUpdate
-              );
-              
-              // Apply split updates to rooms (except the moving room)
-              for (const update of splitUpdates.roomUpdates) {
-                if (update.roomId !== roomId) {
-                  roomUpdatesToApply.push(update);
-                }
-              }
-              
-              // Add new groups and update original group's roomCount
-              wallGroupsToUpdate = [
-                ...wallGroupsToUpdate
-                  .filter(g => g.id !== room.wallGroupId)
-                  .concat(splitUpdates.updatedOriginalGroup ? [splitUpdates.updatedOriginalGroup] : []),
-                ...splitUpdates.newWallGroups
-              ];
-              
-              // The moving room no longer belongs to any group (it will find a new one below)
-              newWallGroupId = undefined;
-            } else {
-              // No split, but room is leaving - decrement old group's roomCount
-              wallGroupsToUpdate = wallGroupsToUpdate.map(g => {
-                if (g.id === room.wallGroupId) {
-                  return { ...g, roomCount: Math.max(0, (g.roomCount || 1) - 1) };
-                }
-                return g;
-              });
-              // Room is leaving this group
-              newWallGroupId = undefined;
-            }
-          }
-          
-          // STEP 2: Check merge/join at new position
-          if (adjacentGroupIds.length > 1) {
-            // Multiple groups - need to merge
-            const mergeResult = generateMergeUpdates(
-              tempRoom,
-              adjacentGroupIds,
-              allRoomsWithNewPosition,
-              wallGroupsToUpdate
-            );
-            
-            if (mergeResult) {
-              newWallGroupId = mergeResult.updatedDominantGroup.id;
-              roomUpdatesToApply.push(...mergeResult.roomUpdates);
-              // Remove merged groups and update dominant group
-              wallGroupsToUpdate = wallGroupsToUpdate
-                .filter(g => !mergeResult.groupsToRemove.includes(g.id))
-                .map(g => g.id === mergeResult.updatedDominantGroup.id ? mergeResult.updatedDominantGroup : g);
-            }
-          } else if (adjacentGroupIds.length === 1) {
-            // Single adjacent group - adopt it and increment roomCount
-            // (decrement of old group already done in STEP 1)
-            newWallGroupId = adjacentGroupIds[0];
-            wallGroupsToUpdate = wallGroupsToUpdate.map(g => {
-              if (g.id === adjacentGroupIds[0]) {
-                return { ...g, roomCount: (g.roomCount || 0) + 1 };
-              }
-              return g;
-            });
-          } else if (adjacentGroupIds.length === 0) {
-            // No adjacent groups - create a new group for this room
-            // Preserve the wall style from the room's original group
-            const originalGroup = (scene.modularRoomsState?.wallGroups || []).find(g => g.id === room.wallGroupId);
-            const preservedWallStyle = originalGroup?.wallStyleId || 'worn-castle';
-            
-            const newGroupId = generateWallGroupId();
-            const newGroup: WallGroup = {
-              id: newGroupId,
-              wallStyleId: preservedWallStyle,
-              roomCount: 1,
-            };
-            newWallGroupId = newGroupId;
-            wallGroupsToUpdate = [...wallGroupsToUpdate, newGroup];
-          }
-          
-          // Build all element updates in a map to apply in a single updateScene call
+          // Apply the move to all rooms and tokens in the group
           const elementUpdatesMap = new Map<string, Partial<MapElement>>();
           
-          // Apply room updates for merged groups
-          for (const update of roomUpdatesToApply) {
-            if (update.roomId !== roomId) {
-              elementUpdatesMap.set(update.roomId, { wallGroupId: update.newWallGroupId });
+          // Build a map of room new positions for token calculations
+          const roomNewPositions = new Map<string, { x: number; y: number }>();
+          
+          // Update all rooms in the group
+          for (const grId of groupRoomIds) {
+            const origPos = originalPositions.get(grId);
+            if (origPos) {
+              const newX = origPos.x + delta.x;
+              const newY = origPos.y + delta.y;
+              elementUpdatesMap.set(grId, { x: newX, y: newY });
+              roomNewPositions.set(grId, { x: newX, y: newY });
             }
           }
           
-          // Add the moving room's update
-          elementUpdatesMap.set(roomId, {
-            x: ghostPosition.x,
-            y: ghostPosition.y,
-            ...(newWallGroupId !== room.wallGroupId ? { wallGroupId: newWallGroupId } : {}),
-          });
+          // Update ALL tokens linked to any selected room using parentRoomOffset
+          const allTokens = scene.elements.filter(el => el.type === 'token') as TokenElement[];
+          console.log('[POINTER DROP] === TOKEN MOVEMENT DEBUG ===' );
+          console.log('[POINTER DROP] groupRoomIds:', groupRoomIds);
+          console.log('[POINTER DROP] delta:', delta);
+          console.log('[POINTER DROP] Total tokens in scene:', allTokens.length);
+          console.log('[POINTER DROP] Tokens with parentRoomId:', allTokens.filter(t => t.parentRoomId).map(t => ({
+            id: t.id.slice(-8),
+            parentRoomId: t.parentRoomId?.slice(-8),
+            parentRoomOffset: t.parentRoomOffset,
+            currentPos: { x: t.x, y: t.y }
+          })));
           
-          // Move linked tokens with the room (pointer tool path)
-          const deltaX = ghostPosition.x - room.x;
-          const deltaY = ghostPosition.y - room.y;
-          const linkedTokens = scene.elements.filter(el => 
-            el.type === 'token' && (el as TokenElement).parentRoomId === roomId
-          ) as TokenElement[];
-          
-          for (const token of linkedTokens) {
-            elementUpdatesMap.set(token.id, {
-              x: token.x + deltaX,
-              y: token.y + deltaY,
+          for (const token of allTokens) {
+            const hasParent = !!token.parentRoomId;
+            const parentInGroup = token.parentRoomId && groupRoomIds.includes(token.parentRoomId);
+            
+            console.log('[POINTER DROP] Token', token.id.slice(-8), ':', {
+              hasParent,
+              parentRoomId: token.parentRoomId?.slice(-8),
+              parentInGroup,
+              parentRoomOffset: token.parentRoomOffset
             });
+            
+            if (token.parentRoomId && groupRoomIds.includes(token.parentRoomId)) {
+              const roomNewPos = roomNewPositions.get(token.parentRoomId);
+              const roomOrigPos = originalPositions.get(token.parentRoomId);
+              
+              console.log('[POINTER DROP] -> roomNewPos:', roomNewPos);
+              console.log('[POINTER DROP] -> roomOrigPos:', roomOrigPos);
+              
+              if (roomNewPos && token.parentRoomOffset) {
+                // Use stored offset to calculate new position
+                const newX = roomNewPos.x + token.parentRoomOffset.x;
+                const newY = roomNewPos.y + token.parentRoomOffset.y;
+                console.log('[POINTER DROP] -> Using stored offset, new pos:', { x: newX, y: newY });
+                elementUpdatesMap.set(token.id, { x: newX, y: newY });
+              } else if (roomNewPos && roomOrigPos) {
+                // Fallback: calculate offset from room's ORIGINAL position (before drag)
+                const currentOffset = { x: token.x - roomOrigPos.x, y: token.y - roomOrigPos.y };
+                const newX = roomNewPos.x + currentOffset.x;
+                const newY = roomNewPos.y + currentOffset.y;
+                console.log('[POINTER DROP] -> Fallback: calculated offset:', currentOffset, 'new pos:', { x: newX, y: newY });
+                elementUpdatesMap.set(token.id, {
+                  x: newX,
+                  y: newY,
+                  parentRoomOffset: currentOffset,
+                } as Partial<TokenElement>);
+              } else {
+                console.log('[POINTER DROP] -> SKIPPED: roomNewPos or roomOrigPos missing');
+              }
+            }
           }
           
-          // Recalculate doors with new positions
-          const updatedRoomsForDoors = allRooms.map(r => 
-            r.id === roomId ? { ...r, x: ghostPosition.x, y: ghostPosition.y, wallGroupId: newWallGroupId || room.wallGroupId } : r
-          );
-          const newDoors = recalculateAllDoors(updatedRoomsForDoors);
+          console.log('[POINTER DROP] elementUpdatesMap entries:', Array.from(elementUpdatesMap.entries()).map(([id, updates]) => ({ id: id.slice(-8), updates })));
           
-          // Apply all updates in a single updateScene call to avoid race conditions
+          // ========== CONNECTED COMPONENT LOGIC (same as modularRoom tool) ==========
+          // Build list of rooms at NEW positions for adjacency check
+          const allRoomsAtNewPositions = allModularRooms.map(r => {
+            if (groupRoomIdsSet.has(r.id)) {
+              const origPos = originalPositions.get(r.id);
+              if (origPos) {
+                return { ...r, x: origPos.x + delta.x, y: origPos.y + delta.y };
+              }
+            }
+            return r;
+          });
+          
+          let wallGroupsToUpdate = [...(scene.modularRoomsState?.wallGroups || [])];
+          
+          // Build adjacency graph for all rooms at new positions
+          const roomAdjacency = new Map<string, Set<string>>();
+          for (const room of allRoomsAtNewPositions) {
+            roomAdjacency.set(room.id, new Set());
+          }
+          
+          // Check every pair of rooms for adjacency
+          for (let i = 0; i < allRoomsAtNewPositions.length; i++) {
+            for (let j = i + 1; j < allRoomsAtNewPositions.length; j++) {
+              const roomA = allRoomsAtNewPositions[i];
+              const roomB = allRoomsAtNewPositions[j];
+              if (areRoomsAdjacent(roomA, roomB)) {
+                roomAdjacency.get(roomA.id)!.add(roomB.id);
+                roomAdjacency.get(roomB.id)!.add(roomA.id);
+              }
+            }
+          }
+          
+          // Find connected components using BFS
+          const visited = new Set<string>();
+          const connectedComponents: string[][] = [];
+          
+          for (const room of allRoomsAtNewPositions) {
+            if (visited.has(room.id)) continue;
+            
+            const component: string[] = [];
+            const queue = [room.id];
+            
+            while (queue.length > 0) {
+              const currentId = queue.shift()!;
+              if (visited.has(currentId)) continue;
+              visited.add(currentId);
+              component.push(currentId);
+              
+              const neighbors = roomAdjacency.get(currentId) || new Set();
+              for (const neighborId of neighbors) {
+                if (!visited.has(neighborId)) {
+                  queue.push(neighborId);
+                }
+              }
+            }
+            
+            if (component.length > 0) {
+              connectedComponents.push(component);
+            }
+          }
+          
+          console.log('[POINTER DROP] Found', connectedComponents.length, 'connected components');
+          
+          // Track which groups have been assigned to which components
+          const groupIdAssignments = new Map<string, string>(); // groupId -> 'used'
+          const newWallGroups: WallGroup[] = [];
+          
+          // Process each connected component
+          for (const component of connectedComponents) {
+            // Get all current wallGroupIds in this component
+            const groupIdsInComponent = new Set<string>();
+            for (const roomId of component) {
+              const room = allRoomsAtNewPositions.find(r => r.id === roomId);
+              if (room?.wallGroupId) {
+                groupIdsInComponent.add(room.wallGroupId);
+              }
+            }
+            
+            // Find the groups and determine dominant (largest roomCount)
+            const groups = wallGroupsToUpdate.filter(g => groupIdsInComponent.has(g.id));
+            let dominantGroup = groups.reduce((dom, g) => 
+              (g.roomCount || 0) > (dom?.roomCount || 0) ? g : dom, 
+              groups[0]);
+            
+            // Check if the dominant group is already assigned to another component
+            // This handles SPLIT: same wallGroupId but now in different components
+            let assignedGroupId: string;
+            
+            if (dominantGroup && !groupIdAssignments.has(dominantGroup.id)) {
+              // Use this group for this component
+              assignedGroupId = dominantGroup.id;
+              groupIdAssignments.set(dominantGroup.id, 'used');
+              
+              // Update room count
+              const idx = wallGroupsToUpdate.findIndex(g => g.id === dominantGroup.id);
+              if (idx >= 0) {
+                wallGroupsToUpdate[idx] = { ...wallGroupsToUpdate[idx], roomCount: component.length };
+              }
+            } else {
+              // Need a new group - either no dominant, or dominant is already used (SPLIT case)
+              const styleGroup = groups[0] || dominantGroup;
+              const wallStyleId = styleGroup?.wallStyleId || 'worn-castle';
+              
+              assignedGroupId = generateWallGroupId();
+              newWallGroups.push({
+                id: assignedGroupId,
+                wallStyleId,
+                roomCount: component.length,
+              });
+              
+              console.log('[POINTER DROP] Created new group for split component:', assignedGroupId.slice(-12));
+            }
+            
+            // Update all rooms in this component to use the assigned group
+            for (const rmId of component) {
+              const room = allRoomsAtNewPositions.find(r => r.id === rmId);
+              if (room && room.wallGroupId !== assignedGroupId) {
+                const currentUpdate = elementUpdatesMap.get(rmId) || {};
+                elementUpdatesMap.set(rmId, { 
+                  ...currentUpdate, 
+                  wallGroupId: assignedGroupId 
+                });
+              }
+            }
+          }
+          
+          // Add new wall groups
+          wallGroupsToUpdate = [...wallGroupsToUpdate, ...newWallGroups];
+          
+          // Remove groups that are no longer used by any room
+          const allGroupIdsInUse = new Set<string>();
+          for (const room of allRoomsAtNewPositions) {
+            const update = elementUpdatesMap.get(room.id) as { wallGroupId?: string } | undefined;
+            allGroupIdsInUse.add(update?.wallGroupId || room.wallGroupId || '');
+          }
+          
+          wallGroupsToUpdate = wallGroupsToUpdate.filter(g => allGroupIdsInUse.has(g.id));
+          
+          // Recalculate doors with new positions
+          const newDoors = recalculateAllDoors(allRoomsAtNewPositions);
+          
+          // Apply all updates
           const updatedElements = scene.elements.map(el => {
             const updates = elementUpdatesMap.get(el.id);
             if (updates) {
@@ -6108,7 +6461,7 @@ const Canvas = ({
             return el;
           }) as MapElement[];
           
-          updateScene(activeSceneId!, {
+          updateScene(activeSceneId, {
             elements: updatedElements,
             modularRoomsState: {
               ...scene.modularRoomsState,
@@ -6120,6 +6473,7 @@ const Canvas = ({
       }
       
       setModularRoomDragPreview(null);
+      return;
     }
     
     // Finalize interior wall drawing (ALT + drag from room edge)
@@ -6346,7 +6700,7 @@ const Canvas = ({
 
     // Wall Cutter freehand and Door Tool: DISABLED
 
-    // Update token's parentRoomId when a token drag ends
+    // Update token's parentRoomId and offset when a token drag ends
     if (draggedElement && scene) {
       const element = scene.elements.find(el => el.id === draggedElement.id);
       if (element && element.type === 'token') {
@@ -6365,10 +6719,21 @@ const Canvas = ({
         
         const newParentRoomId = newParentRoom?.id || undefined;
         
+        // Calculate offset from room's top-left corner (if inside a room)
+        const newParentRoomOffset = newParentRoom 
+          ? { x: token.x - newParentRoom.x, y: token.y - newParentRoom.y }
+          : undefined;
+        
         // Only update if parentRoomId changed
         if (token.parentRoomId !== newParentRoomId) {
           console.log('[TOKEN] Updating parentRoomId:', token.parentRoomId?.slice(-8) || 'none', '->', newParentRoomId?.slice(-8) || 'none');
-          updateElement(token.id, { parentRoomId: newParentRoomId });
+          updateElement(token.id, { 
+            parentRoomId: newParentRoomId,
+            parentRoomOffset: newParentRoomOffset,
+          });
+        } else if (newParentRoom && newParentRoomOffset) {
+          // Same room, but update offset (token was dragged within room)
+          updateElement(token.id, { parentRoomOffset: newParentRoomOffset });
         }
       }
     }
@@ -6540,7 +6905,8 @@ const Canvas = ({
         
         if (parentRoom) {
           console.log('[TOKEN] Linking token to modular room:', parentRoom.id.slice(-8));
-          finalElement = { ...finalElement, parentRoomId: parentRoom.id } as TokenElement;
+          const parentRoomOffset = { x: token.x - parentRoom.x, y: token.y - parentRoom.y };
+          finalElement = { ...finalElement, parentRoomId: parentRoom.id, parentRoomOffset } as TokenElement;
         }
       }
       
@@ -7744,10 +8110,10 @@ const Canvas = ({
                   {scene.elements
                     .filter(el => {
                       if (el.type === 'room') return false;
-                      // Hide tokens that are linked to the currently dragged room (they're shown in the ghost preview)
+                      // Hide tokens that are linked to ANY room in the drag group (they're shown in the ghost preview)
                       if (el.type === 'token' && modularRoomDragPreview) {
                         const token = el as TokenElement;
-                        if (token.parentRoomId === modularRoomDragPreview.roomId) {
+                        if (token.parentRoomId && modularRoomDragPreview.groupRoomIds.includes(token.parentRoomId)) {
                           return false; // Don't render - it's in the ghost preview
                         }
                       }
@@ -7975,10 +8341,10 @@ const Canvas = ({
               {scene.elements
                 .filter(el => {
                   if (el.type === 'room') return false;
-                  // Hide tokens that are linked to the currently dragged room (they're shown in the ghost preview)
+                  // Hide tokens that are linked to ANY room in the drag group (they're shown in the ghost preview)
                   if (el.type === 'token' && modularRoomDragPreview) {
                     const token = el as TokenElement;
-                    if (token.parentRoomId === modularRoomDragPreview.roomId) {
+                    if (token.parentRoomId && modularRoomDragPreview.groupRoomIds.includes(token.parentRoomId)) {
                       return false; // Don't render - it's in the ghost preview
                     }
                   }

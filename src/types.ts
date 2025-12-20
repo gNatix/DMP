@@ -72,6 +72,7 @@ export interface TokenElement {
   locked?: boolean; // Prevent movement when true
   playlistObject?: boolean; // Display in game mode playlist
   parentRoomId?: string; // Link to modular room - token moves with room
+  parentRoomOffset?: { x: number; y: number }; // Relative offset from room's top-left corner
 }
 
 // Legacy WallGap (deprecated - keeping for reference during migration)

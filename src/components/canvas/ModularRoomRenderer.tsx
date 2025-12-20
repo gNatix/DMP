@@ -42,14 +42,17 @@ interface ModularRoomRendererProps {
   selectedRoomIds: string[];
   renderLayer: 'floor' | 'walls' | 'full';
   gridSize: number;
-  // For drag preview with floating effect (now using pixels)
+  // For drag preview with floating effect - supports GROUP dragging
   dragPreview?: {
-    roomId: string;
-    originalPosition: { x: number; y: number };  // Pixels
-    ghostPosition: { x: number; y: number };     // Pixels
-    cursorPosition: { x: number; y: number };    // Pixels
-    snappedToRoom: string | null;
-    sharedEdgeTiles: number;
+    roomId: string;  // Primary room being dragged (the one clicked)
+    groupRoomIds: string[];  // All rooms in the wall group (including roomId)
+    groupTokenIds: string[];  // All tokens linked to rooms in the group
+    originalPositions: Map<string, { x: number; y: number }>;  // Original positions of all
+    ghostPosition: { x: number; y: number };  // Ghost position of primary room (pixels)
+    cursorPosition: { x: number; y: number };  // Raw cursor position (pixels)
+    delta: { x: number; y: number };  // Movement delta from original
+    snappedToRoom: string | null;  // ID of room we snapped to (outside our group)
+    sharedEdgeTiles: number;  // How many tiles shared (0 if free)
   } | null;
   // For placing new floor from panel
   placingFloor?: {
@@ -541,18 +544,20 @@ const ModularRoomRenderer: React.FC<ModularRoomRendererProps> = ({
   placingFloor,
   linkedTokens,
 }) => {
-  // When dragging, exclude the dragged room from static rendering
-  const staticRooms = useMemo(() => 
-    dragPreview ? modularRooms.filter(r => r.id !== dragPreview.roomId) : modularRooms,
-    [modularRooms, dragPreview]
-  );
+  // When dragging, exclude ALL rooms in the group from static rendering
+  const staticRooms = useMemo(() => {
+    if (!dragPreview) return modularRooms;
+    const draggedIds = new Set(dragPreview.groupRoomIds);
+    return modularRooms.filter(r => !draggedIds.has(r.id));
+  }, [modularRooms, dragPreview]);
   
-  // When dragging, filter out doors that involve the dragged room
-  // This makes walls "close up" immediately when a room is picked up
-  const activeDoors = useMemo(() =>
-    dragPreview ? doors.filter(d => d.roomAId !== dragPreview.roomId && d.roomBId !== dragPreview.roomId) : doors,
-    [doors, dragPreview]
-  );
+  // When dragging, filter out doors that involve ANY dragged room
+  // This makes walls "close up" immediately when a group is picked up
+  const activeDoors = useMemo(() => {
+    if (!dragPreview) return doors;
+    const draggedIds = new Set(dragPreview.groupRoomIds);
+    return doors.filter(d => !draggedIds.has(d.roomAId) && !draggedIds.has(d.roomBId));
+  }, [doors, dragPreview]);
   
   // Group rooms by wallGroupId for rendering with separate wall styles
   const roomsByWallGroup = useMemo(() => {
@@ -576,9 +581,10 @@ const ModularRoomRenderer: React.FC<ModularRoomRendererProps> = ({
       {/* Layer: Floors */}
       {(renderLayer === 'floor' || renderLayer === 'full') && (
         <>
-          {/* Render all rooms - hide the one being dragged */}
+          {/* Render all rooms - hide the ones being dragged (entire group) */}
           {modularRooms.map(room => {
-            const isBeingDragged = dragPreview?.roomId === room.id;
+            // Check if this room is part of the dragged group
+            const isBeingDragged = dragPreview?.groupRoomIds.includes(room.id);
             
             // Don't render the room at its original position when being dragged
             if (isBeingDragged) return null;
@@ -596,28 +602,45 @@ const ModularRoomRenderer: React.FC<ModularRoomRendererProps> = ({
             );
           })}
           
-          {/* Floating room preview during drag - same style as initial placement */}
+          {/* Floating GROUP preview during drag - shows ALL rooms and tokens in the group */}
           {dragPreview && (() => {
-            const room = modularRooms.find(r => r.id === dragPreview.roomId);
-            if (!room) return null;
+            // Get the primary room (the one that was clicked)
+            const primaryRoom = modularRooms.find(r => r.id === dragPreview.roomId);
+            if (!primaryRoom) return null;
             
-            // Create floating room at ghost position (pixels)
-            const floatingRoom: ModularRoomElement = {
-              ...room,
-              x: dragPreview.ghostPosition.x,
-              y: dragPreview.ghostPosition.y,
-            };
+            // Get all rooms in the group being dragged
+            const groupRooms = modularRooms.filter(r => dragPreview.groupRoomIds.includes(r.id));
+            const groupRoomIdsSet = new Set(dragPreview.groupRoomIds);
             
-            // Calculate movement delta for tokens
-            const deltaX = dragPreview.ghostPosition.x - room.x;
-            const deltaY = dragPreview.ghostPosition.y - room.y;
+            // Get ALL tokens linked to any room in the group (using parentRoomId)
+            const groupTokens = linkedTokens?.filter(t => t.parentRoomId && groupRoomIdsSet.has(t.parentRoomId)) || [];
             
-            // Get tokens linked to this room
-            const roomTokens = linkedTokens?.filter(t => t.parentRoomId === room.id) || [];
+            console.log('[GHOST PREVIEW] === GHOST PREVIEW DEBUG ===');
+            console.log('[GHOST PREVIEW] dragPreview.groupRoomIds:', dragPreview.groupRoomIds.map(id => id.slice(-8)));
+            console.log('[GHOST PREVIEW] groupRooms found:', groupRooms.map(r => r.id.slice(-8)));
+            console.log('[GHOST PREVIEW] groupTokens found:', groupTokens.map(t => ({ id: t.id.slice(-8), parentRoomId: t.parentRoomId?.slice(-8) })));
+            console.log('[GHOST PREVIEW] originalPositions keys:', Array.from(dragPreview.originalPositions.keys()).map(k => k.slice(-8)));
             
-            // Get wall style from room's wall group
-            const wallGroup = wallGroups.find(g => g.id === room.wallGroupId);
-            const wallStyleId = wallGroup?.wallStyleId || 'worn-castle';
+            // Build map of wallGroupId -> wallStyleId for quick lookup
+            const wallStyleByGroupId = new Map<string, string>();
+            for (const wg of wallGroups) {
+              wallStyleByGroupId.set(wg.id, wg.wallStyleId || 'worn-castle');
+            }
+            
+            // Movement delta for the entire group
+            const deltaX = dragPreview.delta.x;
+            const deltaY = dragPreview.delta.y;
+            
+            // Build a map of room new positions for token calculations
+            const roomNewPositions = new Map<string, { x: number; y: number }>();
+            groupRooms.forEach(room => {
+              const origPos = dragPreview.originalPositions.get(room.id);
+              if (origPos) {
+                roomNewPositions.set(room.id, { x: origPos.x + deltaX, y: origPos.y + deltaY });
+              }
+            });
+            
+            console.log('[GHOST PREVIEW] roomNewPositions:', Array.from(roomNewPositions.entries()).map(([id, pos]) => ({ id: id.slice(-8), ...pos })));
             
             return (
               <div
@@ -626,56 +649,104 @@ const ModularRoomRenderer: React.FC<ModularRoomRendererProps> = ({
                   pointerEvents: 'none',
                 }}
               >
-                {/* Floor */}
-                <ModularRoomFloor
-                  room={floatingRoom}
-                  isSelected={false}
-                  isFloating={true}
-                />
-                {/* Walls around floating room */}
-                <FloatingWalls room={floatingRoom} wallStyleId={wallStyleId} />
-                
-                {/* Linked tokens preview */}
-                {roomTokens.map(token => (
-                  <div
-                    key={`ghost-token-${token.id}`}
-                    style={{
-                      position: 'absolute',
-                      left: token.x + deltaX - token.size / 2,
-                      top: token.y + deltaY - token.size / 2,
-                      width: token.size,
-                      height: token.size,
-                      borderRadius: '50%',
-                      overflow: 'hidden',
-                      border: `2px solid ${token.color || '#8b5cf6'}`,
-                      backgroundColor: token.isShape ? (token.color || '#8b5cf6') : 'transparent',
-                    }}
-                  >
-                    {token.imageUrl && (
-                      <img
-                        src={token.imageUrl}
-                        alt={token.name}
-                        style={{
-                          width: '100%',
-                          height: '100%',
-                          objectFit: 'cover',
-                        }}
+                {/* Render ALL floors in the group at their new positions */}
+                {groupRooms.map(room => {
+                  const origPos = dragPreview.originalPositions.get(room.id);
+                  if (!origPos) return null;
+                  
+                  // Create floating room at offset position
+                  const floatingRoom: ModularRoomElement = {
+                    ...room,
+                    x: origPos.x + deltaX,
+                    y: origPos.y + deltaY,
+                  };
+                  
+                  // Get wall style for this room's group
+                  const roomWallStyle = wallStyleByGroupId.get(room.wallGroupId || '') || 'worn-castle';
+                  
+                  return (
+                    <React.Fragment key={`floating-room-${room.id}`}>
+                      <ModularRoomFloor
+                        room={floatingRoom}
+                        isSelected={room.id === dragPreview.roomId}
+                        isFloating={true}
                       />
-                    )}
-                  </div>
-                ))}
+                      {/* Walls around each floating room - using room's group wall style */}
+                      <FloatingWalls room={floatingRoom} wallStyleId={roomWallStyle} />
+                    </React.Fragment>
+                  );
+                })}
                 
-                {/* Dashed border indicator - same as initial placement */}
-                <div style={{
-                  position: 'absolute',
-                  left: floatingRoom.x,
-                  top: floatingRoom.y,
-                  width: floatingRoom.tilesW * MODULAR_TILE_PX,
-                  height: floatingRoom.tilesH * MODULAR_TILE_PX,
-                  border: '2px dashed #8b5cf6',
-                  borderRadius: 4,
-                  pointerEvents: 'none',
-                }} />
+                {/* Render ALL linked tokens at their new positions using parentRoomOffset */}
+                {groupTokens.map(token => {
+                  if (!token.parentRoomId) return null;
+                  const roomNewPos = roomNewPositions.get(token.parentRoomId);
+                  if (!roomNewPos) return null;
+                  
+                  // Get room's ORIGINAL position from dragPreview (before drag started)
+                  const roomOrigPos = dragPreview.originalPositions.get(token.parentRoomId);
+                  
+                  // Calculate token position using parentRoomOffset or calculate from original room position
+                  let tokenX: number, tokenY: number;
+                  if (token.parentRoomOffset) {
+                    tokenX = roomNewPos.x + token.parentRoomOffset.x;
+                    tokenY = roomNewPos.y + token.parentRoomOffset.y;
+                  } else if (roomOrigPos) {
+                    // Fallback: calculate offset from room's ORIGINAL position
+                    const currentOffset = { x: token.x - roomOrigPos.x, y: token.y - roomOrigPos.y };
+                    tokenX = roomNewPos.x + currentOffset.x;
+                    tokenY = roomNewPos.y + currentOffset.y;
+                  } else {
+                    return null;
+                  }
+                  
+                  return (
+                    <div
+                      key={`ghost-token-${token.id}`}
+                      style={{
+                        position: 'absolute',
+                        left: tokenX - token.size / 2,
+                        top: tokenY - token.size / 2,
+                        width: token.size,
+                        height: token.size,
+                        borderRadius: '50%',
+                        overflow: 'hidden',
+                        border: `2px solid ${token.color || '#8b5cf6'}`,
+                        backgroundColor: token.isShape ? (token.color || '#8b5cf6') : 'transparent',
+                      }}
+                    >
+                      {token.imageUrl && (
+                        <img
+                          src={token.imageUrl}
+                          alt={token.name}
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover',
+                          }}
+                        />
+                      )}
+                    </div>
+                  );
+                })}
+                
+                {/* Dashed border around the PRIMARY room (the one clicked) */}
+                {(() => {
+                  const origPos = dragPreview.originalPositions.get(primaryRoom.id);
+                  if (!origPos) return null;
+                  return (
+                    <div style={{
+                      position: 'absolute',
+                      left: origPos.x + deltaX,
+                      top: origPos.y + deltaY,
+                      width: primaryRoom.tilesW * MODULAR_TILE_PX,
+                      height: primaryRoom.tilesH * MODULAR_TILE_PX,
+                      border: '2px dashed #8b5cf6',
+                      borderRadius: 4,
+                      pointerEvents: 'none',
+                    }} />
+                  );
+                })()}
               </div>
             );
           })()}
