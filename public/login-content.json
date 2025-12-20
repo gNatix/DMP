@@ -75,7 +75,9 @@
           "Drag multiple rooms together with ghost preview",
           "Tokens automatically follow their parent rooms when dragged",
           "Magnetic snapping works for room groups",
-          "Improved wall group management when rooms connect or separate"
+          "Improved wall group management when rooms connect or separate",
+          "Tokens maintain position when rotating rooms",
+          "Connected rooms cannot be rotated (must separate first)"
         ]
       },
       {

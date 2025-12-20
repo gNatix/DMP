@@ -421,6 +421,17 @@ const Canvas = ({
     const room = scene.elements.find(el => el.id === roomId) as ModularRoomElement | undefined;
     if (!room) return;
     
+    // Check if room is part of a connected group - rotation not allowed
+    if (room.wallGroupId) {
+      const wallGroups = scene.modularRoomsState?.wallGroups || [];
+      const roomGroup = wallGroups.find(g => g.id === room.wallGroupId);
+      if (roomGroup && roomGroup.roomCount > 1) {
+        setMergeNotification('Cannot rotate: room is connected to other rooms. Separate it first.');
+        setTimeout(() => setMergeNotification(null), 3000);
+        return;
+      }
+    }
+    
     saveToHistory();
     
     // Calculate new rotation (0, 90, 180, 270)
@@ -503,13 +514,64 @@ const Canvas = ({
       }
     }
     
-    updateElement(roomId, {
+    // Update tokens linked to this room - rotate their offset to match room rotation
+    const oldWidthPx = room.tilesW * MODULAR_TILE_PX;
+    const oldHeightPx = room.tilesH * MODULAR_TILE_PX;
+    const linkedTokens = scene.elements.filter(el => 
+      el.type === 'token' && (el as TokenElement).parentRoomId === roomId
+    ) as TokenElement[];
+    
+    const elementUpdates = new Map<string, Partial<MapElement>>();
+    
+    // Update the room itself
+    elementUpdates.set(roomId, {
       rotation: newRotation,
       tilesW: newTilesW,
       tilesH: newTilesH,
       x: newX,
       y: newY,
     });
+    
+    // Update each linked token - rotate offset to compensate for room rotation
+    for (const token of linkedTokens) {
+      if (!token.parentRoomOffset) continue;
+      
+      const oldOffsetX = token.parentRoomOffset.x;
+      const oldOffsetY = token.parentRoomOffset.y;
+      
+      let newOffsetX: number;
+      let newOffsetY: number;
+      
+      // Transform offset based on rotation direction
+      // When room rotates, walls move, so token offset must rotate too
+      if (direction === 'right') {
+        // Rotate 90° clockwise:
+        // - Old top wall becomes new right wall
+        // - Old right wall becomes new bottom wall
+        // Token at (x,y) from old top-left moves to (oldHeight - y, x) from new top-left
+        newOffsetX = oldHeightPx - oldOffsetY;
+        newOffsetY = oldOffsetX;
+      } else {
+        // Rotate 90° counter-clockwise:
+        // - Old top wall becomes new left wall
+        // - Old left wall becomes new bottom wall
+        // Token at (x,y) from old top-left moves to (y, oldWidth - x) from new top-left
+        newOffsetX = oldOffsetY;
+        newOffsetY = oldWidthPx - oldOffsetX;
+      }
+      
+      // Calculate new absolute position
+      const newTokenX = newX + newOffsetX;
+      const newTokenY = newY + newOffsetY;
+      
+      elementUpdates.set(token.id, {
+        x: newTokenX,
+        y: newTokenY,
+        parentRoomOffset: { x: newOffsetX, y: newOffsetY },
+      });
+    }
+    
+    updateElements(elementUpdates);
   };
 
   // Tile management helper functions

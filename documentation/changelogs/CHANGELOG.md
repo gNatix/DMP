@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Connected component logic for wallGroupId management (merge/split)
 - **Orphan Token Auto-Linking**: Tokens placed on modular rooms are automatically linked with `parentRoomId` on scene load
 - **Modular Room Tool Error Message**: Shows "Modular Room tool can only interact with modular rooms" when trying to interact with other element types
+- **Room Rotation Token Handling**: Tokens maintain their relative wall position when a modular room is rotated
+- **Room Rotation Group Restriction**: Rooms connected to other rooms cannot be rotated (must be separated first)
 
 ### Fixed
 - **Pointer Tool Ghost Preview**: Multi-selected modular rooms now show proper ghost preview during drag (was using wrong drag system)
