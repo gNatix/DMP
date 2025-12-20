@@ -563,6 +563,11 @@ export function getGroupEdges(
     }
   });
   
+  // NOTE: We previously merged adjacent external edges on the same line,
+  // but this caused incorrect interior pillar placement when rooms shared edges.
+  // Each room should maintain its own edge boundaries for correct pillar/wall generation.
+  // The wall rendering already handles adjacent walls correctly without merging.
+  
   return { externalEdges, internalEdges };
 }
 
@@ -673,8 +678,10 @@ export function generateWallSegments(
     if (edge.isInternalEdge) continue; // Skip internal edges
     
     const lengthTiles = edge.rangeEnd - edge.rangeStart;
-    const lengthPx = lengthTiles * MODULAR_TILE_PX;
-    const startPx = edge.rangeStart * MODULAR_TILE_PX;
+    // Round all pixel values to avoid floating point precision issues
+    const lengthPx = Math.round(lengthTiles * MODULAR_TILE_PX);
+    const startPx = Math.round(edge.rangeStart * MODULAR_TILE_PX);
+    const positionPx = Math.round(edge.position * MODULAR_TILE_PX);
     
     // Calculate interior pillar positions for this edge (same logic as generatePillarsWithEdgeInfo)
     const numSegments = lengthPx / MODULAR_WALL_SPRITE_2TILE_WIDTH;
@@ -716,23 +723,25 @@ export function generateWallSegments(
     if (uniqueSplitPoints.length === 0) {
       // No pillars or doors - single wall segment
       if (edge.orientation === 'horizontal') {
-        segments.push({
+        const seg = {
           x: startPx + lengthPx / 2,
-          y: edge.position * MODULAR_TILE_PX,
+          y: positionPx,
           width: lengthPx,
           height: MODULAR_WALL_THICKNESS_PX,
           rotation: 0,
           wallStyleId,
-        });
+        };
+        segments.push(seg);
       } else {
-        segments.push({
-          x: edge.position * MODULAR_TILE_PX,
+        const seg = {
+          x: positionPx,
           y: startPx + lengthPx / 2,
           width: lengthPx,
           height: MODULAR_WALL_THICKNESS_PX,
           rotation: 90,
           wallStyleId,
-        });
+        };
+        segments.push(seg);
       }
     } else {
       // Split wall into segments at split points
@@ -740,16 +749,17 @@ export function generateWallSegments(
       
       for (const splitPoint of uniqueSplitPoints) {
         // Check if this is a door start (skip the door opening)
-        const isDoorStart = edgeDoors.some(d => d.offsetTiles * MODULAR_TILE_PX === splitPoint);
+        const isDoorStart = edgeDoors.some(d => Math.round(d.offsetTiles * MODULAR_TILE_PX) === splitPoint);
         
         if (splitPoint > currentOffset) {
           // Create segment from currentOffset to splitPoint
           const segLengthPx = splitPoint - currentOffset;
           
           if (edge.orientation === 'horizontal') {
+            const segX = startPx + currentOffset + segLengthPx / 2;
             segments.push({
-              x: startPx + currentOffset + segLengthPx / 2,
-              y: edge.position * MODULAR_TILE_PX,
+              x: segX,
+              y: positionPx,
               width: segLengthPx,
               height: MODULAR_WALL_THICKNESS_PX,
               rotation: 0,
@@ -757,7 +767,7 @@ export function generateWallSegments(
             });
           } else {
             segments.push({
-              x: edge.position * MODULAR_TILE_PX,
+              x: positionPx,
               y: startPx + currentOffset + segLengthPx / 2,
               width: segLengthPx,
               height: MODULAR_WALL_THICKNESS_PX,
@@ -769,8 +779,8 @@ export function generateWallSegments(
         
         // If this is a door start, skip to door end
         if (isDoorStart) {
-          const door = edgeDoors.find(d => d.offsetTiles * MODULAR_TILE_PX === splitPoint)!;
-          currentOffset = (door.offsetTiles + door.widthTiles) * MODULAR_TILE_PX;
+          const door = edgeDoors.find(d => Math.round(d.offsetTiles * MODULAR_TILE_PX) === splitPoint)!;
+          currentOffset = Math.round((door.offsetTiles + door.widthTiles) * MODULAR_TILE_PX);
         } else {
           currentOffset = splitPoint;
         }
@@ -783,7 +793,7 @@ export function generateWallSegments(
         if (edge.orientation === 'horizontal') {
           segments.push({
             x: startPx + currentOffset + segLengthPx / 2,
-            y: edge.position * MODULAR_TILE_PX,
+            y: positionPx,
             width: segLengthPx,
             height: MODULAR_WALL_THICKNESS_PX,
             rotation: 0,
@@ -791,7 +801,7 @@ export function generateWallSegments(
           });
         } else {
           segments.push({
-            x: edge.position * MODULAR_TILE_PX,
+            x: positionPx,
             y: startPx + currentOffset + segLengthPx / 2,
             width: segLengthPx,
             height: MODULAR_WALL_THICKNESS_PX,
@@ -825,8 +835,10 @@ export function generateInternalWallSegments(
     if (!edge.isInternalEdge) continue; // Only process internal edges
     
     const lengthTiles = edge.rangeEnd - edge.rangeStart;
-    const edgeStartPx = edge.rangeStart * MODULAR_TILE_PX;
-    const edgeEndPx = edge.rangeEnd * MODULAR_TILE_PX;
+    // Round all pixel values to avoid floating point precision issues
+    const edgeStartPx = Math.round(edge.rangeStart * MODULAR_TILE_PX);
+    const edgeEndPx = Math.round(edge.rangeEnd * MODULAR_TILE_PX);
+    const positionPx = Math.round(edge.position * MODULAR_TILE_PX);
     
     // Find doors between the same two rooms
     // We match on room IDs ONLY - orientation may change if rooms are rotated
@@ -843,11 +855,11 @@ export function generateInternalWallSegments(
     
     if (edgeDoors.length === 0) {
       // No doors on this internal edge - render full wall
-      const lengthPx = lengthTiles * MODULAR_TILE_PX;
+      const lengthPx = Math.round(lengthTiles * MODULAR_TILE_PX);
       if (edge.orientation === 'horizontal') {
         segments.push({
-          x: edge.rangeStart * MODULAR_TILE_PX + lengthPx / 2,
-          y: edge.position * MODULAR_TILE_PX,
+          x: edgeStartPx + lengthPx / 2,
+          y: positionPx,
           width: lengthPx,
           height: MODULAR_WALL_THICKNESS_PX,
           rotation: 0,
@@ -855,8 +867,8 @@ export function generateInternalWallSegments(
         });
       } else {
         segments.push({
-          x: edge.position * MODULAR_TILE_PX,
-          y: edge.rangeStart * MODULAR_TILE_PX + lengthPx / 2,
+          x: positionPx,
+          y: edgeStartPx + lengthPx / 2,
           width: lengthPx,
           height: MODULAR_WALL_THICKNESS_PX,
           rotation: 90,
@@ -869,8 +881,8 @@ export function generateInternalWallSegments(
       const edgeLengthPx = edgeEndPx - edgeStartPx;
       const doorWidthPx = MODULAR_TILE_PX; // 128px for 1-tile door
       
-      // Calculate centered door position
-      const doorCenterPx = edgeStartPx + edgeLengthPx / 2;
+      // Calculate centered door position (all values already rounded)
+      const doorCenterPx = Math.round(edgeStartPx + edgeLengthPx / 2);
       const doorStartPx = doorCenterPx - doorWidthPx / 2;
       const doorEndPx = doorCenterPx + doorWidthPx / 2;
       
@@ -884,7 +896,7 @@ export function generateInternalWallSegments(
         if (edge.orientation === 'horizontal') {
           segments.push({
             x: segCenterPx,
-            y: edge.position * MODULAR_TILE_PX,
+            y: positionPx,
             width: wallBeforePx,
             height: MODULAR_WALL_THICKNESS_PX,
             rotation: 0,
@@ -892,7 +904,7 @@ export function generateInternalWallSegments(
           });
         } else {
           segments.push({
-            x: edge.position * MODULAR_TILE_PX,
+            x: positionPx,
             y: segCenterPx,
             width: wallBeforePx,
             height: MODULAR_WALL_THICKNESS_PX,
@@ -908,7 +920,7 @@ export function generateInternalWallSegments(
         if (edge.orientation === 'horizontal') {
           segments.push({
             x: segCenterPx,
-            y: edge.position * MODULAR_TILE_PX,
+            y: positionPx,
             width: wallAfterPx,
             height: MODULAR_WALL_THICKNESS_PX,
             rotation: 0,
@@ -916,7 +928,7 @@ export function generateInternalWallSegments(
           });
         } else {
           segments.push({
-            x: edge.position * MODULAR_TILE_PX,
+            x: positionPx,
             y: segCenterPx,
             width: wallAfterPx,
             height: MODULAR_WALL_THICKNESS_PX,
@@ -960,15 +972,16 @@ export function generateDoorRenderings(
     });
     
     // Use current edge if found, otherwise fall back to stored door values
-    const edgeStartPx = currentEdge 
+    // Round all pixel values to avoid floating point precision issues
+    const edgeStartPx = Math.round(currentEdge 
       ? currentEdge.rangeStart * MODULAR_TILE_PX 
-      : door.edgeRangeStart * MODULAR_TILE_PX;
-    const edgeEndPx = currentEdge 
+      : door.edgeRangeStart * MODULAR_TILE_PX);
+    const edgeEndPx = Math.round(currentEdge 
       ? currentEdge.rangeEnd * MODULAR_TILE_PX 
-      : door.edgeRangeEnd * MODULAR_TILE_PX;
-    const edgePositionPx = currentEdge
+      : door.edgeRangeEnd * MODULAR_TILE_PX);
+    const edgePositionPx = Math.round(currentEdge
       ? currentEdge.position * MODULAR_TILE_PX
-      : door.edgePosition * MODULAR_TILE_PX;
+      : door.edgePosition * MODULAR_TILE_PX);
     
     // Use CURRENT edge orientation, not stored door orientation
     const orientation = currentEdge ? currentEdge.orientation : door.edgeOrientation;
@@ -1020,10 +1033,11 @@ export function generatePillars(
   for (const edge of perimeterEdges) {
     if (edge.isInternalEdge) continue;
     
-    const startPx = edge.rangeStart * MODULAR_TILE_PX;
-    const endPx = edge.rangeEnd * MODULAR_TILE_PX;
+    // Round all pixel values to avoid floating point precision issues
+    const startPx = Math.round(edge.rangeStart * MODULAR_TILE_PX);
+    const endPx = Math.round(edge.rangeEnd * MODULAR_TILE_PX);
     const lengthPx = endPx - startPx;
-    const positionPx = edge.position * MODULAR_TILE_PX;
+    const positionPx = Math.round(edge.position * MODULAR_TILE_PX);
     
     // Corner pillars at each end
     const cornerPositions: { x: number; y: number }[] = [];
@@ -1056,15 +1070,14 @@ export function generatePillars(
     }
     
     for (const ratio of interiorPillarRatios) {
-      // Snap to 128px grid
-      const rawPos = startPx + lengthPx * ratio;
-      const snappedPos = Math.round(rawPos / MODULAR_TILE_PX) * MODULAR_TILE_PX;
+      // Round to avoid floating point issues
+      const exactPos = Math.round(startPx + lengthPx * ratio);
       
       let pillarPos: { x: number; y: number };
       if (edge.orientation === 'horizontal') {
-        pillarPos = { x: snappedPos, y: positionPx };
+        pillarPos = { x: exactPos, y: positionPx };
       } else {
-        pillarPos = { x: positionPx, y: snappedPos };
+        pillarPos = { x: positionPx, y: exactPos };
       }
       
       const key = `${pillarPos.x},${pillarPos.y}`;
@@ -1119,15 +1132,16 @@ export function generatePillarsWithEdgeInfo(
       });
       
       // Use current edge if found, otherwise fall back to stored door values
-      const doorPositionPx = currentEdge 
+      // Round all pixel values to avoid floating point precision issues
+      const doorPositionPx = Math.round(currentEdge 
         ? currentEdge.position * MODULAR_TILE_PX 
-        : door.edgePosition * MODULAR_TILE_PX;
-      const edgeStartPx = currentEdge 
+        : door.edgePosition * MODULAR_TILE_PX);
+      const edgeStartPx = Math.round(currentEdge 
         ? currentEdge.rangeStart * MODULAR_TILE_PX 
-        : door.edgeRangeStart * MODULAR_TILE_PX;
-      const edgeEndPx = currentEdge 
+        : door.edgeRangeStart * MODULAR_TILE_PX);
+      const edgeEndPx = Math.round(currentEdge 
         ? currentEdge.rangeEnd * MODULAR_TILE_PX 
-        : door.edgeRangeEnd * MODULAR_TILE_PX;
+        : door.edgeRangeEnd * MODULAR_TILE_PX);
       
       // Use CURRENT edge orientation
       const orientation = currentEdge ? currentEdge.orientation : door.edgeOrientation;
@@ -1136,7 +1150,7 @@ export function generatePillarsWithEdgeInfo(
       const doorWidthPx = door.widthTiles * MODULAR_TILE_PX;
       
       // Door is centered on the edge
-      const doorCenterPx = edgeStartPx + edgeLengthPx / 2;
+      const doorCenterPx = Math.round(edgeStartPx + edgeLengthPx / 2);
       const doorStartPx = doorCenterPx - doorWidthPx / 2;
       const doorEndPx = doorCenterPx + doorWidthPx / 2;
       
@@ -1176,10 +1190,11 @@ export function generatePillarsWithEdgeInfo(
   
   // Process EXTERNAL edges - endpoint pillars + interior pillars
   for (const edge of externalEdges) {
-    const startPx = edge.rangeStart * MODULAR_TILE_PX;
-    const endPx = edge.rangeEnd * MODULAR_TILE_PX;
+    // Round all pixel values to avoid floating point precision issues
+    const startPx = Math.round(edge.rangeStart * MODULAR_TILE_PX);
+    const endPx = Math.round(edge.rangeEnd * MODULAR_TILE_PX);
     const lengthPx = endPx - startPx;
-    const positionPx = edge.position * MODULAR_TILE_PX;
+    const positionPx = Math.round(edge.position * MODULAR_TILE_PX);
     
     // Endpoint pillars
     if (edge.orientation === 'horizontal') {
@@ -1202,8 +1217,8 @@ export function generatePillarsWithEdgeInfo(
     }
     
     for (const ratio of interiorPillarRatios) {
-      // Use exact position without snapping to tile grid
-      const exactPos = startPx + lengthPx * ratio;
+      // Round to avoid floating point issues - must match generateWallSegments
+      const exactPos = Math.round(startPx + lengthPx * ratio);
       
       if (edge.orientation === 'horizontal') {
         addPillar(exactPos, positionPx, false, true);
@@ -1215,9 +1230,10 @@ export function generatePillarsWithEdgeInfo(
   
   // Process INTERNAL edges - endpoint pillars ONLY, no interior pillars
   for (const edge of internalEdges) {
-    const startPx = edge.rangeStart * MODULAR_TILE_PX;
-    const endPx = edge.rangeEnd * MODULAR_TILE_PX;
-    const positionPx = edge.position * MODULAR_TILE_PX;
+    // Round all pixel values to avoid floating point precision issues
+    const startPx = Math.round(edge.rangeStart * MODULAR_TILE_PX);
+    const endPx = Math.round(edge.rangeEnd * MODULAR_TILE_PX);
+    const positionPx = Math.round(edge.position * MODULAR_TILE_PX);
     
     // Endpoint pillars only
     if (edge.orientation === 'horizontal') {
