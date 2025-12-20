@@ -3,6 +3,11 @@
     "title": "News & Updates",
     "items": [
       {
+        "date": "2024-12-20",
+        "title": "🏰 Multi-Room Drag & Drop!",
+        "content": "Select multiple modular rooms with Shift-click and move them all together! Tokens placed on rooms now follow automatically when you drag."
+      },
+      {
         "date": "2024-12-19",
         "title": "🛠️ Toolbar Customization!",
         "content": "Customize your toolbar with 3 presets: Beginner (all tools), Advanced (focused), and Minimalistic (essentials). Your settings sync to the cloud!"
@@ -62,6 +67,17 @@
   "changelog": {
     "title": "Changelog",
     "versions": [
+      {
+        "version": "0.9.4",
+        "date": "2024-12-20",
+        "changes": [
+          "Multi-select modular rooms with Shift-click",
+          "Drag multiple rooms together with ghost preview",
+          "Tokens automatically follow their parent rooms when dragged",
+          "Magnetic snapping works for room groups",
+          "Improved wall group management when rooms connect or separate"
+        ]
+      },
       {
         "version": "0.9.3",
         "date": "2024-12-19",
