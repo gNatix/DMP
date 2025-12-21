@@ -75,6 +75,8 @@ interface RightPanelProps {
   // Toolbar customization
   hiddenToolbarButtons?: Set<string>;
   onHiddenToolbarButtonsChange?: (buttons: Set<string>) => void;
+  // Token drag-and-drop
+  onStartDragToken?: (template: TokenTemplate | null) => void;
 }
 
 type TabType = 'scenes' | 'tokens' | 'draw' | 'modules' | 'xlab' | 'settings';
@@ -144,6 +146,7 @@ const RightPanel = ({
   onDefaultWallStyleChange = () => {},
   hiddenToolbarButtons = new Set(),
   onHiddenToolbarButtonsChange = () => {},
+  onStartDragToken,
 }: RightPanelProps) => {
   const [internalActiveTab, setInternalActiveTab] = useState<TabType>('scenes');
   const [activeDrawTab, setActiveDrawTab] = useState<'room' | 'terrain' | 'walls'>('room');
@@ -274,6 +277,7 @@ const RightPanel = ({
             activeTokenTemplate={activeTokenTemplate}
             setActiveTokenTemplate={setActiveTokenTemplate}
             onRecentTokensChange={onRecentTokensChange}
+            onStartDragToken={onStartDragToken}
           />
         )}
         {activeTab === 'draw' && (

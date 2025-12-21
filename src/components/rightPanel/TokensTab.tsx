@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { TokenTemplate, ToolType, IconType, ColorType } from '../../types';
 import { Grid3x3, List, Circle, Square, Triangle, Star, Diamond, Heart, Skull, MapPin, Search, Eye, DoorOpen, Landmark as LandmarkIcon, Footprints, Info } from 'lucide-react';
 
@@ -9,6 +9,7 @@ interface TokensTabProps {
   setActiveTokenTemplate: (template: TokenTemplate | null) => void;
   onRecentTokensChange?: (tokens: TokenTemplate[]) => void;
   activeTokenTemplate?: TokenTemplate | null;
+  onStartDragToken?: (template: TokenTemplate | null) => void;
 }
 
 type TokenCategory = 'monsters' | 'npcs' | 'items' | 'objects' | 'other' | 'shapes' | 'poi' | 'environment';
@@ -133,14 +134,17 @@ const TokensTab = ({
   setActiveTool,
   setActiveTokenTemplate,
   onRecentTokensChange,
-  activeTokenTemplate
+  activeTokenTemplate,
+  onStartDragToken
 }: TokensTabProps) => {
   const [selectedCategory, setSelectedCategory] = useState<TokenCategory | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [selectedColor] = useState<ColorType>('red');
   const [driveTokens, setDriveTokens] = useState<TokenTemplate[]>(cachedDriveTokens || []);
   const [selectedTokenId, setSelectedTokenId] = useState<string | null>(null);
   const [currentTemplate, setCurrentTemplate] = useState<TokenTemplate | null>(null);
+  const dragStartRef = useRef<{ x: number; y: number } | null>(null);
+  const isDraggingRef = useRef(false);
 
   // Load tokens from webhotel (with caching)
   useEffect(() => {
@@ -228,6 +232,79 @@ const TokensTab = ({
 
   const handleCategoryClick = (category: TokenCategory) => {
     setSelectedCategory(selectedCategory === category ? null : category);
+  };
+
+  // Drag handlers for drag-and-drop to canvas
+  const handleTokenMouseDown = (e: React.MouseEvent, _template: TokenTemplate) => {
+    dragStartRef.current = { x: e.clientX, y: e.clientY };
+    isDraggingRef.current = false;
+  };
+
+  const handleTokenMouseUp = (_e: React.MouseEvent, template: TokenTemplate) => {
+    // Only trigger click if we didn't drag
+    if (!isDraggingRef.current) {
+      handleTokenClick(template);
+    }
+    dragStartRef.current = null;
+    isDraggingRef.current = false;
+  };
+
+  const handleDragStart = (e: React.DragEvent, template: TokenTemplate) => {
+    isDraggingRef.current = true;
+    
+    const coloredTemplate = { ...template, color: selectedColor };
+    
+    // Set drag data
+    e.dataTransfer.setData('application/json', JSON.stringify(coloredTemplate));
+    e.dataTransfer.effectAllowed = 'copy';
+    
+    // Create a custom drag image (token preview)
+    const dragPreview = document.createElement('div');
+    dragPreview.style.width = '64px';
+    dragPreview.style.height = '64px';
+    dragPreview.style.borderRadius = '50%';
+    dragPreview.style.border = `3px solid ${colorMap[selectedColor]}`;
+    dragPreview.style.backgroundColor = '#1a1a2e';
+    dragPreview.style.position = 'absolute';
+    dragPreview.style.top = '-1000px';
+    dragPreview.style.display = 'flex';
+    dragPreview.style.alignItems = 'center';
+    dragPreview.style.justifyContent = 'center';
+    dragPreview.style.overflow = 'hidden';
+    
+    if (template.imageUrl) {
+      const img = document.createElement('img');
+      img.src = template.imageUrl;
+      img.style.width = '100%';
+      img.style.height = '100%';
+      img.style.objectFit = 'cover';
+      dragPreview.appendChild(img);
+    } else {
+      // For shape/POI tokens, just use a colored circle
+      dragPreview.style.backgroundColor = colorMap[selectedColor];
+    }
+    
+    document.body.appendChild(dragPreview);
+    e.dataTransfer.setDragImage(dragPreview, 32, 32);
+    
+    // Remove the preview element after a short delay
+    setTimeout(() => {
+      document.body.removeChild(dragPreview);
+    }, 0);
+    
+    // Notify parent that we're starting a drag
+    if (onStartDragToken) {
+      onStartDragToken(coloredTemplate);
+    }
+  };
+
+  const handleDragEnd = (_e: React.DragEvent) => {
+    isDraggingRef.current = false;
+    dragStartRef.current = null;
+    // Clear the dragging state in parent (token was either dropped or cancelled)
+    if (onStartDragToken) {
+      onStartDragToken(null);
+    }
   };
 
   const colorMap: Record<ColorType, string> = {
@@ -380,7 +457,11 @@ const TokensTab = ({
               {getTokensForCategory(selectedCategory).map(template => (
                 <div
                   key={template.id}
-                  onClick={() => handleTokenClick(template)}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, template)}
+                  onDragEnd={handleDragEnd}
+                  onMouseDown={(e) => handleTokenMouseDown(e, template)}
+                  onMouseUp={(e) => handleTokenMouseUp(e, template)}
                   className={`aspect-square rounded-lg cursor-pointer transition-all bg-dm-dark group relative border-2 ${
                     selectedTokenId === template.id
                       ? 'border-dm-highlight'
@@ -416,7 +497,11 @@ const TokensTab = ({
               {getTokensForCategory(selectedCategory).map(template => (
                 <div
                   key={template.id}
-                  onClick={() => handleTokenClick(template)}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, template)}
+                  onDragEnd={handleDragEnd}
+                  onMouseDown={(e) => handleTokenMouseDown(e, template)}
+                  onMouseUp={(e) => handleTokenMouseUp(e, template)}
                   className={`p-2 rounded-lg cursor-pointer transition-all bg-dm-dark/50 flex items-center gap-3 border-2 ${
                     selectedTokenId === template.id
                       ? 'border-dm-highlight'
@@ -454,10 +539,10 @@ const TokensTab = ({
       {/* Instructions */}
       <div className="p-4 border-t border-dm-border bg-dm-dark/50">
         <p className="text-xs text-gray-400">
-          <strong className="text-gray-300">Left click</strong> to place token on the map
+          <strong className="text-gray-300">Click</strong> to select stamp mode (place multiple)
         </p>
         <p className="text-xs text-gray-400 mt-1">
-         <strong className="text-gray-300">Click and drag</strong> when placing token to scale it
+          <strong className="text-gray-300">Drag to canvas</strong> to place a single token
         </p>
       </div>
     </div>

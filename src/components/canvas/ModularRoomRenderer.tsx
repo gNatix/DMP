@@ -14,6 +14,7 @@ import {
   WallGroup,
   ModularDoor,
   TokenElement,
+  ToolType,
 } from '../../types';
 import {
   MODULAR_WALL_THICKNESS_PX,
@@ -63,6 +64,8 @@ interface ModularRoomRendererProps {
   } | null;
   // Tokens linked to rooms (for showing in drag preview)
   linkedTokens?: TokenElement[];
+  // Active tool - used to disable door pointer events when door tool is active
+  activeTool?: ToolType;
 }
 
 /**
@@ -296,25 +299,98 @@ const WallGroupRenderer: React.FC<{
   wallStyleId: string;
   rooms: ModularRoomElement[];
   doors: ModularDoor[];
-}> = ({ groupId, roomIds, wallStyleId, rooms, doors }) => {
+  activeTool?: ToolType;
+}> = ({ groupId, roomIds, wallStyleId, rooms, doors, activeTool }) => {
   // Generate perimeter and walls
-  const { wallSegments, internalWallSegments, doorRenderings, pillars } = useMemo(() => {
+  const { wallSegments, internalWallSegments, doorRenderings, pillars, externalDoorRenderings } = useMemo(() => {
     const groupRooms = rooms.filter(r => roomIds.includes(r.id));
     const { externalEdges, internalEdges } = getGroupEdges(roomIds, groupRooms);
     
     // Get doors that belong to rooms in this group (both rooms must be in the group)
+    // These are internal doors (between adjacent rooms)
     const groupDoors = doors.filter(d => 
       roomIds.includes(d.roomAId) && roomIds.includes(d.roomBId)
     );
     
+    // Get manual external doors (doors on external walls where one or both rooms are in this group)
+    // Also match by wallSegmentGroupId for legacy doors with empty roomAId
+    const externalDoors = doors.filter(d => {
+      if (!d.isManual) return false;
+      
+      // Check if it's an external door (no roomBId or same as roomAId)
+      const isExternalDoor = !d.roomBId || d.roomBId === '' || d.roomBId === d.roomAId;
+      if (!isExternalDoor) return false;
+      
+      // Match by roomAId if set
+      if (d.roomAId && roomIds.includes(d.roomAId)) return true;
+      
+      // Fallback: match by edge position if roomAId is empty (legacy doors)
+      // Check if any external edge matches this door's position
+      if (!d.roomAId || d.roomAId === '') {
+        return externalEdges.some(edge => 
+          edge.orientation === d.edgeOrientation &&
+          Math.abs(edge.position * MODULAR_TILE_PX - d.edgePosition) < 2
+        );
+      }
+      
+      return false;
+    });
+    
+    // Generate external door renderings using stored edge data
+    const extDoorRenderings = externalDoors.map(door => {
+      const doorWidthPx = door.widthTiles * MODULAR_TILE_PX;
+      const orientation = door.edgeOrientation;
+      
+      // For manual external doors, edge data is stored in PIXELS (from WallSegmentGroup)
+      // For auto doors (internal), edge data is in TILES
+      // Check isManual to determine which unit system to use
+      let edgeStartPx: number;
+      let edgePositionPx: number;
+      
+      if (door.isManual) {
+        // Manual doors store edge data in pixels
+        edgeStartPx = Math.round(door.edgeRangeStart);
+        edgePositionPx = Math.round(door.edgePosition);
+      } else {
+        // Auto doors store edge data in tiles
+        edgeStartPx = Math.round(door.edgeRangeStart * MODULAR_TILE_PX);
+        edgePositionPx = Math.round(door.edgePosition * MODULAR_TILE_PX);
+      }
+      
+      const doorOffsetPx = Math.round((door.offsetTiles || 0) * MODULAR_TILE_PX);
+      
+      // Door position is at the offset from edge start
+      let x: number, y: number;
+      
+      if (orientation === 'horizontal') {
+        x = edgeStartPx + doorOffsetPx + doorWidthPx / 2; // Center of door
+        y = edgePositionPx;
+      } else {
+        x = edgePositionPx;
+        y = edgeStartPx + doorOffsetPx + doorWidthPx / 2; // Center of door
+      }
+      
+      return {
+        x,
+        y,
+        width: doorWidthPx,
+        height: MODULAR_WALL_THICKNESS_PX,
+        rotation: orientation === 'vertical' ? 90 : 0,
+        wallStyleId,
+        doorId: door.id,
+      };
+    });
+    
     return {
-      wallSegments: generateWallSegments(externalEdges, groupDoors, wallStyleId),
+      wallSegments: generateWallSegments(externalEdges, [...groupDoors, ...externalDoors], wallStyleId),
       internalWallSegments: generateInternalWallSegments(internalEdges, groupDoors, wallStyleId),
       // Pass internalEdges to get CURRENT edge positions for rotated rooms
       doorRenderings: generateDoorRenderings(groupDoors, wallStyleId, internalEdges),
+      // External door renderings (manual doors on external walls)
+      externalDoorRenderings: extDoorRenderings,
       // Use edge-aware pillar generation: corners on all walls, interior only on external
       // Pass doors so pillars aren't placed where doors are
-      pillars: generatePillarsWithEdgeInfo(externalEdges, internalEdges, wallStyleId, groupDoors),
+      pillars: generatePillarsWithEdgeInfo(externalEdges, internalEdges, wallStyleId, [...groupDoors, ...externalDoors]),
     };
   }, [groupId, roomIds, wallStyleId, rooms, doors]);
 
@@ -473,6 +549,9 @@ const WallGroupRenderer: React.FC<{
         const left = door.x - renderWidth / 2;
         const top = door.y - renderHeight / 2;
         
+        // When door tool is active, disable pointer events so Canvas can detect clicks
+        const isDoorToolActive = activeTool === 'doorTool';
+        
         return (
           <div
             key={`door-${groupId}-${idx}`}
@@ -483,10 +562,57 @@ const WallGroupRenderer: React.FC<{
               width: renderWidth,
               height: renderHeight,
               overflow: 'hidden',
-              cursor: 'pointer',
-              pointerEvents: 'auto',
+              cursor: isDoorToolActive ? 'inherit' : 'pointer',
+              pointerEvents: isDoorToolActive ? 'none' : 'auto',
             }}
-            title="Door (drag to move)"
+            title={isDoorToolActive ? undefined : "Door (drag to move)"}
+          >
+            <div
+              style={{
+                position: 'absolute',
+                left: isVertical ? (renderWidth - renderHeight) / 2 : 0,
+                top: isVertical ? (renderHeight - renderWidth) / 2 : 0,
+                width: isVertical ? renderHeight : renderWidth,
+                height: isVertical ? renderWidth : renderHeight,
+                backgroundImage: `url(${doorSprite})`,
+                backgroundRepeat: 'no-repeat',
+                backgroundSize: `${door.width}px ${MODULAR_WALL_THICKNESS_PX}px`,
+                backgroundPosition: 'center',
+                transform: isVertical ? 'rotate(90deg)' : undefined,
+                transformOrigin: 'center center',
+              }}
+            />
+          </div>
+        );
+      })}
+      
+      {/* External door sprites (manual doors on external walls) */}
+      {externalDoorRenderings.map((door, idx) => {
+        const isVertical = door.rotation === 90;
+        
+        const renderWidth = isVertical ? MODULAR_WALL_THICKNESS_PX : door.width;
+        const renderHeight = isVertical ? door.width : MODULAR_WALL_THICKNESS_PX;
+        
+        const left = door.x - renderWidth / 2;
+        const top = door.y - renderHeight / 2;
+        
+        // When door tool is active, disable pointer events so Canvas can detect clicks
+        const isDoorToolActive = activeTool === 'doorTool';
+        
+        return (
+          <div
+            key={`ext-door-${groupId}-${idx}`}
+            style={{
+              position: 'absolute',
+              left,
+              top,
+              width: renderWidth,
+              height: renderHeight,
+              overflow: 'hidden',
+              cursor: isDoorToolActive ? 'inherit' : 'pointer',
+              pointerEvents: isDoorToolActive ? 'none' : 'auto',
+            }}
+            title={isDoorToolActive ? undefined : "External Door (click with Door Tool to remove)"}
           >
             <div
               style={{
@@ -543,6 +669,7 @@ const ModularRoomRenderer: React.FC<ModularRoomRendererProps> = ({
   dragPreview,
   placingFloor,
   linkedTokens,
+  activeTool,
 }) => {
   // When dragging, exclude ALL rooms in the group from static rendering
   const staticRooms = useMemo(() => {
@@ -770,11 +897,16 @@ const ModularRoomRenderer: React.FC<ModularRoomRendererProps> = ({
                 roomIds={roomIds}
                 wallStyleId={wallStyleId}
                 rooms={groupRooms}
-                doors={activeDoors.filter(d => 
-                  // Only include doors where BOTH rooms are in this group
-                  // (doors between different groups are invalid and should be filtered out)
-                  roomIds.includes(d.roomAId) && roomIds.includes(d.roomBId)
-                )}
+                activeTool={activeTool}
+                doors={activeDoors.filter(d => {
+                  // Include doors where roomAId is in this group AND either:
+                  // 1. roomBId is also in this group (internal door), OR
+                  // 2. roomBId is empty/same as roomAId (external door)
+                  const isInGroup = roomIds.includes(d.roomAId);
+                  const isInternalDoor = roomIds.includes(d.roomBId);
+                  const isExternalDoor = !d.roomBId || d.roomBId === '' || d.roomBId === d.roomAId;
+                  return isInGroup && (isInternalDoor || isExternalDoor);
+                })}
               />
             );
           })}

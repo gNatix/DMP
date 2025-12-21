@@ -28,6 +28,10 @@ export const MODULAR_DOOR_WIDTH_TILES = 1;
 export const MODULAR_DOOR_SPRITE_WIDTH = 128;
 export const MODULAR_DOOR_SPRITE_HEIGHT = 32;
 
+// Wall segment group size (for door tool)
+export const WALL_SEGMENT_GROUP_SIZE_PX = 256; // Each group is 256px (2 tiles)
+export const WALL_SNAP_SIZE_PX = 64; // Doors snap to 64px increments
+
 // Asset base URL
 export const MODULAR_ASSETS_BASE_URL = 'https://dmp.natixlabs.com';
 

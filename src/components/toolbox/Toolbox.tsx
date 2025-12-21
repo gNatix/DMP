@@ -44,6 +44,7 @@ import RoomButton, { roomButtonConfig } from './buttons/RoomButton';
 import ModularRoomButton, { modularRoomButtonConfig } from './buttons/ModularRoomButton';
 import WallButton, { wallButtonConfig } from './buttons/WallButton';
 import WallCutterToolButton, { wallCutterToolButtonConfig } from './buttons/WallCutterToolButton';
+import DoorToolButton, { doorToolButtonConfig } from './buttons/DoorToolButton';
 import PanButton, { panButtonConfig } from './buttons/PanButton';
 import ZoomButton, { zoomButtonConfig } from './buttons/ZoomButton';
 import UndoButton, { undoButtonConfig } from './buttons/UndoButton';
@@ -134,6 +135,7 @@ const BUTTON_REGISTRY = [
   { component: ModularRoomButton, config: modularRoomButtonConfig },
   { component: WallButton, config: wallButtonConfig },
   { component: WallCutterToolButton, config: wallCutterToolButtonConfig },
+  { component: DoorToolButton, config: doorToolButtonConfig },
   { component: PanButton, config: panButtonConfig },
   { component: ZoomButton, config: zoomButtonConfig },
   { component: UndoButton, config: undoButtonConfig },

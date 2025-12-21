@@ -27,6 +27,12 @@ import {
   // findAdjacentGroups, // Currently unused - new connected component logic replaces this
   // generateMergeUpdates, // Currently unused - group drag doesn't use merge updates the same way
   areRoomsAdjacent,
+  // Door tool utilities
+  generateWallSegmentGroups,
+  findWallSegmentGroupAtPosition,
+  findDoorAtPosition,
+  addDoorToWallSegmentGroup,
+  removeDoorFromWallSegmentGroup,
 } from '../utils/modularRooms';
 
 // Helper function to create rounded polygon path (for room shapes)
@@ -214,6 +220,9 @@ interface CanvasProps {
   defaultWallStyleId?: string;
   // Toolbar customization
   hiddenToolbarButtons?: Set<string>;
+  // Token drag-and-drop from right panel
+  draggingToken?: TokenTemplate | null;
+  setDraggingToken?: (token: TokenTemplate | null) => void;
 }
 
 // Visual stacking order (back → front):
@@ -300,6 +309,8 @@ const Canvas = ({
   setPlacingModularFloor,
   defaultWallStyleId = 'worn-castle',
   hiddenToolbarButtons,
+  draggingToken,
+  setDraggingToken,
 }: CanvasProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
@@ -383,6 +394,7 @@ const Canvas = ({
   // Wall Cutter Tool state - rectangle mode only
   const wallCutterToolBrushSize = wallCutterToolBrushSizeProp;
   const [wallCutterToolStart, setWallCutterToolStart] = useState<{ x: number; y: number } | null>(null);
+  const [doorToolHoverState, setDoorToolHoverState] = useState<'none' | 'wall' | 'door'>('none');
   const [wallCutterToolEnd, setWallCutterToolEnd] = useState<{ x: number; y: number } | null>(null);
 
   // Interior wall drawing state (ALT + click on room edge)
@@ -4170,11 +4182,12 @@ const Canvas = ({
     // Check if clicking on an element
     const clickedElement = findElementAtPosition(x, y, scene.elements);
 
-    // Double-click detection
+    // Double-click detection - but NOT for door tool (door tool should not interact with elements)
     const now = Date.now();
     const isDoubleClick = clickedElement && 
       clickedElement.id === lastClickedElement && 
-      now - lastClickTime < 300; // 300ms double-click threshold
+      now - lastClickTime < 300 && // 300ms double-click threshold
+      activeTool !== 'doorTool'; // Door tool ignores element double-clicks
     
     if (isDoubleClick && onDoubleClickElement) {
       onDoubleClickElement(clickedElement.id);
@@ -4183,8 +4196,8 @@ const Canvas = ({
       return;
     }
     
-    // Update click tracking
-    if (clickedElement) {
+    // Update click tracking (but not for door tool)
+    if (clickedElement && activeTool !== 'doorTool') {
       setLastClickTime(now);
       setLastClickedElement(clickedElement.id);
     } else {
@@ -5248,7 +5261,88 @@ const Canvas = ({
       setIsPaintingBackground(true);
       startBrushPainting(x, y);
     } else if (effectiveTool === 'doorTool') {
-      // Door Tool - DISABLED
+      // Door Tool - click on walls to add/remove doors
+      if (!scene || !activeSceneId) return;
+      
+      const modularRooms = getModularRooms(scene.elements);
+      if (modularRooms.length === 0) return;
+      
+      const currentState = scene.modularRoomsState || { wallGroups: [], doors: [] };
+      
+      // Generate wall segment groups if not present
+      let wallSegmentGroups = currentState.wallSegmentGroups;
+      if (!wallSegmentGroups || wallSegmentGroups.length === 0) {
+        wallSegmentGroups = generateWallSegmentGroups(
+          modularRooms,
+          currentState.doors || [],
+          currentState.wallGroups || []
+        );
+      }
+      
+      // Find which wall segment was clicked
+      const hitResult = findWallSegmentGroupAtPosition(x, y, wallSegmentGroups);
+      if (!hitResult) {
+        console.log('[DOOR TOOL] No wall at click position');
+        return;
+      }
+      
+      const { group, offsetPx } = hitResult;
+      console.log('[DOOR TOOL] Clicked wall segment group:', group.id, 'isExternal:', group.isExternal, 'offset:', offsetPx);
+      
+      saveToHistory(); // Save before making changes
+      
+      // Check if clicking on an existing door (in components)
+      const existingDoorComponent = findDoorAtPosition(group, offsetPx);
+      
+      if (existingDoorComponent && existingDoorComponent.doorId) {
+        // Remove the door - works for both manual and auto doors
+        const updatedGroup = removeDoorFromWallSegmentGroup(group, existingDoorComponent.doorId);
+        const updatedWallSegmentGroups = wallSegmentGroups.map(g =>
+          g.id === group.id ? updatedGroup : g
+        );
+        
+        // Remove from doors array
+        const updatedDoors = (currentState.doors || []).filter(d => d.id !== existingDoorComponent.doorId);
+        
+        updateScene(activeSceneId, {
+          modularRoomsState: {
+            ...currentState,
+            wallSegmentGroups: updatedWallSegmentGroups,
+            doors: updatedDoors,
+          },
+        });
+        
+        console.log('[DOOR TOOL] Removed door:', existingDoorComponent.doorId);
+      } else {
+        // Add a new door (works for both internal and external walls)
+        const result = addDoorToWallSegmentGroup(group, offsetPx, modularRooms);
+        if (!result) {
+          console.log('[DOOR TOOL] Cannot add door at this position');
+          return;
+        }
+        
+        const { updatedGroup, newDoor } = result;
+        console.log('[DOOR TOOL] New door created:', JSON.stringify(newDoor, null, 2));
+        
+        const updatedWallSegmentGroups = wallSegmentGroups.map(g =>
+          g.id === group.id ? updatedGroup : g
+        );
+        
+        // Add to doors array
+        const updatedDoors = [...(currentState.doors || []), newDoor];
+        console.log('[DOOR TOOL] Updating scene with', updatedDoors.length, 'doors');
+        
+        updateScene(activeSceneId, {
+          modularRoomsState: {
+            ...currentState,
+            wallSegmentGroups: updatedWallSegmentGroups,
+            doors: updatedDoors,
+          },
+        });
+        
+        console.log('[DOOR TOOL] Added door:', newDoor.id, 'at group:', group.id);
+      }
+      
       return;
     } else if (effectiveTool === 'wallCutterTool') {
       // Wall Cutter Tool - rectangle mode only
@@ -5257,20 +5351,93 @@ const Canvas = ({
     }
   };
 
-  // Handle drag over for modular floor placement from panel
+  // Handle drag over for modular floor placement from panel and token drag-drop
   const handleDragOver = (e: React.DragEvent) => {
-    // Only process if we're placing a modular floor
-    if (!placingModularFloor || activeTool !== 'modularRoom') return;
+    // Check if this is a token drag from the right panel
+    const hasTokenData = e.dataTransfer.types.includes('application/json');
     
-    e.preventDefault(); // Allow drop
+    // Allow drop if we're placing a modular floor OR dragging a token
+    if ((placingModularFloor && activeTool === 'modularRoom') || hasTokenData || draggingToken) {
+      e.preventDefault(); // Allow drop
+      
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+
+      const x = (e.clientX - rect.left - viewport.x) / viewport.zoom;
+      const y = (e.clientY - rect.top - viewport.y) / viewport.zoom;
+
+      setCursorPosition({ x, y });
+    }
+  };
+
+  // Handle token drop from right panel
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
     
+    // Try to get token data from drag event
+    const tokenDataStr = e.dataTransfer.getData('application/json');
+    if (!tokenDataStr) return;
+    
+    let tokenTemplate: TokenTemplate;
+    try {
+      tokenTemplate = JSON.parse(tokenDataStr);
+    } catch {
+      return;
+    }
+    
+    // Calculate drop position
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
-
+    
     const x = (e.clientX - rect.left - viewport.x) / viewport.zoom;
     const y = (e.clientY - rect.top - viewport.y) / viewport.zoom;
-
-    setCursorPosition({ x, y });
+    
+    // Create the token element
+    const newToken: TokenElement = {
+      id: `token-${Date.now()}`,
+      type: 'token',
+      x,
+      y,
+      size: MODULAR_TILE_PX, // Default size = one tile (128px)
+      name: tokenTemplate.name,
+      imageUrl: tokenTemplate.imageUrl,
+      notes: '',
+      isShape: tokenTemplate.isShape,
+      isPOI: tokenTemplate.isPOI,
+      icon: tokenTemplate.icon,
+      color: tokenTemplate.color || activeColor
+    };
+    
+    // Check if token is dropped on a modular room and link it
+    if (scene) {
+      const modularRooms = getModularRooms(scene.elements);
+      const parentRoom = modularRooms.find(room => {
+        const roomRight = room.x + room.tilesW * MODULAR_TILE_PX;
+        const roomBottom = room.y + room.tilesH * MODULAR_TILE_PX;
+        return x >= room.x && x <= roomRight && y >= room.y && y <= roomBottom;
+      });
+      
+      if (parentRoom) {
+        (newToken as any).parentRoomId = parentRoom.id;
+        (newToken as any).parentRoomOffset = { x: x - parentRoom.x, y: y - parentRoom.y };
+      }
+    }
+    
+    // Save to history and add the token
+    saveToHistory();
+    addElement(newToken);
+    
+    // Select the newly placed token
+    setSelectedElementId(newToken.id);
+    setSelectedElementIds([]);
+    
+    // Clear cursor position
+    setCursorPosition(null);
+    
+    // Clear dragging state
+    if (setDraggingToken) {
+      setDraggingToken(null);
+    }
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
@@ -5502,7 +5669,8 @@ const Canvas = ({
     }
 
     // Check if hovering over rotation handle or vertices
-    if (scene && selectedElementId && !rotatingElement && !draggedElement) {
+    // Skip this check for doorTool - it shouldn't interact with room vertices/handles
+    if (scene && selectedElementId && !rotatingElement && !draggedElement && activeTool !== 'doorTool') {
       const element = scene.elements.find(el => el.id === selectedElementId);
       if (element && element.type === 'room' && element.vertices) {
         const xs = element.vertices.map(v => v.x);
@@ -5677,8 +5845,36 @@ const Canvas = ({
       // Update cursor position for terrain brush preview
       setCursorPosition({ x, y });
     } else if (activeTool === 'doorTool' && scene && !isOverUI) {
-      // Update cursor position for door tool preview
+      // Update cursor position for door tool preview and detect what's under cursor
       setCursorPosition({ x, y });
+      
+      // Check if cursor is over a wall or door
+      const modularRooms = getModularRooms(scene.elements);
+      if (modularRooms.length > 0) {
+        const currentState = scene.modularRoomsState || { wallGroups: [], doors: [] };
+        let wallSegmentGroups = currentState.wallSegmentGroups;
+        if (!wallSegmentGroups || wallSegmentGroups.length === 0) {
+          wallSegmentGroups = generateWallSegmentGroups(
+            modularRooms,
+            currentState.doors || [],
+            currentState.wallGroups || []
+          );
+        }
+        
+        const hitResult = findWallSegmentGroupAtPosition(x, y, wallSegmentGroups);
+        if (hitResult) {
+          const existingDoor = findDoorAtPosition(hitResult.group, hitResult.offsetPx);
+          if (existingDoor && existingDoor.doorId) {
+            setDoorToolHoverState('door');
+          } else {
+            setDoorToolHoverState('wall');
+          }
+        } else {
+          setDoorToolHoverState('none');
+        }
+      } else {
+        setDoorToolHoverState('none');
+      }
     } else if (activeTool === 'wallCutterTool' && scene && !isOverUI) {
       // Update cursor position for wall cutter tool preview
       setCursorPosition({ x, y });
@@ -6952,6 +7148,18 @@ const Canvas = ({
     if (isCreating && tempElement && tempElement.id === 'temp') {
       let finalElement = { ...tempElement, id: `${tempElement.type}-${Date.now()}` };
       
+      // For tokens: if user didn't drag far enough, use default size
+      if (finalElement.type === 'token' && createStart) {
+        const token = finalElement as TokenElement;
+        const dragDistance = Math.sqrt(
+          (token.x - createStart.x) ** 2 + (token.y - createStart.y) ** 2
+        );
+        // If drag distance is less than 10px, use default tile size
+        if (dragDistance < 10 || token.size < MODULAR_TILE_PX * 0.5) {
+          finalElement = { ...finalElement, size: MODULAR_TILE_PX } as TokenElement;
+        }
+      }
+      
       // For tokens, check if they're placed on a modular room and link them
       if (finalElement.type === 'token' && scene) {
         const token = finalElement as TokenElement;
@@ -7756,6 +7964,22 @@ const Canvas = ({
     if (scalingElement) return 'cursor-nwse-resize';
     if (movingVertex) return 'cursor-grab'; // Show grab hand when moving vertex
     
+    // Door tool cursor - check BEFORE vertex/rotation hover checks
+    // because doorTool shouldn't interact with room vertices/handles
+    if (activeTool === 'doorTool') {
+      // Door icon cursor - different colors based on what's under cursor
+      if (doorToolHoverState === 'door') {
+        // Red door with X - hovering over existing door (click to remove)
+        return 'cursor-door-remove';
+      } else if (doorToolHoverState === 'wall') {
+        // Green door with + - hovering over wall (click to add door)
+        return 'cursor-door-add';
+      } else {
+        // Gray door - not over a wall
+        return 'cursor-door-none';
+      }
+    }
+    
     // Hovering over edge with Ctrl/Shift = grab hand (will add and immediately drag)
     if (hoveringEdge && (isCtrlPressed || isShiftPressed)) return 'cursor-grab';
     
@@ -7781,7 +8005,7 @@ const Canvas = ({
       if (roomSubTool === 'erase') return 'cursor-cell';
       // Show custom cursor with minus for subtract mode (like Photoshop)
       if (isSubtractMode(roomSubTool)) {
-        return `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><path d='M12 2v20M2 12h20' stroke='white' stroke-width='2'/><path d='M12 2v20M2 12h20' stroke='black' stroke-width='1'/><circle cx='17' cy='7' r='6' fill='white' stroke='black' stroke-width='1.5'/><path d='M14 7h6' stroke='black' stroke-width='2' stroke-linecap='round'/></svg>") 12 12, crosshair`;
+        return 'cursor-room-subtract';
       }
       // Default crosshair for add mode
       return 'cursor-crosshair';
@@ -7940,6 +8164,13 @@ const Canvas = ({
         onMouseUp={handleMouseUp}
         onContextMenu={handleContextMenu}
         onDragOver={handleDragOver}
+        onDragLeave={() => {
+          // Clear cursor position when drag leaves canvas (e.g., going back to right panel)
+          if (draggingToken) {
+            setCursorPosition(null);
+          }
+        }}
+        onDrop={handleDrop}
       >
         {/* ...no token submenu rendered... */}
         {scene && (() => {
@@ -8054,6 +8285,7 @@ const Canvas = ({
                     dragPreview={modularRoomDragPreview}
                     placingFloor={placingModularFloor}
                     linkedTokens={scene.elements.filter(el => el.type === 'token') as TokenElement[]}
+                    activeTool={activeTool}
                   />
                 </div>
 
@@ -8153,6 +8385,7 @@ const Canvas = ({
                     dragPreview={modularRoomDragPreview}
                     placingFloor={placingModularFloor}
                     linkedTokens={scene.elements.filter(el => el.type === 'token') as TokenElement[]}
+                    activeTool={activeTool}
                   />
                   
                 </div>
@@ -8314,6 +8547,7 @@ const Canvas = ({
                 dragPreview={modularRoomDragPreview}
                 placingFloor={placingModularFloor}
                 linkedTokens={scene.elements.filter(el => el.type === 'token') as TokenElement[]}
+                activeTool={activeTool}
               />
             </div>
             
@@ -8393,6 +8627,7 @@ const Canvas = ({
                 dragPreview={modularRoomDragPreview}
                 placingFloor={placingModularFloor}
                 linkedTokens={scene.elements.filter(el => el.type === 'token') as TokenElement[]}
+                activeTool={activeTool}
               />
               
             </div>
@@ -9339,6 +9574,46 @@ const Canvas = ({
                     }}
                   >
                     <img src={activeTokenTemplate.imageUrl} alt="" className="w-full h-full object-cover" />
+                  </div>
+                ) : null}
+              </div>
+            )}
+
+        {/* Drag-and-drop token preview from right panel */}
+        {scene && draggingToken && cursorPosition && (
+              <div
+                style={{
+                  position: 'absolute',
+                  left: viewport.x + cursorPosition.x * viewport.zoom - (MODULAR_TILE_PX / 2) * viewport.zoom,
+                  top: viewport.y + cursorPosition.y * viewport.zoom - (MODULAR_TILE_PX / 2) * viewport.zoom,
+                  width: MODULAR_TILE_PX * viewport.zoom,
+                  height: MODULAR_TILE_PX * viewport.zoom,
+                  pointerEvents: 'none',
+                  opacity: 0.8,
+                  zIndex: 50
+                }}
+              >
+                {(draggingToken.isShape || draggingToken.isPOI) && draggingToken.icon ? (
+                  (() => {
+                    const IconComponent = getLucideIcon(draggingToken.icon);
+                    const color = getColorHex(draggingToken.color || 'blue');
+                    return (
+                      <IconComponent
+                        size={MODULAR_TILE_PX * viewport.zoom}
+                        style={{ color }}
+                        fill={draggingToken.isShape ? color : 'none'}
+                        strokeWidth={draggingToken.isPOI ? 2 : 1.5}
+                      />
+                    );
+                  })()
+                ) : draggingToken.imageUrl ? (
+                  <div 
+                    className="w-full h-full rounded-full overflow-hidden"
+                    style={{
+                      border: `3px solid ${getColorHex(draggingToken.color || 'blue')}`
+                    }}
+                  >
+                    <img src={draggingToken.imageUrl} alt="" className="w-full h-full object-cover" />
                   </div>
                 ) : null}
               </div>

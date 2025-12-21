@@ -199,12 +199,14 @@ export interface WallGroup {
 }
 
 /**
- * Modular Door - A door opening in the wall between two adjacent modular rooms
+ * Modular Door - A door opening in a modular wall
+ * Can be between two rooms (internal) or on an external wall
  */
 export interface ModularDoor {
   id: string;
   
   // Room references (sorted alphabetically for stable key)
+  // For external doors, only roomAId is set, roomBId is empty string
   roomAId: string;
   roomBId: string;
   
@@ -219,6 +221,51 @@ export interface ModularDoor {
   
   // Door width in tiles (default 1)
   widthTiles: number;
+  
+  // Is this an auto-generated door (between rooms) or manually placed?
+  isManual?: boolean;
+  
+  // Reference to wall segment group (for manual doors)
+  wallSegmentGroupId?: string;
+}
+
+/**
+ * Component within a WallSegmentGroup (wall piece or door)
+ * All widths must be multiples of 64px
+ */
+export interface WallSegmentComponent {
+  type: 'wall' | 'door';
+  widthPx: 64 | 128 | 256;    // Only these sizes are supported
+  offsetPx: number;            // Offset from group start (0, 64, 128, or 192)
+  
+  // Only for door components
+  doorId?: string;             // Reference to ModularDoor
+}
+
+/**
+ * WallSegmentGroup - A 256px section of wall
+ * Contains components (wall pieces and/or doors) that sum to 256px
+ */
+export interface WallSegmentGroup {
+  id: string;                   // Unique ID, e.g., "wsg-1734567890123"
+  
+  // Position (in pixels, snapped to 256px grid along the wall run)
+  orientation: 'horizontal' | 'vertical';
+  position: number;             // Fixed coordinate (x for vertical, y for horizontal)
+  rangeStart: number;           // Start in pixels
+  rangeEnd: number;             // End in pixels (always rangeStart + 256 for full groups)
+  
+  // Wall style
+  wallStyleId: string;
+  
+  // What's in this group? (components must sum to rangeEnd - rangeStart)
+  components: WallSegmentComponent[];
+  
+  // Room references (for internal edges: both rooms, for external: only one)
+  roomIds: string[];
+  
+  // Is this an external or internal wall?
+  isExternal: boolean;
 }
 
 /**
@@ -227,6 +274,7 @@ export interface ModularDoor {
 export interface ModularRoomsState {
   wallGroups: WallGroup[];
   doors: ModularDoor[];
+  wallSegmentGroups?: WallSegmentGroup[];  // Persistent wall segments (generated on first load if missing)
 }
 
 /**

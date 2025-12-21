@@ -486,7 +486,11 @@ export function getGroupEdges(
   edgesByLine.forEach((edgesOnLine) => {
     if (edgesOnLine.length === 1) {
       // Only one edge on this line - it's all external
-      externalEdges.push(edgesOnLine[0].edge);
+      // Make sure to include the roomId!
+      externalEdges.push({
+        ...edgesOnLine[0].edge,
+        roomAId: edgesOnLine[0].roomId,
+      });
       return;
     }
     
@@ -702,19 +706,75 @@ export function generateWallSegments(
     }
     
     // Check for doors on this edge
-    const edgeDoors = doors.filter(d => 
-      d.edgeOrientation === edge.orientation &&
-      d.edgePosition === edge.position &&
-      d.edgeRangeStart === edge.rangeStart &&
-      d.edgeRangeEnd === edge.rangeEnd
-    );
+    // For internal doors: match exact edge range (tiles)
+    // For manual/external doors: edge data is in pixels, check if door position falls within this edge
+    const edgeDoors = doors.filter(d => {
+      if (d.edgeOrientation !== edge.orientation) return false;
+      
+      // For manual doors, edge data is in pixels
+      // edge.position is in tiles, so we compare in pixels
+      if (d.isManual) {
+        // Compare positions (both in pixels)
+        if (Math.abs(d.edgePosition - positionPx) > 2) return false;
+        
+        // Check if door falls within edge range (all in pixels)
+        const doorStartPx = d.edgeRangeStart + (d.offsetTiles || 0) * MODULAR_TILE_PX;
+        const doorEndPx = doorStartPx + d.widthTiles * MODULAR_TILE_PX;
+        // Door overlaps with edge if door is within edge bounds
+        return doorStartPx >= startPx && doorEndPx <= startPx + lengthPx;
+      }
+      
+      // For auto doors (internal), edge data is in tiles - need to convert
+      const doorPositionPx = d.edgePosition * MODULAR_TILE_PX;
+      if (Math.abs(doorPositionPx - positionPx) > 2) return false;
+      
+      // For exact edge range match (tiles converted to pixels)
+      const doorRangeStartPx = d.edgeRangeStart * MODULAR_TILE_PX;
+      const doorRangeEndPx = d.edgeRangeEnd * MODULAR_TILE_PX;
+      if (Math.abs(doorRangeStartPx - startPx) < 2 && Math.abs(doorRangeEndPx - (startPx + lengthPx)) < 2) {
+        return true;
+      }
+      
+      return false;
+    });
     
-    // Combine all split points (pillars and doors) and sort
-    const splitPoints: number[] = [...interiorPillarOffsets];
+    // Calculate adjusted offsets for each door (relative to edge start in pixels)
+    const doorAdjustedOffsetsPx = new Map<string, number>();
+    const doorRanges: { start: number; end: number }[] = [];
     
     for (const door of edgeDoors) {
-      splitPoints.push(door.offsetTiles * MODULAR_TILE_PX);
-      splitPoints.push((door.offsetTiles + door.widthTiles) * MODULAR_TILE_PX);
+      let doorOffsetPx: number;
+      
+      if (door.isManual) {
+        // Manual doors: edgeRangeStart is in pixels, offsetTiles is in tiles
+        // startPx is already edge.rangeStart converted to pixels
+        doorOffsetPx = (door.edgeRangeStart - startPx) + (door.offsetTiles || 0) * MODULAR_TILE_PX;
+      } else {
+        // Auto doors: edgeRangeStart is in tiles, offsetTiles is in tiles
+        const doorRangeStartPx = door.edgeRangeStart * MODULAR_TILE_PX;
+        doorOffsetPx = (doorRangeStartPx - startPx) + (door.offsetTiles || 0) * MODULAR_TILE_PX;
+      }
+      
+      const doorEndPx = doorOffsetPx + door.widthTiles * MODULAR_TILE_PX;
+      doorAdjustedOffsetsPx.set(door.id, doorOffsetPx);
+      doorRanges.push({ start: doorOffsetPx, end: doorEndPx });
+    }
+    
+    // Filter out pillar offsets that fall inside a door opening
+    const filteredPillarOffsets = interiorPillarOffsets.filter(pillarOffset => {
+      for (const range of doorRanges) {
+        if (pillarOffset >= range.start && pillarOffset <= range.end) {
+          return false; // Pillar is inside door, remove it
+        }
+      }
+      return true;
+    });
+    
+    // Combine all split points (filtered pillars and door boundaries) and sort
+    const splitPoints: number[] = [...filteredPillarOffsets];
+    for (const range of doorRanges) {
+      splitPoints.push(range.start);
+      splitPoints.push(range.end);
     }
     
     // Sort and deduplicate
@@ -749,7 +809,12 @@ export function generateWallSegments(
       
       for (const splitPoint of uniqueSplitPoints) {
         // Check if this is a door start (skip the door opening)
-        const isDoorStart = edgeDoors.some(d => Math.round(d.offsetTiles * MODULAR_TILE_PX) === splitPoint);
+        // doorAdjustedOffsetsPx is already in pixels
+        const doorAtSplitPoint = edgeDoors.find(d => {
+          const adjustedOffsetPx = doorAdjustedOffsetsPx.get(d.id) || 0;
+          return Math.round(adjustedOffsetPx) === splitPoint;
+        });
+        const isDoorStart = !!doorAtSplitPoint;
         
         if (splitPoint > currentOffset) {
           // Create segment from currentOffset to splitPoint
@@ -778,9 +843,9 @@ export function generateWallSegments(
         }
         
         // If this is a door start, skip to door end
-        if (isDoorStart) {
-          const door = edgeDoors.find(d => Math.round(d.offsetTiles * MODULAR_TILE_PX) === splitPoint)!;
-          currentOffset = Math.round((door.offsetTiles + door.widthTiles) * MODULAR_TILE_PX);
+        if (isDoorStart && doorAtSplitPoint) {
+          const adjustedOffsetPx = doorAdjustedOffsetsPx.get(doorAtSplitPoint.id) || 0;
+          currentOffset = Math.round(adjustedOffsetPx + doorAtSplitPoint.widthTiles * MODULAR_TILE_PX);
         } else {
           currentOffset = splitPoint;
         }
@@ -1118,12 +1183,30 @@ export function generatePillarsWithEdgeInfo(
   const pillarPositions = new Map<string, PillarWithEdgeInfo>(); // Track position -> pillar for dedup
   
   // Helper to check if a position overlaps with any door
-  // Door position is ALWAYS centered on its edge (matching generateDoorRenderings and generateInternalWallSegments)
-  // Uses internalEdges to get CURRENT edge position (handles rotated rooms)
+  // Handles both internal (auto) doors and external (manual) doors
   const isPositionInDoor = (x: number, y: number): boolean => {
     for (const door of doors) {
-      // Find the CURRENT edge between these two rooms
-      // Match on room IDs ONLY - orientation may have changed
+      // For manual external doors, edge data is in PIXELS
+      if (door.isManual) {
+        const doorPositionPx = Math.round(door.edgePosition);
+        const doorStartPx = Math.round(door.edgeRangeStart + (door.offsetTiles || 0) * MODULAR_TILE_PX);
+        const doorEndPx = doorStartPx + door.widthTiles * MODULAR_TILE_PX;
+        
+        if (door.edgeOrientation === 'horizontal') {
+          // Horizontal door: check if pillar is within door range on x-axis
+          if (Math.abs(y - doorPositionPx) < 2 && x >= doorStartPx && x <= doorEndPx) {
+            return true;
+          }
+        } else {
+          // Vertical door: check if pillar is within door range on y-axis
+          if (Math.abs(x - doorPositionPx) < 2 && y >= doorStartPx && y <= doorEndPx) {
+            return true;
+          }
+        }
+        continue;
+      }
+      
+      // For internal (auto) doors, find the CURRENT edge between rooms
       const currentEdge = internalEdges.find(e => {
         const roomsMatch = e.roomAId && e.roomBId &&
           ((door.roomAId === e.roomAId && door.roomBId === e.roomBId) ||
@@ -2153,3 +2236,451 @@ export function generateMergeUpdates(
   };
 }
 
+// ============================================
+// WALL SEGMENT GROUPS (for Door Tool)
+// ============================================
+
+import {
+  WALL_SEGMENT_GROUP_SIZE_PX,
+  WALL_SNAP_SIZE_PX,
+} from '../constants';
+
+import {
+  WallSegmentGroup,
+  WallSegmentComponent,
+} from '../types';
+
+/**
+ * Generate a unique wall segment group ID
+ */
+export function generateWallSegmentGroupId(): string {
+  return `wsg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+}
+
+/**
+ * Generate WallSegmentGroups from room geometry and existing doors
+ * This is called when loading a scene that doesn't have wallSegmentGroups yet
+ */
+export function generateWallSegmentGroups(
+  rooms: ModularRoomElement[],
+  doors: ModularDoor[],
+  wallGroups: WallGroup[]
+): WallSegmentGroup[] {
+  const segmentGroups: WallSegmentGroup[] = [];
+  
+  if (rooms.length === 0) return segmentGroups;
+  
+  // Get all edges (internal and external) for the rooms
+  const roomIds = rooms.map(r => r.id);
+  const { externalEdges, internalEdges } = getGroupEdges(roomIds, rooms);
+  
+  // Process external edges
+  for (const edge of externalEdges) {
+    const groups = createWallSegmentGroupsForEdge(edge, doors, wallGroups, rooms, true);
+    segmentGroups.push(...groups);
+  }
+  
+  // Process internal edges
+  for (const edge of internalEdges) {
+    const groups = createWallSegmentGroupsForEdge(edge, doors, wallGroups, rooms, false);
+    segmentGroups.push(...groups);
+  }
+  
+  return segmentGroups;
+}
+
+/**
+ * Create WallSegmentGroups for a single edge
+ * Splits the edge into 256px chunks and handles doors
+ */
+function createWallSegmentGroupsForEdge(
+  edge: PerimeterEdge,
+  doors: ModularDoor[],
+  wallGroups: WallGroup[],
+  rooms: ModularRoomElement[],
+  isExternal: boolean
+): WallSegmentGroup[] {
+  const groups: WallSegmentGroup[] = [];
+  
+  const edgeStartPx = Math.round(edge.rangeStart * MODULAR_TILE_PX);
+  const edgeEndPx = Math.round(edge.rangeEnd * MODULAR_TILE_PX);
+  const edgeLengthPx = edgeEndPx - edgeStartPx;
+  const positionPx = Math.round(edge.position * MODULAR_TILE_PX);
+  
+  // Get wall style from the room(s)
+  let wallStyleId = DEFAULT_WALL_STYLE_ID;
+  const roomIds: string[] = [];
+  
+  if (edge.roomAId) {
+    roomIds.push(edge.roomAId);
+    const roomA = rooms.find(r => r.id === edge.roomAId);
+    if (roomA?.wallGroupId) {
+      const wallGroup = wallGroups.find(g => g.id === roomA.wallGroupId);
+      if (wallGroup) wallStyleId = wallGroup.wallStyleId;
+    }
+  }
+  if (edge.roomBId) {
+    roomIds.push(edge.roomBId);
+  }
+  
+  // Find doors on this edge
+  const edgeDoors = doors.filter(d => {
+    if (isExternal) return false; // External edges don't have auto-doors yet
+    
+    // Match doors that connect the same two rooms
+    const roomsMatch = edge.roomAId && edge.roomBId &&
+      ((d.roomAId === edge.roomAId && d.roomBId === edge.roomBId) ||
+       (d.roomAId === edge.roomBId && d.roomBId === edge.roomAId));
+    
+    return roomsMatch;
+  });
+  
+  // Split edge into 256px groups
+  let currentPx = edgeStartPx;
+  
+  while (currentPx < edgeEndPx) {
+    const groupStartPx = currentPx;
+    const groupEndPx = Math.min(currentPx + WALL_SEGMENT_GROUP_SIZE_PX, edgeEndPx);
+    
+    // Find doors within this group
+    const groupDoors = edgeDoors.filter(d => {
+      // Calculate door position on this edge (centered)
+      const doorCenterPx = edgeStartPx + (edgeLengthPx / 2);
+      const doorStartPx = doorCenterPx - (d.widthTiles * MODULAR_TILE_PX / 2);
+      const doorEndPx = doorCenterPx + (d.widthTiles * MODULAR_TILE_PX / 2);
+      
+      // Check if door overlaps with this group
+      return doorStartPx < groupEndPx && doorEndPx > groupStartPx;
+    });
+    
+    // Create components for this group
+    const components = createComponentsForGroup(
+      groupStartPx,
+      groupEndPx,
+      groupDoors,
+      edgeStartPx,
+      edgeLengthPx
+    );
+    
+    const group: WallSegmentGroup = {
+      id: generateWallSegmentGroupId(),
+      orientation: edge.orientation,
+      position: positionPx,
+      rangeStart: groupStartPx,
+      rangeEnd: groupEndPx,
+      wallStyleId,
+      components,
+      roomIds,
+      isExternal,
+    };
+    
+    groups.push(group);
+    currentPx = groupEndPx;
+  }
+  
+  return groups;
+}
+
+/**
+ * Create components for a single 256px (or smaller) wall segment group
+ */
+function createComponentsForGroup(
+  groupStartPx: number,
+  groupEndPx: number,
+  doors: ModularDoor[],
+  edgeStartPx: number,
+  edgeLengthPx: number
+): WallSegmentComponent[] {
+  const components: WallSegmentComponent[] = [];
+  const groupLengthPx = groupEndPx - groupStartPx;
+  
+  if (doors.length === 0) {
+    // No doors - single wall component
+    components.push({
+      type: 'wall',
+      widthPx: groupLengthPx as 64 | 128 | 256,
+      offsetPx: 0,
+    });
+  } else {
+    // Has doors - need to split around them
+    // For simplicity, we handle one door per group (most common case)
+    const door = doors[0];
+    
+    // Calculate door position (centered on the edge)
+    const doorWidthPx = door.widthTiles * MODULAR_TILE_PX;
+    const doorCenterPx = edgeStartPx + (edgeLengthPx / 2);
+    const doorStartPx = doorCenterPx - (doorWidthPx / 2);
+    const doorEndPx = doorCenterPx + (doorWidthPx / 2);
+    
+    // Calculate how the door intersects with this group
+    const doorStartInGroup = Math.max(0, doorStartPx - groupStartPx);
+    const doorEndInGroup = Math.min(groupLengthPx, doorEndPx - groupStartPx);
+    
+    // Wall before door
+    if (doorStartInGroup > 0) {
+      components.push({
+        type: 'wall',
+        widthPx: doorStartInGroup as 64 | 128 | 256,
+        offsetPx: 0,
+      });
+    }
+    
+    // Door component (only if door is within this group)
+    if (doorStartInGroup < groupLengthPx && doorEndInGroup > 0) {
+      const doorWidthInGroup = doorEndInGroup - doorStartInGroup;
+      components.push({
+        type: 'door',
+        widthPx: doorWidthInGroup as 64 | 128 | 256,
+        offsetPx: doorStartInGroup,
+        doorId: door.id,
+      });
+    }
+    
+    // Wall after door
+    if (doorEndInGroup < groupLengthPx) {
+      components.push({
+        type: 'wall',
+        widthPx: (groupLengthPx - doorEndInGroup) as 64 | 128 | 256,
+        offsetPx: doorEndInGroup,
+      });
+    }
+  }
+  
+  return components;
+}
+
+/**
+ * Add a door to a wall segment group at a specific position
+ * Returns the updated group and a new ModularDoor object
+ */
+export function addDoorToWallSegmentGroup(
+  group: WallSegmentGroup,
+  clickOffsetPx: number, // Offset from group start where user clicked
+  _rooms: ModularRoomElement[]
+): { updatedGroup: WallSegmentGroup; newDoor: ModularDoor } | null {
+  const groupLengthPx = group.rangeEnd - group.rangeStart;
+  
+  // Minimum 64px wall required between door and corner
+  const MIN_WALL_FROM_CORNER_PX = 64;
+  const DOOR_WIDTH_PX = 128;
+  
+  // Check if wall is long enough for a door with 64px on each side
+  const minWallLengthForDoor = DOOR_WIDTH_PX + MIN_WALL_FROM_CORNER_PX * 2;
+  if (groupLengthPx < minWallLengthForDoor) {
+    console.log('[addDoorToWallSegmentGroup] Wall too short for door:', groupLengthPx, 'need:', minWallLengthForDoor);
+    return null; // Wall is too short to fit a door with required margins
+  }
+  
+  // Snap to 64px grid
+  const snappedOffset = Math.round(clickOffsetPx / WALL_SNAP_SIZE_PX) * WALL_SNAP_SIZE_PX;
+  
+  // Door is 128px wide, so we need at least 128px from the snap position
+  // Adjust if door would extend past group boundaries
+  let doorStartPx = snappedOffset - 64; // Center door on click position
+  
+  // Clamp to ensure 64px wall on each side of the door
+  if (doorStartPx < MIN_WALL_FROM_CORNER_PX) doorStartPx = MIN_WALL_FROM_CORNER_PX;
+  if (doorStartPx + DOOR_WIDTH_PX > groupLengthPx - MIN_WALL_FROM_CORNER_PX) {
+    doorStartPx = groupLengthPx - MIN_WALL_FROM_CORNER_PX - DOOR_WIDTH_PX;
+  }
+  
+  // Check if there's already a door at this position
+  const existingDoor = group.components.find(c => 
+    c.type === 'door' && 
+    c.offsetPx < doorStartPx + 128 && 
+    c.offsetPx + c.widthPx > doorStartPx
+  );
+  
+  if (existingDoor) {
+    return null; // Can't place door here, already one exists
+  }
+  
+  // Determine room references
+  // For external walls, there's only one room, so roomBId should be empty
+  const roomAId = group.roomIds[0] || '';
+  const roomBId = group.roomIds.length > 1 ? group.roomIds[1] : '';
+  
+  console.log('[addDoorToWallSegmentGroup] Creating door:', {
+    groupId: group.id,
+    isExternal: group.isExternal,
+    roomAId,
+    roomBId,
+    orientation: group.orientation,
+    position: group.position,
+    rangeStart: group.rangeStart,
+    rangeEnd: group.rangeEnd,
+    doorStartPx,
+  });
+  
+  // Create the new door
+  // Note: WallSegmentGroup uses pixels, but PerimeterEdge also uses pixels
+  // So we keep the values in pixels for consistency with generateWallSegments
+  const newDoor: ModularDoor = {
+    id: `door-manual-${Date.now()}`,
+    roomAId,
+    roomBId,
+    edgeOrientation: group.orientation,
+    edgePosition: group.position, // Keep in pixels (matches PerimeterEdge.position)
+    edgeRangeStart: group.rangeStart, // Keep in pixels
+    edgeRangeEnd: group.rangeEnd, // Keep in pixels
+    offsetTiles: doorStartPx / MODULAR_TILE_PX, // Offset is in tiles for consistency
+    widthTiles: 1,
+    isManual: true,
+    wallSegmentGroupId: group.id,
+  };
+  
+  // Rebuild components with the new door
+  const newComponents = rebuildComponentsWithDoor(groupLengthPx, doorStartPx, 128, newDoor.id);
+  
+  const updatedGroup: WallSegmentGroup = {
+    ...group,
+    components: newComponents,
+  };
+  
+  return { updatedGroup, newDoor };
+}
+
+/**
+ * Remove a door from a wall segment group
+ * Returns the updated group
+ */
+export function removeDoorFromWallSegmentGroup(
+  group: WallSegmentGroup,
+  _doorId: string
+): WallSegmentGroup {
+  const groupLengthPx = group.rangeEnd - group.rangeStart;
+  
+  // Remove door and rebuild as solid wall
+  const newComponents: WallSegmentComponent[] = [{
+    type: 'wall',
+    widthPx: groupLengthPx as 64 | 128 | 256,
+    offsetPx: 0,
+  }];
+  
+  return {
+    ...group,
+    components: newComponents,
+  };
+}
+
+/**
+ * Rebuild components with a door at a specific position
+ */
+function rebuildComponentsWithDoor(
+  groupLengthPx: number,
+  doorStartPx: number,
+  doorWidthPx: number,
+  doorId: string
+): WallSegmentComponent[] {
+  const components: WallSegmentComponent[] = [];
+  
+  // Wall before door
+  if (doorStartPx > 0) {
+    // Split into valid sizes (64 or 128)
+    let remaining = doorStartPx;
+    let offset = 0;
+    
+    while (remaining > 0) {
+      const size = remaining >= 128 ? 128 : 64;
+      components.push({
+        type: 'wall',
+        widthPx: size as 64 | 128 | 256,
+        offsetPx: offset,
+      });
+      offset += size;
+      remaining -= size;
+    }
+  }
+  
+  // Door component
+  components.push({
+    type: 'door',
+    widthPx: doorWidthPx as 64 | 128 | 256,
+    offsetPx: doorStartPx,
+    doorId,
+  });
+  
+  // Wall after door
+  const afterDoorStart = doorStartPx + doorWidthPx;
+  if (afterDoorStart < groupLengthPx) {
+    let remaining = groupLengthPx - afterDoorStart;
+    let offset = afterDoorStart;
+    
+    while (remaining > 0) {
+      const size = remaining >= 128 ? 128 : 64;
+      components.push({
+        type: 'wall',
+        widthPx: size as 64 | 128 | 256,
+        offsetPx: offset,
+      });
+      offset += size;
+      remaining -= size;
+    }
+  }
+  
+  return components;
+}
+
+/**
+ * Find which WallSegmentGroup was clicked
+ * Returns the group and the offset within it (in pixels)
+ */
+export function findWallSegmentGroupAtPosition(
+  x: number,
+  y: number,
+  wallSegmentGroups: WallSegmentGroup[],
+  wallThickness: number = MODULAR_WALL_THICKNESS_PX
+): { group: WallSegmentGroup; offsetPx: number } | null {
+  for (const group of wallSegmentGroups) {
+    const halfThickness = wallThickness / 2;
+    
+    if (group.orientation === 'horizontal') {
+      // Horizontal wall: check if y is within wall thickness and x is within range
+      if (
+        y >= group.position - halfThickness &&
+        y <= group.position + halfThickness &&
+        x >= group.rangeStart &&
+        x <= group.rangeEnd
+      ) {
+        return {
+          group,
+          offsetPx: x - group.rangeStart,
+        };
+      }
+    } else {
+      // Vertical wall: check if x is within wall thickness and y is within range
+      if (
+        x >= group.position - halfThickness &&
+        x <= group.position + halfThickness &&
+        y >= group.rangeStart &&
+        y <= group.rangeEnd
+      ) {
+        return {
+          group,
+          offsetPx: y - group.rangeStart,
+        };
+      }
+    }
+  }
+  
+  return null;
+}
+
+/**
+ * Find a door component at a specific position within a wall segment group
+ */
+export function findDoorAtPosition(
+  group: WallSegmentGroup,
+  offsetPx: number
+): WallSegmentComponent | null {
+  for (const component of group.components) {
+    if (
+      component.type === 'door' &&
+      offsetPx >= component.offsetPx &&
+      offsetPx <= component.offsetPx + component.widthPx
+    ) {
+      return component;
+    }
+  }
+  return null;
+}

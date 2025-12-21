@@ -176,6 +176,9 @@ function App() {
   // Toolbar customization - which buttons are hidden
   const [hiddenToolbarButtons, setHiddenToolbarButtons] = useState<Set<string>>(new Set());
 
+  // Token drag-and-drop from right panel to canvas
+  const [draggingToken, setDraggingToken] = useState<TokenTemplate | null>(null);
+
   // Reset cloud load state when user logs out
   useEffect(() => {
     if (!user && hasLoadedFromCloud) {
@@ -1121,6 +1124,8 @@ function App() {
         setPlacingModularFloor={setPlacingModularFloor}
         defaultWallStyleId={defaultWallStyleId}
         hiddenToolbarButtons={hiddenToolbarButtons}
+        draggingToken={draggingToken}
+        setDraggingToken={setDraggingToken}
       />
 
       {/* Right Panel (Planning Mode Only) */}
@@ -1190,6 +1195,7 @@ function App() {
             selectedElementIds={selectedElementIds}
             hiddenToolbarButtons={hiddenToolbarButtons}
             onHiddenToolbarButtonsChange={setHiddenToolbarButtons}
+            onStartDragToken={setDraggingToken}
           />
       )}
 

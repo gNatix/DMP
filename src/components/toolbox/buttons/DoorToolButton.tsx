@@ -1,7 +1,5 @@
 import { DoorOpen } from 'lucide-react';
-import { useRef } from 'react';
 import { ToolButtonConfig, ToolButtonProps } from './types';
-import DoorToolSubmenu from '../submenus/DoorToolSubmenu';
 import { useKeyboardShortcut } from '../../../hooks/useKeyboardShortcut';
 
 // ========== BUTTON CONFIGURATION ==========
@@ -11,93 +9,49 @@ export const doorToolButtonConfig: ToolButtonConfig = {
   enabledInPlanningMode: true,
   enabledInGameMode: false,
   category: 'drawing',
-  weight: 4, // After terrain in drawing category
+  weight: 6, // After wallCutterTool (weight 5) in drawing category
   
   icon: <DoorOpen size={18} />,
   label: 'Door Tool',
   shortcutKey: 'D',
   
-  buttonType: 'tool',           // OPTIONS: 'tool' | 'toggle' | 'action' | 'submenu'
-  highlightStyle: 'full',       // OPTIONS: 'full' (colored bg) | 'border' (colored border) | null (no highlight)
+  buttonType: 'tool',
+  highlightStyle: 'full',
   
   tool: 'doorTool',
-  hasSubmenu: true,
+  hasSubmenu: false,
 };
 // ==========================================
-
-interface DoorToolButtonPropsExtended extends ToolButtonProps {
-  doorToolMode: 'freehand' | 'rectangle';
-  setDoorToolMode: (mode: 'freehand' | 'rectangle') => void;
-  doorToolBrushSize: number;
-  setDoorToolBrushSize: (size: number) => void;
-  // Central submenu system props
-  openSubmenuId: string | null;
-  submenuOpenedBy: 'click' | 'shortcut' | 'hover' | null;
-  onOpenSubmenu: (id: string | null, openedBy: 'click' | 'shortcut' | 'hover') => void;
-  onToolboxButtonMouseEnter: (id: string) => void;
-  onToolboxButtonMouseLeave: (id: string) => void;
-  onSubmenuMouseEnter: (id: string) => void;
-  onSubmenuMouseLeave: (id: string) => void;
-}
 
 const DoorToolButton = ({
   activeTool,
   setActiveTool,
-  doorToolMode,
-  setDoorToolMode,
-  doorToolBrushSize,
-  setDoorToolBrushSize,
-  openSubmenuId,
-  submenuOpenedBy,
-  onOpenSubmenu,
-  onToolboxButtonMouseEnter,
-  onToolboxButtonMouseLeave,
-  onSubmenuMouseEnter,
-  onSubmenuMouseLeave,
-}: DoorToolButtonPropsExtended) => {
+}: ToolButtonProps) => {
   const isActive = activeTool === doorToolButtonConfig.tool;
-  const doorToolButtonRef = useRef<HTMLButtonElement>(null);
-  const isSubmenuOpen = openSubmenuId === 'doorTool';
 
   // Keyboard shortcut: D
   useKeyboardShortcut('d', () => {
     setActiveTool('doorTool');
   });
 
-  // Keyboard shortcut: Shift+D to toggle submenu
-  useKeyboardShortcut('D', () => {
-    if (isSubmenuOpen) {
-      onOpenSubmenu(null, 'shortcut');
-    } else {
-      onOpenSubmenu('doorTool', 'shortcut');
-      setActiveTool('doorTool');
-    }
-  });
-
   const handleClick = () => {
-    if (isSubmenuOpen) {
-      onOpenSubmenu(null, 'click');
-    } else {
-      setActiveTool('doorTool');
-      onOpenSubmenu('doorTool', 'click');
-    }
-  };
-
-  const handleMouseEnter = () => {
-    onToolboxButtonMouseEnter('doorTool');
-  };
-
-  const handleMouseLeave = () => {
-    onToolboxButtonMouseLeave('doorTool');
+    setActiveTool('doorTool');
   };
 
   return (
-    <div className="relative flex flex-col items-center">
+    <div
+      className="relative flex flex-col items-center"
+      onMouseEnter={(e) => {
+        const badge = e.currentTarget.querySelector('.door-tool-badge') as HTMLElement;
+        if (badge) badge.style.display = 'block';
+      }}
+      onMouseLeave={(e) => {
+        const badge = e.currentTarget.querySelector('.door-tool-badge') as HTMLElement;
+        if (badge) badge.style.display = 'none';
+      }}
+    >
       <button
-        ref={doorToolButtonRef}
         onClick={handleClick}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
         className={`p-2.5 rounded transition-colors ${
           isActive
             ? 'bg-dm-highlight text-white'
@@ -107,35 +61,30 @@ const DoorToolButton = ({
         {doorToolButtonConfig.icon}
       </button>
       <span className="text-[9px] text-gray-500 font-medium mt-0.5">{doorToolButtonConfig.shortcutKey}</span>
-
-      {/* Submenu */}
-      {isSubmenuOpen && (
-        <div
-          style={{
-            position: 'absolute',
-            bottom: '100%',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            marginBottom: '8px',
-            zIndex: 100
-          }}
-          onMouseEnter={() => onSubmenuMouseEnter('doorTool')}
-          onMouseLeave={() => onSubmenuMouseLeave('doorTool')}
-        >
-          <DoorToolSubmenu
-            doorToolMode={doorToolMode}
-            setDoorToolMode={setDoorToolMode}
-            doorToolBrushSize={doorToolBrushSize}
-            setDoorToolBrushSize={setDoorToolBrushSize}
-            setActiveTool={setActiveTool}
-            onMouseLeave={() => {
-              if (submenuOpenedBy === 'hover') {
-                onOpenSubmenu(null, 'hover');
-              }
-            }}
-          />
-        </div>
-      )}
+      <div
+        className="door-tool-badge"
+        style={{
+          display: 'none',
+          position: 'absolute',
+          bottom: '100%',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          marginBottom: '20px',
+          backgroundColor: '#1f2937',
+          border: '1px solid #374151',
+          borderRadius: '6px',
+          padding: '4px 12px',
+          fontSize: '12px',
+          color: '#9ca3af',
+          fontWeight: '500',
+          whiteSpace: 'nowrap',
+          pointerEvents: 'none',
+          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)',
+          zIndex: 1000
+        }}
+      >
+        {doorToolButtonConfig.label} ({doorToolButtonConfig.shortcutKey})
+      </div>
     </div>
   );
 };
