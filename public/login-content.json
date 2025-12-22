@@ -3,6 +3,11 @@
     "title": "News & Updates",
     "items": [
       {
+        "date": "2024-12-22",
+        "title": "🚪 Free-Placement Door System!",
+        "content": "Place doors anywhere on walls with 64px grid snapping! Doors now hide corner pillars automatically and persist through room merges, splits, moves, and rotations."
+      },
+      {
         "date": "2024-12-20",
         "title": "🏰 Multi-Room Drag & Drop!",
         "content": "Select multiple modular rooms with Shift-click and move them all together! Tokens placed on rooms now follow automatically when you drag."
@@ -67,6 +72,19 @@
   "changelog": {
     "title": "Changelog",
     "versions": [
+      {
+        "version": "0.9.5",
+        "date": "2024-12-22",
+        "changes": [
+          "New free-placement door system with 64px grid snapping",
+          "Doors automatically hide corner pillars when placed nearby",
+          "Dynamic cursor feedback: green + to add, red - to remove doors",
+          "Doors persist through room merge, split, move, and rotation",
+          "Room-relative edge IDs ensure doors follow their walls",
+          "Special handling for 1-tile edges (doors under pillars)",
+          "Improved door cleanup when room geometry changes"
+        ]
+      },
       {
         "version": "0.9.4",
         "date": "2024-12-20",

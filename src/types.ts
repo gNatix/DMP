@@ -198,8 +198,70 @@ export interface WallGroup {
   roomCount: number;   // Number of rooms in this group (for dominance calculation)
 }
 
+// ============================================
+// SEGMENT STATE SYSTEM (Simple WallSegmentGroup-based)
+// ============================================
+
+/**
+ * SegmentPattern - The door configuration within a 256px wall segment
+ * Each segment is divided into 4 sections: A(0-64), B(64-128), C(128-192), D(192-256)
+ * - Left tile = A+B (0-128px)
+ * - Right tile = C+D (128-256px)
+ * 
+ * Toggle rules for Door Tool (all set source='manual'):
+ * - SOLID_256 + toggle left  => DOOR_LEFT
+ * - SOLID_256 + toggle right => DOOR_RIGHT
+ * - DOOR_LEFT + toggle right => DOOR_BOTH
+ * - DOOR_LEFT + toggle left  => SOLID_256
+ * - DOOR_RIGHT + toggle left => DOOR_BOTH
+ * - DOOR_RIGHT + toggle right => SOLID_256
+ * - DOOR_BOTH + toggle left  => DOOR_RIGHT
+ * - DOOR_BOTH + toggle right => DOOR_LEFT
+ */
+export type SegmentPattern = 
+  | 'SOLID_256'    // Full wall, no doors
+  | 'DOOR_LEFT'    // Door at A+B (0-128), wall at C+D (128-256)
+  | 'DOOR_RIGHT'   // Wall at A+B (0-128), door at C+D (128-256)
+  | 'DOOR_BOTH'    // Doors at both A+B and C+D (two doors per segment)
+  | 'DOOR_CENTER'; // Wall A (0-64), door B+C (64-192), wall D (192-256) - corner exception only
+
+/**
+ * SegmentSource - How the segment state was created
+ * - 'auto': Created automatically when rooms become adjacent
+ * - 'manual': Created/modified by user with Door Tool
+ * Manual states are NEVER overwritten by auto states.
+ */
+export type SegmentSource = 'auto' | 'manual';
+
+/**
+ * SegmentState - The state of a single 256px wall segment
+ */
+export interface SegmentState {
+  pattern: SegmentPattern;
+  source: SegmentSource;
+}
+
+/**
+ * SegmentStatesMap - Maps WallSegmentGroup.id to its door state
+ * Simple key-value: { "wsg-123456": { pattern: "DOOR_LEFT", source: "manual" } }
+ */
+export interface SegmentStatesMap {
+  [wallSegmentGroupId: string]: SegmentState;
+}
+
+/**
+ * @deprecated Legacy EdgeKey type - no longer used
+ * Kept for backwards compatibility during migration
+ */
+export type EdgeKey = string;
+
+// ============================================
+// LEGACY TYPES (to be deprecated)
+// ============================================
+
 /**
  * Modular Door - A door opening in a modular wall
+ * @deprecated Use SegmentState system instead
  * Can be between two rooms (internal) or on an external wall
  */
 export interface ModularDoor {
@@ -266,6 +328,11 @@ export interface WallSegmentGroup {
   
   // Is this an external or internal wall?
   isExternal: boolean;
+  
+  // Is this group at the start/end of a wall edge (at a corner)?
+  // Used to enforce 64px margin from corners
+  isAtEdgeStart?: boolean;  // True if this group is at the start of the wall edge
+  isAtEdgeEnd?: boolean;    // True if this group is at the end of the wall edge
 }
 
 /**
@@ -273,8 +340,47 @@ export interface WallSegmentGroup {
  */
 export interface ModularRoomsState {
   wallGroups: WallGroup[];
-  doors: ModularDoor[];
-  wallSegmentGroups?: WallSegmentGroup[];  // Persistent wall segments (generated on first load if missing)
+  
+  // NEW: Free-placement door system (64px grid)
+  edgeDoors?: EdgeDoorsMap;
+  
+  // LEGACY: Old door systems (kept for migration/backwards compat)
+  segmentStates?: SegmentStatesMap;
+  doors?: ModularDoor[];
+  wallSegmentGroups?: WallSegmentGroup[];
+}
+
+// ============================================
+// NEW FREE-PLACEMENT DOOR SYSTEM
+// ============================================
+
+/**
+ * EdgeDoor - A single door placed on an edge
+ * Position is relative to edge start (not absolute coordinates)
+ * This makes doors persist when rooms are moved
+ */
+export interface EdgeDoor {
+  offsetPx: number;    // Door start position relative to edge start (snapped to 64px grid)
+  source: 'manual' | 'auto';  // How it was created
+}
+
+/**
+ * EdgeDoorsMap - Maps edge IDs to their doors
+ * Edge ID format: "h|roomA+roomB|edgeIndex" or "v|roomA+roomB|edgeIndex"
+ * Using room IDs (sorted) ensures stability when rooms move
+ */
+export interface EdgeDoorsMap {
+  [edgeId: string]: EdgeDoor[];
+}
+
+/**
+ * RenderPiece - A wall or door piece for rendering
+ * Generated dynamically from edge length and door positions
+ */
+export interface RenderPiece {
+  type: 'wall' | 'door';
+  offsetPx: number;   // Offset from edge start
+  widthPx: number;    // 256, 128, or 64 for walls; 128 for doors
 }
 
 /**

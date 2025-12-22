@@ -15,6 +15,8 @@ import {
   ModularDoor,
   TokenElement,
   ToolType,
+  SegmentStatesMap,
+  EdgeDoorsMap,
 } from '../../types';
 import {
   MODULAR_WALL_THICKNESS_PX,
@@ -30,8 +32,14 @@ import {
   getGroupEdges,
   generateWallSegments,
   generateInternalWallSegments,
+  generateInternalWallSegmentsFromSegmentStates,
   generateDoorRenderings,
   generatePillarsWithEdgeInfo,
+  // getAllDoorOpeningsFromSegmentStates, // LEGACY - disabled
+  generateRenderableWallPieces,
+  RenderableWallPiece,
+  // NEW: Free-placement door system
+  generateRenderablePiecesFromEdgeDoors,
 } from '../../utils/modularRooms';
 
 interface ModularRoomRendererProps {
@@ -39,6 +47,8 @@ interface ModularRoomRendererProps {
   modularRooms: ModularRoomElement[];
   wallGroups: WallGroup[];
   doors: ModularDoor[];
+  segmentStates?: SegmentStatesMap; // Legacy SegmentState-based door system
+  edgeDoors?: EdgeDoorsMap; // NEW: Free-placement door system
   selectedRoomId: string | null;
   selectedRoomIds: string[];
   renderLayer: 'floor' | 'walls' | 'full';
@@ -299,10 +309,14 @@ const WallGroupRenderer: React.FC<{
   wallStyleId: string;
   rooms: ModularRoomElement[];
   doors: ModularDoor[];
+  segmentStates?: SegmentStatesMap;
+  edgeDoors?: EdgeDoorsMap;
   activeTool?: ToolType;
-}> = ({ groupId, roomIds, wallStyleId, rooms, doors, activeTool }) => {
+}> = ({ groupId, roomIds, wallStyleId, rooms, doors, segmentStates, edgeDoors, activeTool: _activeTool }) => {
   // Generate perimeter and walls
-  const { wallSegments, internalWallSegments, doorRenderings, pillars, externalDoorRenderings } = useMemo(() => {
+  // LEGACY: doorRenderings, externalDoorRenderings, segmentStateDoorRenderings are no longer rendered
+  // We now use edgePieces for all wall/door rendering
+  const { wallSegments, internalWallSegments, doorRenderings: _doorRenderings, pillars, externalDoorRenderings: _externalDoorRenderings, segmentStateDoorRenderings: _segmentStateDoorRenderings, renderableWallPieces, edgePieces } = useMemo(() => {
     const groupRooms = rooms.filter(r => roomIds.includes(r.id));
     const { externalEdges, internalEdges } = getGroupEdges(roomIds, groupRooms);
     
@@ -311,6 +325,75 @@ const WallGroupRenderer: React.FC<{
     const groupDoors = doors.filter(d => 
       roomIds.includes(d.roomAId) && roomIds.includes(d.roomBId)
     );
+    
+    // LEGACY DISABLED - segmentDoorOpenings no longer needed
+    // const segmentDoorOpenings = segmentStates 
+    //   ? getAllDoorOpeningsFromSegmentStates(segmentStates, groupRooms)
+    //   : [];
+    
+    // LEGACY DISABLED - Now using edgePieces system for all door rendering
+    // Convert SegmentState openings to door renderings - DISABLED
+    const sssDoorRenderings: Array<{
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+      rotation: number;
+      wallStyleId: string;
+      doorId: string;
+    }> = [];
+    
+    /* LEGACY - disabled, edgePieces handles all wall/door rendering
+    for (const edgeInfo of segmentDoorOpenings) {
+      // Only process if at least one room is in this group
+      if (!roomIds.includes(edgeInfo.roomAId) && !roomIds.includes(edgeInfo.roomBId)) continue;
+      
+      // Use the edge start position from the edgeInfo (already calculated correctly)
+      const edgeStartPx = edgeInfo.rangeStartPx;
+      
+      for (const opening of edgeInfo.openings) {
+        const openingWidthPx = opening.endPx - opening.startPx;
+        const openingCenterPx = edgeStartPx + opening.startPx + openingWidthPx / 2;
+        
+        let x: number, y: number;
+        if (edgeInfo.orientation === 'horizontal') {
+          x = openingCenterPx;
+          y = edgeInfo.positionPx;
+        } else {
+          x = edgeInfo.positionPx;
+          y = openingCenterPx;
+        }
+        
+        console.log('[SegmentStateDoor] Rendering:', {
+          roomAId: edgeInfo.roomAId,
+          roomBId: edgeInfo.roomBId,
+          orientation: edgeInfo.orientation,
+          positionPx: edgeInfo.positionPx,
+          rangeStartPx: edgeInfo.rangeStartPx,
+          rangeEndPx: edgeInfo.rangeEndPx,
+          openingStartPx: opening.startPx,
+          openingEndPx: opening.endPx,
+          openingWidthPx,
+          openingCenterPx,
+          finalX: x,
+          finalY: y,
+          pattern: opening.pattern,
+        });
+        
+        // Generate a unique door ID from room IDs and segment info
+        const doorId = `${edgeInfo.roomAId}|${edgeInfo.roomBId || 'ext'}|${opening.segmentIndex}`;
+        sssDoorRenderings.push({
+          x,
+          y,
+          width: openingWidthPx,
+          height: MODULAR_WALL_THICKNESS_PX,
+          rotation: edgeInfo.orientation === 'vertical' ? 90 : 0,
+          wallStyleId,
+          doorId,
+        });
+      }
+    }
+    LEGACY - end of disabled sssDoorRenderings generation */
     
     // Get manual external doors (doors on external walls where one or both rooms are in this group)
     // Also match by wallSegmentGroupId for legacy doors with empty roomAId
@@ -381,18 +464,54 @@ const WallGroupRenderer: React.FC<{
       };
     });
     
+    // Use SegmentStates for internal wall segments if available, otherwise fall back to legacy
+    const internalWallSegs = segmentStates && Object.keys(segmentStates).length > 0
+      ? generateInternalWallSegmentsFromSegmentStates(internalEdges, segmentStates, wallStyleId)
+      : generateInternalWallSegments(internalEdges, groupDoors, wallStyleId);
+    
+    // NEW: Generate renderable wall pieces using SegmentStates
+    // This includes both wall and door sprites based on each segment's state
+    // Create a minimal wallGroups array for the function
+    // Always generate these - they use SOLID_256 as default when no state is set
+    const minimalWallGroups = [{ id: groupId, wallStyleId, roomIds, roomCount: roomIds.length }];
+    const renderableWallPieces: RenderableWallPiece[] = generateRenderableWallPieces(
+      groupRooms, 
+      minimalWallGroups, 
+      doors, 
+      segmentStates || {}
+    );
+    
     return {
       wallSegments: generateWallSegments(externalEdges, [...groupDoors, ...externalDoors], wallStyleId),
-      internalWallSegments: generateInternalWallSegments(internalEdges, groupDoors, wallStyleId),
+      internalWallSegments: internalWallSegs,
       // Pass internalEdges to get CURRENT edge positions for rotated rooms
-      doorRenderings: generateDoorRenderings(groupDoors, wallStyleId, internalEdges),
+      // Only generate legacy door renderings if SegmentStates are NOT available
+      doorRenderings: (segmentStates && Object.keys(segmentStates).length > 0)
+        ? [] // Skip legacy - using SegmentState doors instead
+        : generateDoorRenderings(groupDoors, wallStyleId, internalEdges),
       // External door renderings (manual doors on external walls)
       externalDoorRenderings: extDoorRenderings,
       // Use edge-aware pillar generation: corners on all walls, interior only on external
-      // Pass doors so pillars aren't placed where doors are
-      pillars: generatePillarsWithEdgeInfo(externalEdges, internalEdges, wallStyleId, [...groupDoors, ...externalDoors]),
+      // Pass doors, SegmentStates, AND edgeDoors so pillars aren't placed where doors are
+      pillars: generatePillarsWithEdgeInfo(
+        externalEdges, 
+        internalEdges, 
+        wallStyleId, 
+        [...groupDoors, ...externalDoors],
+        segmentStates || {},
+        groupRooms,
+        [], // wallGroups - we don't have access here but it's optional
+        edgeDoors || {} // NEW: edgeDoors for pillar blocking
+      ),
+      // NEW: SegmentState-based door renderings
+      segmentStateDoorRenderings: sssDoorRenderings,
+      // NEW: Renderable wall pieces (wall + door sprites combined) - legacy system
+      renderableWallPieces,
+      // NEW: Free-placement door system - ALWAYS use this for wall rendering
+      // Generates wall pieces with doors from edgeDoors, falls back to solid walls if empty
+      edgePieces: generateRenderablePiecesFromEdgeDoors(groupRooms, [], edgeDoors || {}),
     };
-  }, [groupId, roomIds, wallStyleId, rooms, doors]);
+  }, [groupId, roomIds, wallStyleId, rooms, doors, segmentStates, edgeDoors]);
 
   const wallSprite2x = getWallSpriteUrl(wallStyleId, 2);    // 256px (2 tiles)
   const wallSprite1x = getWallSpriteUrl(wallStyleId, 1);    // 128px (1 tile)
@@ -439,8 +558,108 @@ const WallGroupRenderer: React.FC<{
 
   return (
     <div style={{ position: 'absolute', left: 0, top: 0, pointerEvents: 'none' }}>
-      {/* Wall segments - each segment is packed with optimal tile sizes */}
-      {wallSegments.map((segment, segIdx) => {
+      {/* NEW FREE-PLACEMENT DOOR SYSTEM: Render edge pieces when edgeDoors is in use */}
+      {edgePieces.length > 0 && edgePieces.map((piece, pieceIdx) => {
+        const isVertical = piece.rotation === 90;
+        
+        // For vertical walls: width becomes height and vice versa when rendered
+        const tileWidth = isVertical ? piece.heightPx : piece.widthPx;
+        const tileHeight = isVertical ? piece.widthPx : piece.heightPx;
+        const pieceLeft = piece.x - tileWidth / 2;
+        const pieceTop = piece.y - tileHeight / 2;
+        
+        // Get sprite URL based on piece type and size
+        let spriteUrl: string;
+        if (piece.type === 'door') {
+          spriteUrl = doorSprite;  // Always 128px door sprite
+        } else if (piece.widthPx === 256) {
+          spriteUrl = wallSprite2x;
+        } else if (piece.widthPx === 128) {
+          spriteUrl = wallSprite1x;
+        } else {
+          spriteUrl = wallSpriteHalf;
+        }
+        
+        return (
+          <div
+            key={`edge-piece-${groupId}-${pieceIdx}`}
+            style={{
+              position: 'absolute',
+              left: pieceLeft,
+              top: pieceTop,
+              width: tileWidth,
+              height: tileHeight,
+              overflow: 'hidden',
+            }}
+          >
+            <div
+              style={{
+                position: 'absolute',
+                left: isVertical ? (tileWidth - tileHeight) / 2 : 0,
+                top: isVertical ? (tileHeight - tileWidth) / 2 : 0,
+                width: isVertical ? tileHeight : tileWidth,
+                height: isVertical ? tileWidth : tileHeight,
+                backgroundImage: `url(${spriteUrl})`,
+                backgroundRepeat: 'no-repeat',
+                backgroundSize: `${piece.widthPx}px ${piece.heightPx}px`,
+                transform: isVertical ? 'rotate(90deg)' : undefined,
+                transformOrigin: 'center center',
+              }}
+            />
+          </div>
+        );
+      })}
+      
+      {/* LEGACY: Renderable wall pieces from SegmentStates (includes doors) */}
+      {/* Only render if edgePieces is empty (not using new system) */}
+      {edgePieces.length === 0 && renderableWallPieces.length > 0 && renderableWallPieces.map((piece, pieceIdx) => {
+        const isVertical = piece.rotation === 90;
+        
+        // For vertical walls: width becomes height and vice versa when rendered
+        // piece.widthPx = sprite width (128, 64), piece.heightPx = wall thickness (32)
+        const tileWidth = isVertical ? piece.heightPx : piece.widthPx;
+        const tileHeight = isVertical ? piece.widthPx : piece.heightPx;
+        const pieceLeft = piece.x - tileWidth / 2;
+        const pieceTop = piece.y - tileHeight / 2;
+        
+        // Get sprite URL based on piece type and size
+        const spriteUrl = piece.type === 'door' 
+          ? doorSprite  // Always 128px door sprite
+          : (piece.widthPx === 128 ? wallSprite1x : wallSpriteHalf); // 128px or 64px wall
+        
+        return (
+          <div
+            key={`segment-piece-${groupId}-${pieceIdx}`}
+            style={{
+              position: 'absolute',
+              left: pieceLeft,
+              top: pieceTop,
+              width: tileWidth,
+              height: tileHeight,
+              overflow: 'hidden',
+              // No backgroundColor - only show sprites
+            }}
+          >
+            <div
+              style={{
+                position: 'absolute',
+                left: isVertical ? (tileWidth - tileHeight) / 2 : 0,
+                top: isVertical ? (tileHeight - tileWidth) / 2 : 0,
+                width: isVertical ? tileHeight : tileWidth,
+                height: isVertical ? tileWidth : tileHeight,
+                backgroundImage: `url(${spriteUrl})`,
+                backgroundRepeat: 'no-repeat',
+                backgroundSize: `${piece.widthPx}px ${piece.heightPx}px`,
+                transform: isVertical ? 'rotate(90deg)' : undefined,
+                transformOrigin: 'center center',
+              }}
+            />
+          </div>
+        );
+      })}
+      
+      {/* Wall segments - only render if NOT using any door system */}
+      {edgePieces.length === 0 && renderableWallPieces.length === 0 && wallSegments.map((segment, segIdx) => {
         const isVertical = segment.rotation === 90;
         const tiles = packWallTiles(segment.width);
         
@@ -490,8 +709,8 @@ const WallGroupRenderer: React.FC<{
         });
       })}
       
-      {/* Internal wall segments (shared walls between rooms) - packed with optimal tile sizes */}
-      {internalWallSegments.map((segment, segIdx) => {
+      {/* Internal wall segments (shared walls between rooms) - only render if NOT using any door system */}
+      {edgePieces.length === 0 && renderableWallPieces.length === 0 && internalWallSegments.map((segment, segIdx) => {
         const isVertical = segment.rotation === 90;
         const tiles = packWallTiles(segment.width);
         
@@ -539,99 +758,8 @@ const WallGroupRenderer: React.FC<{
         });
       })}
       
-      {/* Door sprites */}
-      {doorRenderings.map((door, idx) => {
-        const isVertical = door.rotation === 90;
-        
-        const renderWidth = isVertical ? MODULAR_WALL_THICKNESS_PX : door.width;
-        const renderHeight = isVertical ? door.width : MODULAR_WALL_THICKNESS_PX;
-        
-        const left = door.x - renderWidth / 2;
-        const top = door.y - renderHeight / 2;
-        
-        // When door tool is active, disable pointer events so Canvas can detect clicks
-        const isDoorToolActive = activeTool === 'doorTool';
-        
-        return (
-          <div
-            key={`door-${groupId}-${idx}`}
-            style={{
-              position: 'absolute',
-              left,
-              top,
-              width: renderWidth,
-              height: renderHeight,
-              overflow: 'hidden',
-              cursor: isDoorToolActive ? 'inherit' : 'pointer',
-              pointerEvents: isDoorToolActive ? 'none' : 'auto',
-            }}
-            title={isDoorToolActive ? undefined : "Door (drag to move)"}
-          >
-            <div
-              style={{
-                position: 'absolute',
-                left: isVertical ? (renderWidth - renderHeight) / 2 : 0,
-                top: isVertical ? (renderHeight - renderWidth) / 2 : 0,
-                width: isVertical ? renderHeight : renderWidth,
-                height: isVertical ? renderWidth : renderHeight,
-                backgroundImage: `url(${doorSprite})`,
-                backgroundRepeat: 'no-repeat',
-                backgroundSize: `${door.width}px ${MODULAR_WALL_THICKNESS_PX}px`,
-                backgroundPosition: 'center',
-                transform: isVertical ? 'rotate(90deg)' : undefined,
-                transformOrigin: 'center center',
-              }}
-            />
-          </div>
-        );
-      })}
-      
-      {/* External door sprites (manual doors on external walls) */}
-      {externalDoorRenderings.map((door, idx) => {
-        const isVertical = door.rotation === 90;
-        
-        const renderWidth = isVertical ? MODULAR_WALL_THICKNESS_PX : door.width;
-        const renderHeight = isVertical ? door.width : MODULAR_WALL_THICKNESS_PX;
-        
-        const left = door.x - renderWidth / 2;
-        const top = door.y - renderHeight / 2;
-        
-        // When door tool is active, disable pointer events so Canvas can detect clicks
-        const isDoorToolActive = activeTool === 'doorTool';
-        
-        return (
-          <div
-            key={`ext-door-${groupId}-${idx}`}
-            style={{
-              position: 'absolute',
-              left,
-              top,
-              width: renderWidth,
-              height: renderHeight,
-              overflow: 'hidden',
-              cursor: isDoorToolActive ? 'inherit' : 'pointer',
-              pointerEvents: isDoorToolActive ? 'none' : 'auto',
-            }}
-            title={isDoorToolActive ? undefined : "External Door (click with Door Tool to remove)"}
-          >
-            <div
-              style={{
-                position: 'absolute',
-                left: isVertical ? (renderWidth - renderHeight) / 2 : 0,
-                top: isVertical ? (renderHeight - renderWidth) / 2 : 0,
-                width: isVertical ? renderHeight : renderWidth,
-                height: isVertical ? renderWidth : renderHeight,
-                backgroundImage: `url(${doorSprite})`,
-                backgroundRepeat: 'no-repeat',
-                backgroundSize: `${door.width}px ${MODULAR_WALL_THICKNESS_PX}px`,
-                backgroundPosition: 'center',
-                transform: isVertical ? 'rotate(90deg)' : undefined,
-                transformOrigin: 'center center',
-              }}
-            />
-          </div>
-        );
-      })}
+      {/* Door sprites - LEGACY: DISABLED - now using edgePieces system */}
+      {/* All legacy door renderings removed - edgePieces handles all wall/door rendering */}
       
       {/* Pillars - ALWAYS rendered on top of walls */}
       {pillars.map((pillar, idx) => (
@@ -662,6 +790,8 @@ const ModularRoomRenderer: React.FC<ModularRoomRendererProps> = ({
   modularRooms,
   wallGroups,
   doors,
+  segmentStates,
+  edgeDoors,
   selectedRoomId,
   selectedRoomIds,
   renderLayer,
@@ -685,6 +815,32 @@ const ModularRoomRenderer: React.FC<ModularRoomRendererProps> = ({
     const draggedIds = new Set(dragPreview.groupRoomIds);
     return doors.filter(d => !draggedIds.has(d.roomAId) && !draggedIds.has(d.roomBId));
   }, [doors, dragPreview]);
+  
+  // When dragging, filter segment states that involve dragged rooms
+  const activeSegmentStates = useMemo(() => {
+    if (!dragPreview || !segmentStates) return segmentStates || {};
+    // For now, keep all segment states - the room IDs in keys are stable
+    // The position updates are handled by updateSegmentStatesForRoomMove
+    return segmentStates;
+  }, [segmentStates, dragPreview]);
+  
+  // When dragging, filter edge doors that involve dragged rooms
+  const activeEdgeDoors = useMemo(() => {
+    if (!dragPreview || !edgeDoors) return edgeDoors || {};
+    // Edge IDs contain room IDs, so we filter out edges involving dragged rooms
+    const draggedIds = new Set(dragPreview.groupRoomIds);
+    const filtered: typeof edgeDoors = {};
+    for (const [edgeId, doors] of Object.entries(edgeDoors)) {
+      // Edge ID format: "h|roomA+roomB|edgeIndex"
+      const roomsPart = edgeId.split('|')[1] || '';
+      const roomIds = roomsPart.split('+');
+      const involveDragged = roomIds.some(id => draggedIds.has(id));
+      if (!involveDragged) {
+        filtered[edgeId] = doors;
+      }
+    }
+    return filtered;
+  }, [edgeDoors, dragPreview]);
   
   // Group rooms by wallGroupId for rendering with separate wall styles
   const roomsByWallGroup = useMemo(() => {
@@ -742,12 +898,6 @@ const ModularRoomRenderer: React.FC<ModularRoomRendererProps> = ({
             // Get ALL tokens linked to any room in the group (using parentRoomId)
             const groupTokens = linkedTokens?.filter(t => t.parentRoomId && groupRoomIdsSet.has(t.parentRoomId)) || [];
             
-            console.log('[GHOST PREVIEW] === GHOST PREVIEW DEBUG ===');
-            console.log('[GHOST PREVIEW] dragPreview.groupRoomIds:', dragPreview.groupRoomIds.map(id => id.slice(-8)));
-            console.log('[GHOST PREVIEW] groupRooms found:', groupRooms.map(r => r.id.slice(-8)));
-            console.log('[GHOST PREVIEW] groupTokens found:', groupTokens.map(t => ({ id: t.id.slice(-8), parentRoomId: t.parentRoomId?.slice(-8) })));
-            console.log('[GHOST PREVIEW] originalPositions keys:', Array.from(dragPreview.originalPositions.keys()).map(k => k.slice(-8)));
-            
             // Build map of wallGroupId -> wallStyleId for quick lookup
             const wallStyleByGroupId = new Map<string, string>();
             for (const wg of wallGroups) {
@@ -766,8 +916,6 @@ const ModularRoomRenderer: React.FC<ModularRoomRendererProps> = ({
                 roomNewPositions.set(room.id, { x: origPos.x + deltaX, y: origPos.y + deltaY });
               }
             });
-            
-            console.log('[GHOST PREVIEW] roomNewPositions:', Array.from(roomNewPositions.entries()).map(([id, pos]) => ({ id: id.slice(-8), ...pos })));
             
             return (
               <div
@@ -898,6 +1046,8 @@ const ModularRoomRenderer: React.FC<ModularRoomRendererProps> = ({
                 wallStyleId={wallStyleId}
                 rooms={groupRooms}
                 activeTool={activeTool}
+                segmentStates={activeSegmentStates}
+                edgeDoors={activeEdgeDoors}
                 doors={activeDoors.filter(d => {
                   // Include doors where roomAId is in this group AND either:
                   // 1. roomBId is also in this group (internal door), OR

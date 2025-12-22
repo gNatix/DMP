@@ -522,21 +522,6 @@ function App() {
 
   // Add element to active scene
   const addElement = (element: MapElement) => {
-    console.log('[APP] addElement called with:', element.id, element.type);
-    if (element.type === 'wall') {
-      const vertices = (element as any).vertices;
-      console.log('[APP] Adding wall with vertices:', JSON.stringify(vertices, null, 2));
-      
-      // Check for duplicate vertices
-      if (vertices && vertices.length === 2) {
-        const [v1, v2] = vertices;
-        if (v1.x === v2.x && v1.y === v2.y) {
-          console.error('[APP] ERROR: Wall has identical start and end vertices!', vertices);
-        }
-        const distance = Math.sqrt(Math.pow(v2.x - v1.x, 2) + Math.pow(v2.y - v1.y, 2));
-        console.log('[APP] Wall length:', distance);
-      }
-    }
     if (!activeSceneId) return;
     
     // Check if we're adding to an auto-created canvas with no elements yet
@@ -669,25 +654,11 @@ function App() {
 
   // Delete multiple elements
   const deleteElements = (elementIds: string[]) => {
-    console.log('[APP] deleteElements called with:', elementIds);
     if (!activeSceneId || !activeScene) return;
-    console.log('[APP] Current elements count:', activeScene.elements.length);
-    console.log('[APP] Current element IDs:', activeScene.elements.map(e => e.id));
-    console.log('[APP] Current walls with vertices:', activeScene.elements
-      .filter(e => e.type === 'wall')
-      .map(e => ({ id: e.id, vertices: (e as any).vertices }))
-    );
     const newElements = activeScene.elements.filter(e => !elementIds.includes(e.id));
-    console.log('[APP] After filter, elements count:', newElements.length);
-    console.log('[APP] After filter, element IDs:', newElements.map(e => e.id));
-    console.log('[APP] After filter, walls with vertices:', newElements
-      .filter(e => e.type === 'wall')
-      .map(e => ({ id: e.id, vertices: (e as any).vertices }))
-    );
     updateScene(activeSceneId, {
       elements: newElements
     });
-    console.log('[APP] deleteElements completed');
     setSelectedElementId(null);
     setSelectedElementIds([]);
   };

@@ -107,7 +107,7 @@ canvas {
 }
 
 .cursor-door-remove {
-  cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23ef4444' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M3 21V5a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v16'/><path d='M18 21H3'/><path d='M14 9v.01'/><line x1='19' y1='4' x2='23' y2='8'/><line x1='23' y1='4' x2='19' y2='8'/></svg>") 12 12, pointer;
+  cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23ef4444' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M3 21V5a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v16'/><path d='M18 21H3'/><path d='M14 9v.01'/><line x1='18' y1='6' x2='24' y2='6'/></svg>") 12 12, pointer;
 }
 
 .cursor-room-subtract {

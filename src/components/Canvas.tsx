@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
-import { Scene, MapElement, AnnotationElement, TokenElement, RoomElement, WallElement, ModularRoomElement, ToolType, IconType, ColorType, TokenTemplate, RoomSubTool, Point, TerrainTile, TerrainStamp, TerrainShapeMode, ViewMode, WallOpening, WallGroup } from '../types';
+import { Scene, MapElement, AnnotationElement, TokenElement, RoomElement, WallElement, ModularRoomElement, ToolType, IconType, ColorType, TokenTemplate, RoomSubTool, Point, TerrainTile, TerrainStamp, TerrainShapeMode, ViewMode, WallOpening, WallGroup, ModularRoomsState } from '../types';
 import { Circle, Square, Triangle, Star, Diamond, Heart, Skull, MapPin, Search, Eye, DoorOpen, Landmark, Footprints, Info, Gamepad2, StopCircle } from 'lucide-react';
 import Toolbox from './toolbox/Toolbox';
 import polygonClipping from 'polygon-clipping';
@@ -16,8 +16,8 @@ import {
   generateModularRoomId,
   generateWallGroupId,
   getRoomPixelRect,
-  createDoorsForNewRoom,
   recalculateAllDoors,
+  updateManualDoorPositions,
   findMagneticSnapPosition,
   getWallSpriteUrl,
   getPillarSpriteUrl,
@@ -27,12 +27,15 @@ import {
   // findAdjacentGroups, // Currently unused - new connected component logic replaces this
   // generateMergeUpdates, // Currently unused - group drag doesn't use merge updates the same way
   areRoomsAdjacent,
-  // Door tool utilities
-  generateWallSegmentGroups,
-  findWallSegmentGroupAtPosition,
-  findDoorAtPosition,
-  addDoorToWallSegmentGroup,
-  removeDoorFromWallSegmentGroup,
+  // SegmentState-based door system (legacy)
+  recalculateSegmentStates,
+  updateSegmentStatesForRoomMove,
+  // NEW: Free-placement door system
+  handleEdgeDoorClick,
+  getEdgeId,
+  getGroupEdges,
+  cleanupEdgeDoorsForGeometry,
+  rotateEdgeDoorsForRoom,
 } from '../utils/modularRooms';
 
 // Helper function to create rounded polygon path (for room shapes)
@@ -404,7 +407,7 @@ const Canvas = ({
   const [hoveredRoomEdge, setHoveredRoomEdge] = useState<{ roomId: string; edgeIndex: number; point: { x: number; y: number } } | null>(null);
 
   // Undo/Redo state
-  const [history, setHistory] = useState<{ elements: MapElement[]; terrainTiles?: { [key: string]: TerrainTile } }[]>([]);
+  const [history, setHistory] = useState<{ elements: MapElement[]; terrainTiles?: { [key: string]: TerrainTile }; modularRoomsState?: ModularRoomsState }[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [historyInitialized, setHistoryInitialized] = useState(false);
 
@@ -583,7 +586,33 @@ const Canvas = ({
       });
     }
     
-    updateElements(elementUpdates);
+    // Rotate edge doors for this room
+    const existingEdgeDoors = scene.modularRoomsState?.edgeDoors || {};
+    const rotatedEdgeDoors = rotateEdgeDoorsForRoom(
+      existingEdgeDoors,
+      roomId,
+      direction,
+      room.tilesW,
+      room.tilesH
+    );
+    
+    // Update elements and modularRoomsState together
+    const updatedElements = scene.elements.map(el => {
+      const updates = elementUpdates.get(el.id);
+      if (updates) {
+        return { ...el, ...updates };
+      }
+      return el;
+    }) as MapElement[];
+    
+    updateScene(activeSceneId, {
+      elements: updatedElements,
+      modularRoomsState: {
+        wallGroups: scene.modularRoomsState?.wallGroups ?? [],
+        segmentStates: scene.modularRoomsState?.segmentStates ?? {},
+        edgeDoors: rotatedEdgeDoors,
+      },
+    });
   };
 
   // Tile management helper functions
@@ -1035,8 +1064,9 @@ const Canvas = ({
     if (modularRooms.length === 0) return;
     
     // Recalculate all doors based on current room positions
-    const newDoors = recalculateAllDoors(modularRooms);
+    // Pass existing doors to preserve manual doors
     const currentDoors = scene.modularRoomsState?.doors || [];
+    const newDoors = recalculateAllDoors(modularRooms, currentDoors);
     
     // Always update doors on initial load (when currentDoors is empty but should have doors)
     // or when doors have actually changed
@@ -1049,7 +1079,6 @@ const Canvas = ({
     const doorsChanged = doorsAreMissing || newDoorsKey !== currentDoorsKey;
     
     if (doorsChanged) {
-      console.log('[MODULAR ROOMS] Doors recalculated:', newDoors.length, 'doors (missing:', doorsAreMissing, ')');
       const updatedState = {
         wallGroups: scene.modularRoomsState?.wallGroups || [],
         doors: newDoors,
@@ -1331,7 +1360,8 @@ const Canvas = ({
     
     newHistory.push({ 
       elements: JSON.parse(JSON.stringify(scene.elements)),
-      terrainTiles: tilesToSave
+      terrainTiles: tilesToSave,
+      modularRoomsState: scene.modularRoomsState ? JSON.parse(JSON.stringify(scene.modularRoomsState)) : undefined
     });
     setHistory(newHistory);
     setHistoryIndex(newHistory.length - 1);
@@ -1342,10 +1372,11 @@ const Canvas = ({
     if (historyIndex > 0 && scene && activeSceneId) {
       const prevState = history[historyIndex - 1];
       
-      // Update scene
+      // Update scene - include modularRoomsState
       updateScene(activeSceneId, { 
         elements: JSON.parse(JSON.stringify(prevState.elements)),
-        terrainTiles: prevState.terrainTiles ? JSON.parse(JSON.stringify(prevState.terrainTiles)) : undefined
+        terrainTiles: prevState.terrainTiles ? JSON.parse(JSON.stringify(prevState.terrainTiles)) : undefined,
+        modularRoomsState: prevState.modularRoomsState ? JSON.parse(JSON.stringify(prevState.modularRoomsState)) : undefined
       });
       
       // Update local terrainTiles state immediately
@@ -1368,10 +1399,11 @@ const Canvas = ({
     if (historyIndex < history.length - 1 && scene && activeSceneId) {
       const nextState = history[historyIndex + 1];
       
-      // Update scene
+      // Update scene - include modularRoomsState
       updateScene(activeSceneId, { 
         elements: JSON.parse(JSON.stringify(nextState.elements)),
-        terrainTiles: nextState.terrainTiles ? JSON.parse(JSON.stringify(nextState.terrainTiles)) : undefined
+        terrainTiles: nextState.terrainTiles ? JSON.parse(JSON.stringify(nextState.terrainTiles)) : undefined,
+        modularRoomsState: nextState.modularRoomsState ? JSON.parse(JSON.stringify(nextState.modularRoomsState)) : undefined
       });
       
       // Update local terrainTiles state immediately
@@ -1605,17 +1637,25 @@ const Canvas = ({
       }
     }
     
-    // Recalculate doors after deletion
+    // Recalculate doors after deletion - preserve manual doors
     const remainingRooms = getModularRooms(updatedElements);
-    const newDoors = recalculateAllDoors(remainingRooms);
+    const existingDoors = scene.modularRoomsState?.doors || [];
+    const newDoors = recalculateAllDoors(remainingRooms, existingDoors);
+    
+    // Clean up edgeDoors that now conflict with new corner positions
+    const existingEdgeDoors = scene.modularRoomsState?.edgeDoors || {};
+    const cleanedEdgeDoors = cleanupEdgeDoorsForGeometry(remainingRooms, existingEdgeDoors);
     
     // Do everything in ONE updateScene call to prevent overwrites
+    // Clear wallSegmentGroups cache - needs to regenerate with new layout
     updateScene(activeSceneId, {
       elements: updatedElements,
       modularRoomsState: {
         ...scene.modularRoomsState,
         wallGroups: updatedWallGroups,
         doors: newDoors,
+        wallSegmentGroups: undefined,
+        edgeDoors: cleanedEdgeDoors,
       }
     });
     
@@ -4592,15 +4632,13 @@ const Canvas = ({
         );
       }
       
-      // Create automatic doors for adjacent rooms
-      const newDoors = createDoorsForNewRoom(newModularRoom, existingModularRooms, currentState.doors);
+      // DISABLED: Auto-door creation - now using manual EdgeDoors system only
+      // const newDoors = createDoorsForNewRoom(newModularRoom, existingModularRooms, currentState.doors || []);
+      const newDoors: typeof currentState.doors = []; // No auto doors
       
       // Check ALL adjacent rooms to determine if we need to merge groups
       const adjacentRooms = existingModularRooms.filter(other => areRoomsAdjacent(newModularRoom, other));
       const adjacentGroupIds = [...new Set(adjacentRooms.map(r => r.wallGroupId).filter(Boolean))] as string[];
-      
-      console.log('[MODULAR ROOM] Adjacent rooms:', adjacentRooms.map(r => r.id.slice(-8)));
-      console.log('[MODULAR ROOM] Adjacent group IDs:', adjacentGroupIds.map(id => id.slice(-8)));
       
       // Prepare element updates for merging groups
       let updatedElements = [...scene.elements, newModularRoom];
@@ -4609,11 +4647,6 @@ const Canvas = ({
         // Use the first adjacent group as the primary group
         const primaryGroupId = adjacentGroupIds[0];
         const groupsToMerge = adjacentGroupIds.slice(1); // All other groups need to merge into primary
-        
-        console.log('[MODULAR ROOM] Primary group:', primaryGroupId.slice(-8));
-        if (groupsToMerge.length > 0) {
-          console.log('[MODULAR ROOM] Groups to merge:', groupsToMerge.map(id => id.slice(-8)));
-        }
         
         // Update the new room to use the primary group ID (in case it was assigned a different one)
         updatedElements = updatedElements.map(el => {
@@ -4624,7 +4657,6 @@ const Canvas = ({
           if (el.type === 'modularRoom') {
             const room = el as ModularRoomElement;
             if (room.wallGroupId && groupsToMerge.includes(room.wallGroupId)) {
-              console.log('[MODULAR ROOM] Updating room', el.id.slice(-8), 'from group', room.wallGroupId.slice(-8), 'to', primaryGroupId.slice(-8));
               return { ...el, wallGroupId: primaryGroupId } as MapElement;
             }
           }
@@ -4635,8 +4667,6 @@ const Canvas = ({
         const totalRoomCount = updatedElements.filter(el => 
           el.type === 'modularRoom' && (el as ModularRoomElement).wallGroupId === primaryGroupId
         ).length;
-        
-        console.log('[MODULAR ROOM] After merge - total room count:', totalRoomCount);
         
         // Remove merged groups and update primary group's roomCount
         // Also remove the new group if we created one (since we're using primary instead)
@@ -4655,10 +4685,37 @@ const Canvas = ({
         }
       }
       
+      // Get all modular rooms after adding the new one for SegmentState calculation
+      const allRoomsAfterAdd = updatedElements.filter(el => el.type === 'modularRoom') as ModularRoomElement[];
+      
+      // Calculate updated SegmentStates (preserves manual doors, adds auto-doors for new adjacencies)
+      const existingSegmentStates = currentState.segmentStates || {};
+      const updatedSegmentStates = recalculateSegmentStates(allRoomsAfterAdd, existingSegmentStates);
+      
+      // Clean up edgeDoors that now conflict with new corner positions (from new room geometry)
+      const existingEdgeDoors = currentState.edgeDoors || {};
+      const cleanedEdgeDoors = cleanupEdgeDoorsForGeometry(allRoomsAfterAdd, existingEdgeDoors);
+      
       const updatedState = {
         wallGroups: updatedWallGroups,
-        doors: [...currentState.doors, ...newDoors],
+        doors: [...(currentState.doors || []), ...newDoors],
+        // Clear wallSegmentGroups cache - it needs to be regenerated with new room layout
+        // Existing doors will be preserved in the doors array above
+        wallSegmentGroups: undefined,
+        // NEW: SegmentState-based door system
+        segmentStates: updatedSegmentStates,
+        // NEW: EdgeDoors with cleanup
+        edgeDoors: cleanedEdgeDoors,
       };
+      
+      console.log('[Modular Room Placement] Door state:', {
+        existingDoors: (currentState.doors || []).length,
+        existingManual: (currentState.doors || []).filter(d => d.isManual).length,
+        newDoors: newDoors.length,
+        totalDoors: updatedState.doors.length,
+        manualIds: (currentState.doors || []).filter(d => d.isManual).map(d => d.id),
+        segmentStatesCount: Object.keys(updatedSegmentStates).length,
+      });
       
       // Save to history before adding
       const newHistoryEntry = {
@@ -4692,19 +4749,13 @@ const Canvas = ({
       }
       setCursorPosition(null);
       
-      console.log('[MODULAR ROOM] Placed floor:', newModularRoom);
-      console.log('[MODULAR ROOM] Created wall group ID:', wallGroupId);
-      if (newDoors.length > 0) {
-        console.log('[MODULAR ROOM] Auto-created doors:', newDoors);
-      }
-      
       return; // Don't continue to other tool handling
     } else if (effectiveTool === 'modularRoom' && !placingModularFloor) {
       // Modular Room tool - click-to-pickup, click-to-drop behavior
       
       // If we're already carrying a room GROUP, this click drops it
       if (modularRoomDragPreview) {
-        const { roomId, groupRoomIds, groupTokenIds, originalPositions, delta } = modularRoomDragPreview;
+        const { roomId, groupRoomIds, originalPositions, delta } = modularRoomDragPreview;
         
         const primaryRoom = scene.elements.find(el => el.id === roomId) as ModularRoomElement | undefined;
         if (!primaryRoom) {
@@ -4756,8 +4807,6 @@ const Canvas = ({
             setTimeout(() => setMergeNotification(null), 3000);
             return;
           }
-          
-          console.log('[GROUP DROP] Moving', groupRoomIds.length, 'rooms and', groupTokenIds.length, 'tokens by delta:', delta);
           
           // Build updated rooms at new positions for adjacency checks
           const updatedGroupRooms = groupRoomIds.map(id => {
@@ -4830,8 +4879,6 @@ const Canvas = ({
             }
           }
           
-          console.log('[GROUP DROP] Found', connectedComponents.length, 'connected components');
-          
           // Track which groups have been assigned to which components
           const groupIdAssignments = new Map<string, string>(); // componentKey -> assigned groupId
           const newWallGroups: WallGroup[] = [];
@@ -4882,8 +4929,6 @@ const Canvas = ({
                 roomCount: component.length,
               });
               groupIdsStillInUse.add(assignedGroupId);
-              
-              console.log('[GROUP DROP] Created new group for split component:', assignedGroupId.slice(-12));
             }
             
             // Update all rooms in this component to use the assigned group
@@ -4969,8 +5014,6 @@ const Canvas = ({
             }
           }
           
-          console.log('[GROUP DROP] elementUpdatesMap size:', elementUpdatesMap.size);
-          
           // Apply all element updates
           const updatedElements = scene.elements.map(el => {
             const updates = elementUpdatesMap.get(el.id);
@@ -4980,17 +5023,47 @@ const Canvas = ({
             return el;
           });
           
-          // Recalculate doors with updated rooms
+          // Update manual door positions for all moved rooms
+          let existingDoors = scene.modularRoomsState?.doors || [];
+          for (const gRoomId of groupRoomIds) {
+            existingDoors = updateManualDoorPositions(existingDoors, gRoomId, delta.x, delta.y);
+          }
+          
+          // Recalculate doors with updated rooms - preserve manual doors (with updated positions)
           const updatedRooms = getModularRooms(updatedElements);
-          const newDoors = recalculateAllDoors(updatedRooms);
+          const newDoors = recalculateAllDoors(updatedRooms, existingDoors);
+          
+          // Update SegmentStates for moved rooms
+          let updatedSegmentStates = scene.modularRoomsState?.segmentStates || {};
+          for (const gRoomId of groupRoomIds) {
+            const oldRoom = scene.elements.find(el => el.id === gRoomId) as ModularRoomElement | undefined;
+            const newRoom = updatedRooms.find(r => r.id === gRoomId);
+            if (oldRoom && newRoom) {
+              updatedSegmentStates = updateSegmentStatesForRoomMove(
+                updatedSegmentStates,
+                gRoomId,
+                oldRoom,
+                newRoom,
+                updatedRooms
+              );
+            }
+          }
+          
+          // Clean up edgeDoors that now conflict with new corner positions
+          const existingEdgeDoors = scene.modularRoomsState?.edgeDoors || {};
+          const cleanedEdgeDoors = cleanupEdgeDoorsForGeometry(updatedRooms, existingEdgeDoors);
           
           // Update BOTH elements AND modularRoomsState in ONE call
+          // Clear wallSegmentGroups cache - needs to regenerate with new layout
           updateScene(activeSceneId!, {
             elements: updatedElements,
             modularRoomsState: {
               ...scene.modularRoomsState,
               wallGroups: wallGroupsToUpdate,
               doors: newDoors,
+              wallSegmentGroups: undefined,
+              segmentStates: updatedSegmentStates,
+              edgeDoors: cleanedEdgeDoors,
             }
           });
         }
@@ -5261,87 +5334,85 @@ const Canvas = ({
       setIsPaintingBackground(true);
       startBrushPainting(x, y);
     } else if (effectiveTool === 'doorTool') {
-      // Door Tool - click on walls to add/remove doors
+      // Door Tool - click on walls to add/remove doors (NEW FREE-PLACEMENT SYSTEM)
+      console.log('[DEBUG] Door tool click detected!', { x, y, effectiveTool });
       if (!scene || !activeSceneId) return;
       
       const modularRooms = getModularRooms(scene.elements);
+      console.log('[DEBUG] modularRooms count:', modularRooms.length);
       if (modularRooms.length === 0) return;
       
       const currentState = scene.modularRoomsState || { wallGroups: [], doors: [] };
       
-      // Generate wall segment groups if not present
-      let wallSegmentGroups = currentState.wallSegmentGroups;
-      if (!wallSegmentGroups || wallSegmentGroups.length === 0) {
-        wallSegmentGroups = generateWallSegmentGroups(
-          modularRooms,
-          currentState.doors || [],
-          currentState.wallGroups || []
-        );
+      // Get all edges to find which one was clicked
+      const roomIds = modularRooms.map(r => r.id);
+      const { externalEdges, internalEdges } = getGroupEdges(roomIds, modularRooms);
+      const allEdges = [...externalEdges, ...internalEdges];
+      
+      // Find which edge was clicked
+      const WALL_HIT_TOLERANCE = 20; // pixels
+      let hitEdge: typeof allEdges[0] | null = null;
+      let hitEdgeIndex = -1;
+      let clickOffsetPx = 0;
+      
+      for (let i = 0; i < allEdges.length; i++) {
+        const edge = allEdges[i];
+        const edgeStartPx = Math.round(edge.rangeStart * MODULAR_TILE_PX);
+        const edgeEndPx = Math.round(edge.rangeEnd * MODULAR_TILE_PX);
+        const positionPx = Math.round(edge.position * MODULAR_TILE_PX);
+        
+        if (edge.orientation === 'horizontal') {
+          // Check if click is on horizontal edge
+          if (Math.abs(y - positionPx) <= WALL_HIT_TOLERANCE &&
+              x >= edgeStartPx && x <= edgeEndPx) {
+            hitEdge = edge;
+            hitEdgeIndex = i;
+            clickOffsetPx = x - edgeStartPx;
+            break;
+          }
+        } else {
+          // Check if click is on vertical edge
+          if (Math.abs(x - positionPx) <= WALL_HIT_TOLERANCE &&
+              y >= edgeStartPx && y <= edgeEndPx) {
+            hitEdge = edge;
+            hitEdgeIndex = i;
+            clickOffsetPx = y - edgeStartPx;
+            break;
+          }
+        }
       }
       
-      // Find which wall segment was clicked
-      const hitResult = findWallSegmentGroupAtPosition(x, y, wallSegmentGroups);
-      if (!hitResult) {
-        console.log('[DOOR TOOL] No wall at click position');
+      if (!hitEdge || hitEdgeIndex < 0) {
+        console.log('[Door Tool] No edge hit');
         return;
       }
       
-      const { group, offsetPx } = hitResult;
-      console.log('[DOOR TOOL] Clicked wall segment group:', group.id, 'isExternal:', group.isExternal, 'offset:', offsetPx);
-      
       saveToHistory(); // Save before making changes
       
-      // Check if clicking on an existing door (in components)
-      const existingDoorComponent = findDoorAtPosition(group, offsetPx);
+      // Use new free-placement door system
+      const existingEdgeDoors = currentState.edgeDoors || {};
+      const newEdgeDoors = handleEdgeDoorClick(hitEdge, hitEdgeIndex, clickOffsetPx, existingEdgeDoors, modularRooms);
       
-      if (existingDoorComponent && existingDoorComponent.doorId) {
-        // Remove the door - works for both manual and auto doors
-        const updatedGroup = removeDoorFromWallSegmentGroup(group, existingDoorComponent.doorId);
-        const updatedWallSegmentGroups = wallSegmentGroups.map(g =>
-          g.id === group.id ? updatedGroup : g
-        );
-        
-        // Remove from doors array
-        const updatedDoors = (currentState.doors || []).filter(d => d.id !== existingDoorComponent.doorId);
-        
-        updateScene(activeSceneId, {
-          modularRoomsState: {
-            ...currentState,
-            wallSegmentGroups: updatedWallSegmentGroups,
-            doors: updatedDoors,
-          },
-        });
-        
-        console.log('[DOOR TOOL] Removed door:', existingDoorComponent.doorId);
-      } else {
-        // Add a new door (works for both internal and external walls)
-        const result = addDoorToWallSegmentGroup(group, offsetPx, modularRooms);
-        if (!result) {
-          console.log('[DOOR TOOL] Cannot add door at this position');
-          return;
-        }
-        
-        const { updatedGroup, newDoor } = result;
-        console.log('[DOOR TOOL] New door created:', JSON.stringify(newDoor, null, 2));
-        
-        const updatedWallSegmentGroups = wallSegmentGroups.map(g =>
-          g.id === group.id ? updatedGroup : g
-        );
-        
-        // Add to doors array
-        const updatedDoors = [...(currentState.doors || []), newDoor];
-        console.log('[DOOR TOOL] Updating scene with', updatedDoors.length, 'doors');
-        
-        updateScene(activeSceneId, {
-          modularRoomsState: {
-            ...currentState,
-            wallSegmentGroups: updatedWallSegmentGroups,
-            doors: updatedDoors,
-          },
-        });
-        
-        console.log('[DOOR TOOL] Added door:', newDoor.id, 'at group:', group.id);
-      }
+      console.log('[Door Tool] EdgeDoors updated:', {
+        edgeId: getEdgeId(hitEdge, hitEdgeIndex, modularRooms),
+        doorsCount: Object.values(newEdgeDoors).flat().length,
+      });
+      
+      updateScene(activeSceneId, {
+        modularRoomsState: {
+          ...currentState,
+          edgeDoors: newEdgeDoors,
+        },
+      });
+      
+      // Immediately update hover state to reflect the new door state
+      const edgeId = getEdgeId(hitEdge, hitEdgeIndex, modularRooms);
+      const doorsAfterClick = newEdgeDoors[edgeId] || [];
+      const DOOR_WIDTH_PX = 128;
+      const isNowOverDoor = doorsAfterClick.some(d => 
+        clickOffsetPx >= d.offsetPx && clickOffsetPx < d.offsetPx + DOOR_WIDTH_PX
+      );
+      setDoorToolHoverState(isNowOverDoor ? 'door' : 'wall');
       
       return;
     } else if (effectiveTool === 'wallCutterTool') {
@@ -5514,27 +5585,19 @@ const Canvas = ({
           selectedRooms.forEach(r => originalPositions.set(r.id, { x: r.x, y: r.y }));
           groupTokens.forEach(t => originalPositions.set(t.id, { x: t.x, y: t.y }));
           
-          console.log('[SELECTION DRAG] === DRAG START DEBUG ===');
-          console.log('[SELECTION DRAG] selectedElementId:', selectedElementId?.slice(-8));
-          console.log('[SELECTION DRAG] selectedElementIds:', selectedElementIds.map(id => id.slice(-8)));
-          console.log('[SELECTION DRAG] pendingModularRoomDrag.roomId:', pendingModularRoomDrag.roomId.slice(-8));
-          console.log('[SELECTION DRAG] allSelectedIds:', Array.from(allSelectedIds).map(id => id.slice(-8)));
-          console.log('[SELECTION DRAG] groupRoomIds:', groupRoomIds.map(id => id.slice(-8)));
-          console.log('[SELECTION DRAG] groupTokenIds:', groupTokenIds.map(id => id.slice(-8)));
-          console.log('[SELECTION DRAG] originalPositions keys:', Array.from(originalPositions.keys()).map(id => id.slice(-8)));
-          console.log('[SELECTION DRAG] Starting drag of', groupRoomIds.length, 'selected rooms and', groupTokenIds.length, 'tokens');
-          
-          // Remove doors involving any selected room immediately when starting drag
+          // Remove AUTO doors involving any selected room immediately when starting drag
+          // Keep manual doors - they will be preserved by recalculateAllDoors when drag ends
           if (activeSceneId && scene.modularRoomsState) {
             const currentDoors = scene.modularRoomsState.doors || [];
-            const doorsWithoutGroup = currentDoors.filter(
-              d => !groupRoomIds.includes(d.roomAId) && !groupRoomIds.includes(d.roomBId)
+            const doorsToKeep = currentDoors.filter(
+              d => d.isManual || (!groupRoomIds.includes(d.roomAId) && !groupRoomIds.includes(d.roomBId))
             );
-            if (doorsWithoutGroup.length !== currentDoors.length) {
+            if (doorsToKeep.length !== currentDoors.length) {
               updateScene(activeSceneId, {
                 modularRoomsState: {
                   ...scene.modularRoomsState,
-                  doors: doorsWithoutGroup,
+                  doors: doorsToKeep,
+                  wallSegmentGroups: undefined, // Clear cache to regenerate walls
                 }
               });
             }
@@ -5848,23 +5911,59 @@ const Canvas = ({
       // Update cursor position for door tool preview and detect what's under cursor
       setCursorPosition({ x, y });
       
-      // Check if cursor is over a wall or door
+      // Check if cursor is over a wall or door using edgeDoors system
       const modularRooms = getModularRooms(scene.elements);
       if (modularRooms.length > 0) {
-        const currentState = scene.modularRoomsState || { wallGroups: [], doors: [] };
-        let wallSegmentGroups = currentState.wallSegmentGroups;
-        if (!wallSegmentGroups || wallSegmentGroups.length === 0) {
-          wallSegmentGroups = generateWallSegmentGroups(
-            modularRooms,
-            currentState.doors || [],
-            currentState.wallGroups || []
-          );
+        const currentState = scene.modularRoomsState || { wallGroups: [], edgeDoors: {} };
+        const edgeDoors = currentState.edgeDoors || {};
+        
+        // Find all edges
+        const roomIds = modularRooms.map(r => r.id);
+        const { externalEdges, internalEdges } = getGroupEdges(roomIds, modularRooms);
+        const allEdges = [...externalEdges, ...internalEdges];
+        
+        // Find which edge cursor is over
+        const WALL_HIT_TOLERANCE = 20;
+        let hitEdge: typeof allEdges[0] | null = null;
+        let hitEdgeIndex = -1;
+        let cursorOffsetPx = 0;
+        
+        for (let i = 0; i < allEdges.length; i++) {
+          const edge = allEdges[i];
+          const edgeStartPx = Math.round(edge.rangeStart * MODULAR_TILE_PX);
+          const edgeEndPx = Math.round(edge.rangeEnd * MODULAR_TILE_PX);
+          const positionPx = Math.round(edge.position * MODULAR_TILE_PX);
+          
+          if (edge.orientation === 'horizontal') {
+            if (Math.abs(y - positionPx) <= WALL_HIT_TOLERANCE &&
+                x >= edgeStartPx && x <= edgeEndPx) {
+              hitEdge = edge;
+              hitEdgeIndex = i;
+              cursorOffsetPx = x - edgeStartPx;
+              break;
+            }
+          } else {
+            if (Math.abs(x - positionPx) <= WALL_HIT_TOLERANCE &&
+                y >= edgeStartPx && y <= edgeEndPx) {
+              hitEdge = edge;
+              hitEdgeIndex = i;
+              cursorOffsetPx = y - edgeStartPx;
+              break;
+            }
+          }
         }
         
-        const hitResult = findWallSegmentGroupAtPosition(x, y, wallSegmentGroups);
-        if (hitResult) {
-          const existingDoor = findDoorAtPosition(hitResult.group, hitResult.offsetPx);
-          if (existingDoor && existingDoor.doorId) {
+        if (hitEdge && hitEdgeIndex >= 0) {
+          // Check if there's a door at cursor position
+          const edgeId = getEdgeId(hitEdge, hitEdgeIndex, modularRooms);
+          const doors = edgeDoors[edgeId] || [];
+          const DOOR_WIDTH_PX = 128;
+          
+          const isOverDoor = doors.some(d => 
+            cursorOffsetPx >= d.offsetPx && cursorOffsetPx < d.offsetPx + DOOR_WIDTH_PX
+          );
+          
+          if (isOverDoor) {
             setDoorToolHoverState('door');
           } else {
             setDoorToolHoverState('wall');
@@ -6707,8 +6806,34 @@ const Canvas = ({
           
           wallGroupsToUpdate = wallGroupsToUpdate.filter(g => allGroupIdsInUse.has(g.id));
           
-          // Recalculate doors with new positions
-          const newDoors = recalculateAllDoors(allRoomsAtNewPositions);
+          // Update manual door positions for all moved rooms
+          let existingDoors = scene.modularRoomsState?.doors || [];
+          for (const grId of groupRoomIds) {
+            existingDoors = updateManualDoorPositions(existingDoors, grId, delta.x, delta.y);
+          }
+          
+          // Recalculate doors with new positions - preserve manual doors (with updated positions)
+          const newDoors = recalculateAllDoors(allRoomsAtNewPositions, existingDoors);
+          
+          // Update SegmentStates for moved rooms
+          let updatedSegmentStates = scene.modularRoomsState?.segmentStates || {};
+          for (const grId of groupRoomIds) {
+            const oldRoom = scene.elements.find(el => el.id === grId) as ModularRoomElement | undefined;
+            const newRoom = allRoomsAtNewPositions.find(r => r.id === grId);
+            if (oldRoom && newRoom) {
+              updatedSegmentStates = updateSegmentStatesForRoomMove(
+                updatedSegmentStates,
+                grId,
+                oldRoom,
+                newRoom,
+                allRoomsAtNewPositions
+              );
+            }
+          }
+          
+          // Clean up edgeDoors that now conflict with new corner positions
+          const existingEdgeDoors = scene.modularRoomsState?.edgeDoors || {};
+          const cleanedEdgeDoors = cleanupEdgeDoorsForGeometry(allRoomsAtNewPositions, existingEdgeDoors);
           
           // Apply all updates
           const updatedElements = scene.elements.map(el => {
@@ -6719,12 +6844,16 @@ const Canvas = ({
             return el;
           }) as MapElement[];
           
+          // Clear wallSegmentGroups cache - needs to regenerate with new layout
           updateScene(activeSceneId, {
             elements: updatedElements,
             modularRoomsState: {
               ...scene.modularRoomsState,
               wallGroups: wallGroupsToUpdate,
               doors: newDoors,
+              wallSegmentGroups: undefined,
+              segmentStates: updatedSegmentStates,
+              edgeDoors: cleanedEdgeDoors,
             }
           });
         }
@@ -8278,6 +8407,8 @@ const Canvas = ({
                     modularRooms={getModularRooms(scene.elements)}
                     wallGroups={scene.modularRoomsState?.wallGroups || []}
                     doors={scene.modularRoomsState?.doors || []}
+                    segmentStates={scene.modularRoomsState?.segmentStates}
+                    edgeDoors={scene.modularRoomsState?.edgeDoors}
                     selectedRoomId={selectedElementId}
                     selectedRoomIds={selectedElementIds}
                     renderLayer="floor"
@@ -8378,6 +8509,8 @@ const Canvas = ({
                     modularRooms={getModularRooms(scene.elements)}
                     wallGroups={scene.modularRoomsState?.wallGroups || []}
                     doors={scene.modularRoomsState?.doors || []}
+                    segmentStates={scene.modularRoomsState?.segmentStates}
+                    edgeDoors={scene.modularRoomsState?.edgeDoors}
                     selectedRoomId={selectedElementId}
                     selectedRoomIds={selectedElementIds}
                     renderLayer="walls"
@@ -8540,6 +8673,8 @@ const Canvas = ({
                 modularRooms={getModularRooms(scene.elements)}
                 wallGroups={scene.modularRoomsState?.wallGroups || []}
                 doors={scene.modularRoomsState?.doors || []}
+                segmentStates={scene.modularRoomsState?.segmentStates}
+                edgeDoors={scene.modularRoomsState?.edgeDoors}
                 selectedRoomId={selectedElementId}
                 selectedRoomIds={selectedElementIds}
                 renderLayer="floor"
@@ -8620,6 +8755,8 @@ const Canvas = ({
                 modularRooms={getModularRooms(scene.elements)}
                 wallGroups={scene.modularRoomsState?.wallGroups || []}
                 doors={scene.modularRoomsState?.doors || []}
+                segmentStates={scene.modularRoomsState?.segmentStates}
+                edgeDoors={scene.modularRoomsState?.edgeDoors}
                 selectedRoomId={selectedElementId}
                 selectedRoomIds={selectedElementIds}
                 renderLayer="walls"

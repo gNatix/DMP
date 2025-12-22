@@ -31,7 +31,7 @@ const ModularRoomContextMenu: React.FC<ModularRoomContextMenuProps> = ({
       style={{
         position: 'fixed',
         left: screenX,
-        top: screenY - 48, // Position above the room
+        top: screenY - 100, // Position well above the room (clear of pillars and door icons)
         transform: 'translateX(-50%)',
         display: 'flex',
         gap: 4,
