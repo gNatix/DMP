@@ -237,23 +237,19 @@ function App() {
         // Each scene should center itself when opened based on its map dimensions.
         // Restoring a global viewport causes issues when switching between scenes.
         
-        // Restore active scene (if it exists in loaded scenes)
+        // Restore active scene ONLY if user had one saved - don't auto-select first scene
+        // This prevents issues where a corrupted scene auto-loads and blocks the user
         if (settingsResult.settings.activeSceneId) {
           const sceneExists = scenesResult.scenes?.some(s => s.id === settingsResult.settings!.activeSceneId);
           if (sceneExists) {
             setActiveSceneId(settingsResult.settings.activeSceneId);
-          } else if (scenesResult.scenes && scenesResult.scenes[0]) {
-            setActiveSceneId(scenesResult.scenes[0].id);
           }
-        } else if (scenesResult.scenes && scenesResult.scenes[0]) {
-          setActiveSceneId(scenesResult.scenes[0].id);
+          // If saved scene doesn't exist anymore, leave activeSceneId as null
+          // User will need to manually select a scene from the Scenes tab
         }
-      } else {
-        // No settings saved yet - set first scene as active
-        if (scenesResult.scenes && scenesResult.scenes[0]) {
-          setActiveSceneId(scenesResult.scenes[0].id);
-        }
+        // If no saved activeSceneId, leave as null - user must choose
       }
+      // No settings saved yet - leave activeSceneId as null, user must choose a scene
     };
 
     loadUserData();

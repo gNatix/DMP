@@ -853,9 +853,13 @@ const Canvas = ({
         console.log('[MAP LOAD] Image not complete, adding load listener');
         img.addEventListener('load', handleImageLoad);
         
-        // Also listen for error
+        // Also listen for error - and FORCE loading to complete so user isn't stuck
         const handleError = () => {
           console.error('[MAP LOAD] Image failed to load!', img.src?.slice(0, 100));
+          // Set fallback dimensions and allow user to proceed
+          setMapDimensions({ width: 1920, height: 1080, padding: 200 });
+          setHasInitializedViewport(true);
+          setIsLoading(false);
         };
         img.addEventListener('error', handleError);
         
@@ -8191,6 +8195,7 @@ const Canvas = ({
 
   // Detect scene change SYNCHRONOUSLY before render to ensure loading shows first
   // Show loading bar for at least 1.2 seconds when scene changes
+  // FALLBACK: Maximum 5 seconds to prevent stuck loading screens
   useEffect(() => {
     // Reset and start animation
     setIsLoading(true);
@@ -8209,6 +8214,7 @@ const Canvas = ({
     // Animate progress bar over 1.2 seconds
     const startTime = Date.now();
     const duration = 1200;
+    const maxDuration = 5000; // Maximum 5 seconds before forcing load complete
     
     const animateProgress = () => {
       const elapsed = Date.now() - startTime;
@@ -8228,6 +8234,18 @@ const Canvas = ({
     };
     
     requestAnimationFrame(animateProgress);
+    
+    // FALLBACK: Force loading to complete after 5 seconds no matter what
+    // This prevents users from being stuck on loading screen forever
+    const fallbackTimeout = setTimeout(() => {
+      console.warn('[LOADING] Fallback timeout reached - forcing load complete');
+      setIsLoading(false);
+      setHasInitializedViewport(true);
+    }, maxDuration);
+    
+    return () => {
+      clearTimeout(fallbackTimeout);
+    };
   }, [scene?.id]);
   
   // Also check readiness when viewport/dimensions change (after 1.2 second minimum)
@@ -8243,6 +8261,23 @@ const Canvas = ({
 
   return (
     <div className="flex-1 relative bg-dm-dark overflow-hidden">
+      {/* No scene selected - show welcome message */}
+      {!scene && (
+        <div className="absolute inset-0 flex items-center justify-center bg-dm-dark">
+          <div className="flex flex-col items-center gap-6 text-center max-w-md px-4">
+            <div className="text-6xl">🗺️</div>
+            <h2 className="text-2xl font-semibold text-gray-200">No Map Selected</h2>
+            <p className="text-gray-400">
+              Open the <span className="text-dm-highlight font-medium">Scenes</span> tab in the right panel to select or create a map.
+            </p>
+            <div className="flex items-center gap-2 text-sm text-gray-500 mt-4">
+              <kbd className="px-2 py-1 bg-gray-800 rounded border border-gray-700 font-mono">Tab</kbd>
+              <span>to toggle the right panel</span>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {/* Loading indicator with progress bar - only show when there's actually a scene to load */}
       {scene && (
         <div 
