@@ -3,72 +3,72 @@
     "title": "News & Updates",
     "items": [
       {
-        "date": "2024-12-25",
+        "date": "2025-12-25",
         "title": "⌨️ Custom Keybinds Released!",
         "content": "Fully customize all toolbar keyboard shortcuts! Click any keybind in Settings to change it. Smart conflict detection automatically swaps keybinds when needed. Protected shortcuts (Undo/Redo/Delete) stay locked for consistency."
       },
       {
-        "date": "2024-12-22",
+        "date": "2025-12-22",
         "title": "🚪 Free-Placement Door System!",
         "content": "Place doors anywhere on walls with 64px grid snapping! Doors now hide corner pillars automatically and persist through room merges, splits, moves, and rotations."
       },
       {
-        "date": "2024-12-20",
+        "date": "2025-12-20",
         "title": "🏰 Multi-Room Drag & Drop!",
         "content": "Select multiple modular rooms with Shift-click and move them all together! Tokens placed on rooms now follow automatically when you drag."
       },
       {
-        "date": "2024-12-19",
+        "date": "2025-12-19",
         "title": "🛠️ Toolbar Customization!",
         "content": "Customize your toolbar with 3 presets: Beginner (all tools), Advanced (focused), and Minimalistic (essentials). Your settings sync to the cloud!"
       },
       {
-        "date": "2024-12-19",
+        "date": "2025-12-19",
         "title": "🏰 Modular Rooms Released!",
         "content": "Build dungeons with our new modular room system! Drag and drop floor tiles, connect rooms seamlessly, and customize with 3 wall styles. Rooms snap together automatically."
       },
       {
-        "date": "2024-12-13",
+        "date": "2025-12-13",
         "title": "🚀 Open Beta Phase 1",
         "content": "Welcome to Phase 1 of the open beta! This initial release has very limited content for testing core features. We're gathering feedback and polishing the experience."
       },
       {
-        "date": "2024-12-13",
+        "date": "2025-12-13",
         "title": "📦 Beta 2.0 on the Horizon",
         "content": "Phase 2 is in development and will bring significantly more content - additional maps, tokens, room elements, and new features. Stay tuned!"
       },
       {
-        "date": "2024-12-13",
+        "date": "2025-12-13",
         "title": "🔐 Discord Login Available!",
         "content": "You can now sign in with your Discord account for quick access to your campaigns."
       },
       {
-        "date": "2024-12-12",
+        "date": "2025-12-12",
         "title": "🔑 Google Sign-In Added",
         "content": "Sign in with your Google account for seamless access. Your campaigns sync automatically across devices."
       },
       {
-        "date": "2024-12-11",
+        "date": "2025-12-11",
         "title": "☁️ Cloud Sync is Here",
         "content": "Your maps, tokens, and collections are now automatically saved to the cloud. Never lose your campaign progress again!"
       },
       {
-        "date": "2024-12-10",
+        "date": "2025-12-10",
         "title": "🏗️ Room Builder Released",
         "content": "Create custom rooms with floor textures and wall elements. Build dungeons, taverns, and any interior space you can imagine."
       },
       {
-        "date": "2024-12-09",
+        "date": "2025-12-09",
         "title": "🎨 Terrain Brush Tool",
         "content": "Paint terrain directly on your maps with the new terrain brush. Perfect for outdoor encounters and wilderness exploration."
       },
       {
-        "date": "2024-12-08",
+        "date": "2025-12-08",
         "title": "📁 Token Collections",
         "content": "Organize your tokens into collections for quick access. Create themed sets for different campaigns or encounter types."
       },
       {
-        "date": "2024-12-07",
+        "date": "2025-12-07",
         "title": "🎉 Welcome to DungeonPlan",
         "content": "The ultimate tool for planning your RPG campaigns. Create maps, manage encounters, and bring your adventures to life!"
       }
@@ -79,7 +79,7 @@
     "versions": [
       {
         "version": "0.9.6",
-        "date": "2024-12-25",
+        "date": "2025-12-25",
         "changes": [
           "Custom keybind system: Customize all toolbar keyboard shortcuts",
           "Dialog-based keybind editor with live keyboard capture",
@@ -97,7 +97,7 @@
       },
       {
         "version": "0.9.5",
-        "date": "2024-12-22",
+        "date": "2025-12-22",
         "changes": [
           "New free-placement door system with 64px grid snapping",
           "Doors automatically hide corner pillars when placed nearby",
@@ -110,7 +110,7 @@
       },
       {
         "version": "0.9.4",
-        "date": "2024-12-20",
+        "date": "2025-12-20",
         "changes": [
           "Multi-select modular rooms with Shift-click",
           "Drag multiple rooms together with ghost preview",
@@ -123,7 +123,7 @@
       },
       {
         "version": "0.9.3",
-        "date": "2024-12-19",
+        "date": "2025-12-19",
         "changes": [
           "Added Toolbar Settings with 3 presets: Beginner, Advanced, Minimalistic",
           "Toolbar customization saves to cloud per user",
@@ -135,7 +135,7 @@
       },
       {
         "version": "0.9.2",
-        "date": "2024-12-19",
+        "date": "2025-12-19",
         "changes": [
           "Added Modular Rooms system with drag-and-drop floor tiles",
           "Added 10 modular room floor styles",
@@ -150,14 +150,14 @@
       },
       {
         "version": "0.9.1",
-        "date": "2024-12-13",
+        "date": "2025-12-13",
         "changes": [
           "Added 185 creature tokens"
         ]
       },
       {
         "version": "0.9.0",
-        "date": "2024-12-13",
+        "date": "2025-12-13",
         "changes": [
           "Added Discord OAuth login",
           "Added Google OAuth login",
@@ -167,7 +167,7 @@
       },
       {
         "version": "0.8.0",
-        "date": "2024-12-01",
+        "date": "2025-12-01",
         "changes": [
           "Room builder with floor and wall textures",
           "Terrain brush painting",
@@ -177,7 +177,7 @@
       },
       {
         "version": "0.7.0",
-        "date": "2024-11-15",
+        "date": "2025-11-15",
         "changes": [
           "Initial beta release",
           "Map import and display",
