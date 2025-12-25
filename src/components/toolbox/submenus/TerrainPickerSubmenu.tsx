@@ -144,6 +144,7 @@ const TerrainPickerSubmenu = ({
                 alt={brush.name}
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 loading="lazy"
+                draggable={false}
               />
             </button>
           ))}

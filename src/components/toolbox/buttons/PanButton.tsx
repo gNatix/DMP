@@ -22,13 +22,18 @@ export const panButtonConfig: ToolButtonConfig = {
 };
 // ==========================================
 
-const PanButton = ({ activeTool, setActiveTool }: ToolButtonProps) => {
+interface PanButtonProps extends ToolButtonProps {
+  customKeybind?: string;
+}
+
+const PanButton = ({ activeTool, setActiveTool, customKeybind }: PanButtonProps) => {
   const isActive = activeTool === panButtonConfig.tool;
+  const effectiveKeybind = customKeybind || panButtonConfig.shortcutKey || 'H';
 
   const handleClick = () => setActiveTool(panButtonConfig.tool!);
   
   // Handle keyboard shortcut
-  useKeyboardShortcut('h', handleClick);
+  useKeyboardShortcut(effectiveKeybind.toLowerCase(), handleClick);
 
   return (
     <div className="relative flex flex-col items-center">
@@ -47,11 +52,11 @@ const PanButton = ({ activeTool, setActiveTool }: ToolButtonProps) => {
             ? 'bg-dm-highlight text-white'
             : 'bg-dm-dark hover:bg-dm-border text-gray-300 hover:text-white'
         }`}
-        title={panButtonConfig.shortcutKey}
+        title={effectiveKeybind}
       >
         {panButtonConfig.icon}
       </button>
-      <span className="text-[9px] text-gray-500 font-medium mt-0.5">{panButtonConfig.shortcutKey}</span>
+      <span className="text-[9px] text-gray-500 font-medium mt-0.5">{effectiveKeybind}</span>
       <div
         className="badge-tooltip"
         style={{

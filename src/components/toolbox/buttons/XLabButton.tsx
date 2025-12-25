@@ -24,14 +24,17 @@ interface XLabButtonProps {
   activeTool: ToolType;
   setActiveTool: (tool: ToolType) => void;
   onSwitchToXLab?: () => void;
+  customKeybind?: string;
 }
 
 export default function XLabButton({ 
   activeTool, 
   setActiveTool,
-  onSwitchToXLab
+  onSwitchToXLab,
+  customKeybind
 }: XLabButtonProps) {
   const isActive = activeTool === xLabButtonConfig.tool;
+  const effectiveKeybind = customKeybind || xLabButtonConfig.shortcutKey || 'X';
 
   const handleClick = () => {
     setActiveTool(xLabButtonConfig.tool!);
@@ -39,7 +42,7 @@ export default function XLabButton({
   };
 
   // Handle keyboard shortcut
-  useKeyboardShortcut('x', () => {
+  useKeyboardShortcut(effectiveKeybind.toLowerCase(), () => {
     setActiveTool(xLabButtonConfig.tool!);
     if (onSwitchToXLab) onSwitchToXLab();
   });
@@ -60,7 +63,7 @@ export default function XLabButton({
       >
         <Beaker size={20} />
       </button>
-      <span className="text-[9px] text-gray-500 font-medium mt-0.5">{xLabButtonConfig.shortcutKey}</span>
+      <span className="text-[9px] text-gray-500 font-medium mt-0.5">{effectiveKeybind}</span>
     </div>
   );
 }

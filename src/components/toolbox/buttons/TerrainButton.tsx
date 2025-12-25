@@ -39,6 +39,7 @@ interface TerrainButtonPropsExtended extends ToolButtonProps {
   // Cycling functions
   cycleTerrain: () => void;
   selectLastUsedTerrain: () => void;
+  customKeybind?: string;
 }
 
 const TerrainButton = ({
@@ -56,11 +57,13 @@ const TerrainButton = ({
   onSubmenuMouseEnter,
   onSubmenuMouseLeave,
   cycleTerrain,
-  selectLastUsedTerrain
+  selectLastUsedTerrain,
+  customKeybind
 }: TerrainButtonPropsExtended) => {
   const isActive = activeTool === terrainButtonConfig.tool;
   const terrainButtonRef = useRef<HTMLButtonElement>(null);
   const isSubmenuOpen = openSubmenuId === 'terrain';
+  const effectiveKeybind = customKeybind || terrainButtonConfig.shortcutKey || 'E';
 
   // Scroll handler for cycling through terrain brushes on wheel
   const handleTerrainScroll = (e: React.WheelEvent) => {
@@ -136,7 +139,7 @@ const TerrainButton = ({
       >
         {terrainButtonConfig.icon}
       </button>
-      <span className="text-[9px] text-gray-500 font-medium mt-0.5">{terrainButtonConfig.shortcutKey}</span>
+      <span className="text-[9px] text-gray-500 font-medium mt-0.5">{effectiveKeybind}</span>
 
       {/* Terrain Brush Submenu */}
       {isSubmenuOpen && terrainBrushes && terrainBrushes.length > 0 && (

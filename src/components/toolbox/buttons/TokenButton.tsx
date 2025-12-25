@@ -41,6 +41,7 @@ interface TokenButtonPropsExtended extends ToolButtonProps {
   selectLastUsedToken: () => void;
   // Tab switch callback
   onSwitchToTokensTab?: () => void;
+  customKeybind?: string;
 }
 
 const TokenButton = ({ 
@@ -58,11 +59,13 @@ const TokenButton = ({
   onSubmenuMouseLeave,
   cycleToken,
   selectLastUsedToken,
-  onSwitchToTokensTab
+  onSwitchToTokensTab,
+  customKeybind
 }: TokenButtonPropsExtended) => {
   const isActive = activeTool === tokenButtonConfig.tool;
   const tokenButtonRef = useRef<HTMLButtonElement>(null);
   const isSubmenuOpen = openSubmenuId === 'token';
+  const effectiveKeybind = customKeybind || tokenButtonConfig.shortcutKey || 'Q';
 
   // Scroll handler for cycling through tokens on wheel
   const handleTokenScroll = (e: React.WheelEvent) => {
@@ -140,7 +143,7 @@ const TokenButton = ({
       >
         {tokenButtonConfig.icon}
       </button>
-      <span className="text-[9px] text-gray-500 font-medium mt-0.5">{tokenButtonConfig.shortcutKey}</span>
+      <span className="text-[9px] text-gray-500 font-medium mt-0.5">{effectiveKeybind}</span>
 
       {/* Token Submenu */}
       {isSubmenuOpen && tokenTemplates.length > 0 && (

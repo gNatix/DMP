@@ -142,6 +142,7 @@ const MapSelectorModal = ({ isOpen, onClose, onSelectMap }: MapSelectorModalProp
                 src={map.imageUrl} 
                 alt={map.name}
                 className={`w-full h-full object-cover ${shouldRotate ? 'rotate-90' : ''}`}
+                draggable={false}
                 onLoad={(e) => {
                   const img = e.currentTarget;
                   // Rotate if width > height (landscape)

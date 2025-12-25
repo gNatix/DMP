@@ -203,7 +203,7 @@ const MonsterCardWidget = ({ widget, onUpdate, onDelete, viewMode }: MonsterCard
         {/* Column 2 (1/3): Monster Image - Full height */}
         <div className="bg-dm-dark border border-gray-600 rounded overflow-hidden h-full">
           {widget.image && widget.image.trim() !== '' ? (
-            <img src={widget.image} alt={widget.name} className="w-full h-full object-cover" />
+            <img src={widget.image} alt={widget.name} className="w-full h-full object-cover" draggable={false} />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
               <div className="text-center">

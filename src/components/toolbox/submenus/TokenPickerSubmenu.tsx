@@ -169,6 +169,7 @@ const TokenPickerSubmenu = ({
                 src={token.imageUrl} 
                 alt={token.name}
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                draggable={false}
               />
             ) : (
               // Fallback

@@ -192,6 +192,7 @@ interface CanvasProps {
   onHideToolPreviewReady?: (hideFn: () => void) => void;
   selectedBackgroundTexture: string | null;
   backgroundBrushSize: number;
+  backgroundBrushOpacity?: number;
   terrainBrushes: Array<{ name: string; download_url: string }>;
   selectedTerrainBrush: string | null;
   onSelectTerrainBrush: (url: string) => void;
@@ -223,6 +224,7 @@ interface CanvasProps {
   defaultWallStyleId?: string;
   // Toolbar customization
   hiddenToolbarButtons?: Set<string>;
+  customKeybinds?: Record<string, string>;
   // Token drag-and-drop from right panel
   draggingToken?: TokenTemplate | null;
   setDraggingToken?: (token: TokenTemplate | null) => void;
@@ -293,6 +295,7 @@ const Canvas = ({
   onHideToolPreviewReady,
   selectedBackgroundTexture,
   backgroundBrushSize,
+  backgroundBrushOpacity = 1,
   terrainBrushes,
   selectedTerrainBrush,
   onSelectTerrainBrush,
@@ -312,6 +315,7 @@ const Canvas = ({
   setPlacingModularFloor,
   defaultWallStyleId = 'worn-castle',
   hiddenToolbarButtons,
+  customKeybinds = {},
   draggingToken,
   setDraggingToken,
 }: CanvasProps) => {
@@ -1190,6 +1194,7 @@ const Canvas = ({
                     // Convert world coordinates to tile-local coordinates
                     const localX = s.x - tile.x;
                     const localY = s.y - tile.y;
+                    ctx.globalAlpha = s.opacity ?? 1;
                     ctx.drawImage(
                       cachedImg,
                       localX - s.size / 2,
@@ -1197,6 +1202,7 @@ const Canvas = ({
                       s.size,
                       s.size
                     );
+                    ctx.globalAlpha = 1;
                   }
                 });
               }
@@ -1208,6 +1214,7 @@ const Canvas = ({
           // Convert world coordinates to tile-local coordinates
           const localX = stamp.x - tile.x;
           const localY = stamp.y - tile.y;
+          ctx.globalAlpha = stamp.opacity ?? 1;
           ctx.drawImage(
             img,
             localX - stamp.size / 2,
@@ -1215,6 +1222,7 @@ const Canvas = ({
             stamp.size,
             stamp.size
           );
+          ctx.globalAlpha = 1;
         }
       });
     });
@@ -1950,6 +1958,9 @@ const Canvas = ({
       console.log('[WALL AUTO-COMPLETE] Tool changed to', activeTool, '- completing wall');
       completeWall();
     }
+    // Reset double-click tracking when tool changes
+    setLastClickTime(0);
+    setLastClickedElement(null);
   }, [activeTool]);
 
   const handleWidgetConflictResolved = (selectedRoomId: string | 'all') => {
@@ -3232,7 +3243,8 @@ const Canvas = ({
         x: worldX,
         y: worldY,
         size: backgroundBrushSize,
-        textureUrl: selectedBackgroundTexture
+        textureUrl: selectedBackgroundTexture,
+        opacity: backgroundBrushOpacity
       };
       
       setTerrainTiles(prev => {
@@ -3264,6 +3276,8 @@ const Canvas = ({
       const localX = worldX - tileX;
       const localY = worldY - tileY;
       
+      // Apply opacity
+      ctx.globalAlpha = backgroundBrushOpacity;
       ctx.drawImage(
         brush,
         localX - stampHalfSize,
@@ -3271,6 +3285,7 @@ const Canvas = ({
         backgroundBrushSize,
         backgroundBrushSize
       );
+      ctx.globalAlpha = 1; // Reset
     });
   };
 
@@ -4226,12 +4241,12 @@ const Canvas = ({
     // Check if clicking on an element
     const clickedElement = findElementAtPosition(x, y, scene.elements);
 
-    // Double-click detection - but NOT for door tool (door tool should not interact with elements)
+    // Double-click detection - only for pointer tool
     const now = Date.now();
     const isDoubleClick = clickedElement && 
       clickedElement.id === lastClickedElement && 
       now - lastClickTime < 300 && // 300ms double-click threshold
-      activeTool !== 'doorTool'; // Door tool ignores element double-clicks
+      activeTool === 'pointer'; // Only pointer tool triggers double-click
     
     if (isDoubleClick && onDoubleClickElement) {
       onDoubleClickElement(clickedElement.id);
@@ -4240,8 +4255,8 @@ const Canvas = ({
       return;
     }
     
-    // Update click tracking (but not for door tool)
-    if (clickedElement && activeTool !== 'doorTool') {
+    // Update click tracking (only for pointer tool)
+    if (clickedElement && activeTool === 'pointer') {
       setLastClickTime(now);
       setLastClickedElement(clickedElement.id);
     } else {
@@ -9745,7 +9760,7 @@ const Canvas = ({
                       border: `3px solid ${getColorHex(activeTokenTemplate.color || 'blue')}`
                     }}
                   >
-                    <img src={activeTokenTemplate.imageUrl} alt="" className="w-full h-full object-cover" />
+                    <img src={activeTokenTemplate.imageUrl} alt="" className="w-full h-full object-cover" draggable={false} />
                   </div>
                 ) : null}
               </div>
@@ -9785,7 +9800,7 @@ const Canvas = ({
                       border: `3px solid ${getColorHex(draggingToken.color || 'blue')}`
                     }}
                   >
-                    <img src={draggingToken.imageUrl} alt="" className="w-full h-full object-cover" />
+                    <img src={draggingToken.imageUrl} alt="" className="w-full h-full object-cover" draggable={false} />
                   </div>
                 ) : null}
               </div>
@@ -10122,6 +10137,7 @@ const Canvas = ({
         onSwitchToTokensTab={onSwitchToTokensTab}
         onSwitchToModulesTab={onSwitchToModulesTab}
         hiddenToolbarButtons={hiddenToolbarButtons}
+        customKeybinds={customKeybinds}
       />
 
       {/* Zoom Limit Error Message */}

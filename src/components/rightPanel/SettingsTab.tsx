@@ -1,14 +1,25 @@
 import { User, LogOut, Mail, Lock, Monitor, UserCircle, FlaskConical, ChevronDown, ChevronRight, Keyboard, Settings2 } from 'lucide-react';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '../../auth/AuthContext';
 import { TOOLBAR_PRESETS, detectMatchingPreset, getPresetById, ToolbarPresetId } from '../../config/toolbarPresets';
 
 interface SettingsTabProps {
   hiddenToolbarButtons?: Set<string>;
   onHiddenToolbarButtonsChange?: (buttons: Set<string>) => void;
+  customKeybinds?: Record<string, string>;
+  onCustomKeybindsChange?: (keybinds: Record<string, string>) => void;
 }
 
 type SettingsSubTab = 'system' | 'account' | 'beta';
+
+// ========== LOCKED KEYBINDS (CANNOT BE CUSTOMIZED) ==========
+// These are core functions that should maintain standard keybinds
+const LOCKED_BUTTONS = new Set([
+  'undo',        // Ctrl+Z - Universal undo
+  'redo',        // Ctrl+Y/Ctrl+Shift+Z - Universal redo
+  'delete',      // Delete/Backspace - Universal delete
+  'duplicate',   // Ctrl+D - Common duplicate
+]);
 
 // ========== TOOLBAR KEYBIND DEFINITIONS ==========
 // Organized by category matching Toolbox.tsx categories
@@ -17,6 +28,7 @@ interface KeybindItem {
   label: string;
   keybind: string;
   canToggle: boolean; // Whether this button can be shown/hidden in toolbar
+  locked?: boolean; // Whether this keybind can be customized
   tip?: string; // Optional tip for alternative usage
 }
 
@@ -40,10 +52,11 @@ const KEYBIND_CATEGORIES: KeybindCategory[] = [
     items: [
       { id: 'token', label: 'Token Tool', keybind: 'Q', canToggle: false, tip: 'Press Q again or scroll on button to cycle tokens' },
       { id: 'terrain', label: 'Terrain Brush', keybind: 'E', canToggle: false, tip: 'Press E again or scroll on button to cycle brushes' },
-      { id: 'room', label: 'Room Builder', keybind: 'R', canToggle: false },
+      // LEGACY TOOLS - Archived (replaced by Modular Rooms)
+      // { id: 'room', label: 'Room Builder', keybind: 'R', canToggle: false },
       { id: 'modularRoom', label: 'Modular Room', keybind: 'M', canToggle: false },
-      { id: 'wall', label: 'Wall Tool', keybind: 'W', canToggle: false, tip: 'Press W again or scroll on button to cycle textures' },
-      { id: 'wallCutterTool', label: 'Wall Cutter', keybind: 'A', canToggle: true },
+      // { id: 'wall', label: 'Wall Tool', keybind: 'W', canToggle: false, tip: 'Press W again or scroll on button to cycle textures' },
+      // { id: 'wallCutterTool', label: 'Wall Cutter', keybind: 'A', canToggle: true },
       { id: 'doorTool', label: 'Door Tool', keybind: 'D', canToggle: true },
     ],
   },
@@ -59,16 +72,16 @@ const KEYBIND_CATEGORIES: KeybindCategory[] = [
     id: 'history',
     label: 'History',
     items: [
-      { id: 'undo', label: 'Undo', keybind: 'Ctrl+Z', canToggle: true },
-      { id: 'redo', label: 'Redo', keybind: 'Ctrl+Y', canToggle: true },
+      { id: 'undo', label: 'Undo', keybind: 'Ctrl+Z', canToggle: false, locked: true },
+      { id: 'redo', label: 'Redo', keybind: 'Ctrl+Y', canToggle: false, locked: true },
     ],
   },
   {
     id: 'layers',
-    label: 'Layers & Elements',
+    label: 'Layer Tools',
     items: [
-      { id: 'duplicate', label: 'Duplicate', keybind: 'Ctrl+D', canToggle: true },
-      { id: 'delete', label: 'Delete', keybind: 'Del', canToggle: true },
+      { id: 'duplicate', label: 'Duplicate', keybind: 'Ctrl+D', canToggle: false, locked: true },
+      { id: 'delete', label: 'Delete', keybind: 'Del', canToggle: false, locked: true },
       { id: 'layer-up', label: 'Layer Up', keybind: 'Ctrl+↑', canToggle: true },
       { id: 'layer-down', label: 'Layer Down', keybind: 'Ctrl+↓', canToggle: true },
     ],
@@ -95,7 +108,9 @@ const KEYBIND_CATEGORIES: KeybindCategory[] = [
 
 const SettingsTab = ({ 
   hiddenToolbarButtons = new Set(), 
-  onHiddenToolbarButtonsChange = () => {} 
+  onHiddenToolbarButtonsChange = () => {},
+  customKeybinds = {},
+  onCustomKeybindsChange = () => {}
 }: SettingsTabProps) => {
   const { user, loading, signIn, signUp, signInWithGoogle, signInWithDiscord, signOut } = useAuth();
   const [activeSubTab, setActiveSubTab] = useState<SettingsSubTab>('system');
@@ -107,7 +122,12 @@ const SettingsTab = ({
   // Toolbar settings state
   const [isToolbarSectionOpen, setIsToolbarSectionOpen] = useState(true);
   const [isAdvancedSettingsOpen, setIsAdvancedSettingsOpen] = useState(false);
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['selection', 'drawing']));
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set()); // Start collapsed
+  
+  // Keybind editing state - dialog instead of inline editing
+  const [editingKeybind, setEditingKeybind] = useState<{buttonId: string, buttonLabel: string, defaultKeybind: string} | null>(null);
+  const [capturedKey, setCapturedKey] = useState<string>('');
+  const [conflictingButton, setConflictingButton] = useState<{id: string, label: string, currentKeybind: string} | null>(null);
   
   // Detect which preset matches current settings
   const activePreset = useMemo<ToolbarPresetId>(() => {
@@ -145,6 +165,113 @@ const SettingsTab = ({
     }
     onHiddenToolbarButtonsChange(next);
   };
+  
+  // Keybind editing functions
+  const startEditingKeybind = (buttonId: string, buttonLabel: string, defaultKeybind: string, isLocked: boolean) => {
+    // Don't allow editing locked keybinds
+    if (isLocked) {
+      return;
+    }
+    
+    setEditingKeybind({ buttonId, buttonLabel, defaultKeybind });
+    setCapturedKey('');
+    setConflictingButton(null);
+  };
+  
+  // Check if a keybind is already in use
+  const checkKeybindConflict = (key: string, currentButtonId: string): {id: string, label: string, currentKeybind: string} | null => {
+    const normalizedKey = key.toUpperCase();
+    
+    // Check all categories and items
+    for (const category of KEYBIND_CATEGORIES) {
+      for (const item of category.items) {
+        if (item.id === currentButtonId) continue; // Skip the button we're editing
+        
+        // Check if this button uses the key (custom or default)
+        const buttonKeybind = (customKeybinds[item.id] || item.keybind).toUpperCase();
+        if (buttonKeybind === normalizedKey) {
+          // Get what this button's keybind will be if we swap
+          const currentButtonKeybind = customKeybinds[currentButtonId] || 
+            KEYBIND_CATEGORIES.flatMap(c => c.items)
+              .find(i => i.id === currentButtonId)?.keybind || '';
+          
+          return { 
+            id: item.id, 
+            label: item.label,
+            currentKeybind: currentButtonKeybind
+          };
+        }
+      }
+    }
+    
+    return null;
+  };
+  
+  const saveKeybind = (key: string, swapWithConflict: boolean = false) => {
+    if (!editingKeybind || !key.trim()) {
+      setEditingKeybind(null);
+      setCapturedKey('');
+      setConflictingButton(null);
+      return;
+    }
+    
+    const normalizedKey = key.toUpperCase();
+    
+    // Check for conflicts if not swapping
+    if (!swapWithConflict) {
+      const conflict = checkKeybindConflict(normalizedKey, editingKeybind.buttonId);
+      if (conflict) {
+        setConflictingButton(conflict);
+        return; // Don't save yet, wait for user decision
+      }
+    }
+    
+    // Prepare the new keybinds object
+    const newKeybinds = { ...customKeybinds };
+    
+    // If swapping, we need to swap the keybinds
+    if (swapWithConflict && conflictingButton) {
+      // Get the current keybind of the button we're editing
+      const currentButtonKeybind = customKeybinds[editingKeybind.buttonId] || editingKeybind.defaultKeybind;
+      
+      // Set the new keybind for the button we're editing
+      newKeybinds[editingKeybind.buttonId] = normalizedKey;
+      
+      // Set the old keybind for the conflicting button
+      newKeybinds[conflictingButton.id] = currentButtonKeybind.toUpperCase();
+    } else {
+      // Just set the new keybind
+      newKeybinds[editingKeybind.buttonId] = normalizedKey;
+    }
+    
+    // Save the keybinds
+    onCustomKeybindsChange(newKeybinds);
+    
+    setEditingKeybind(null);
+    setCapturedKey('');
+    setConflictingButton(null);
+  };
+  
+  const cancelEditingKeybind = () => {
+    setEditingKeybind(null);
+    setCapturedKey('');
+    setConflictingButton(null);
+  };
+  
+  const swapKeybinds = () => {
+    if (capturedKey) {
+      saveKeybind(capturedKey, true); // Swap keybinds
+    }
+  };
+  
+  const resetAllKeybinds = () => {
+    onCustomKeybindsChange({});
+  };
+  
+  const getDisplayKeybind = (buttonId: string, defaultKeybind: string): string => {
+    return customKeybinds[buttonId] || defaultKeybind;
+  };
+  
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -350,6 +477,21 @@ const SettingsTab = ({
                   Toggle individual buttons. Changes will switch to &quot;Custom&quot; mode if they don&apos;t match a preset.
                 </p>
                 
+                {/* Reset All Keybinds Button */}
+                {Object.keys(customKeybinds).length > 0 && (
+                  <div className="px-3 py-2 bg-dm-panel/10 border-b border-dm-border/30">
+                    <button
+                      onClick={resetAllKeybinds}
+                      className="w-full px-3 py-2 bg-red-900/20 hover:bg-red-900/30 border border-red-700/50 rounded text-xs text-red-400 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      Reset All Keybinds to Default
+                    </button>
+                  </div>
+                )}
+                
                 {/* Keybind Categories */}
                 <div className="divide-y divide-dm-border/30">
                   {KEYBIND_CATEGORIES.map(category => (
@@ -372,7 +514,12 @@ const SettingsTab = ({
                       {/* Category Items */}
                       {expandedCategories.has(category.id) && (
                         <div className="bg-dm-panel/20">
-                          {category.items.map(item => (
+                          {category.items.map(item => {
+                            const displayKeybind = getDisplayKeybind(item.id, item.keybind);
+                            const isCustom = customKeybinds[item.id] !== undefined;
+                            const isLocked = item.locked || LOCKED_BUTTONS.has(item.id);
+                            
+                            return (
                             <div
                               key={item.id}
                               className="px-4 py-1.5 hover:bg-dm-panel/30"
@@ -381,9 +528,29 @@ const SettingsTab = ({
                                 {/* Label and Keybind */}
                                 <div className="flex items-center gap-2">
                                   <span className="text-sm text-gray-300">{item.label}</span>
-                                  <span className="px-1.5 py-0.5 bg-dm-dark rounded text-[10px] font-mono text-gray-500 border border-dm-border/50">
-                                    {item.keybind}
-                                  </span>
+                                  
+                                  {/* Keybind button */}
+                                  <div className="flex items-center gap-1">
+                                    <button
+                                      onClick={() => startEditingKeybind(item.id, item.label, item.keybind, isLocked)}
+                                      disabled={isLocked}
+                                      className={`px-1.5 py-0.5 bg-dm-dark rounded text-[10px] font-mono border transition-colors ${
+                                        isLocked
+                                          ? 'text-gray-600 border-gray-700 cursor-not-allowed opacity-50'
+                                          : isCustom
+                                          ? 'text-blue-400 border-blue-500/50 hover:border-blue-500 cursor-pointer'
+                                          : 'text-gray-500 border-dm-border/50 hover:border-gray-400 cursor-pointer'
+                                      }`}
+                                      title={isLocked ? 'This keybind cannot be customized' : 'Click to customize keybind'}
+                                    >
+                                      {displayKeybind}
+                                    </button>
+                                    {isLocked && (
+                                      <span className="text-[9px] text-gray-600" title="Protected keybind">
+                                        🔒
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
                                 
                                 {/* Toggle Switch */}
@@ -415,7 +582,8 @@ const SettingsTab = ({
                                 </p>
                               )}
                             </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       )}
                     </div>
@@ -625,8 +793,138 @@ const SettingsTab = ({
     </div>
   );
 
+  // ========== KEYBIND CAPTURE DIALOG ==========
+  useEffect(() => {
+    if (!editingKeybind) return;
+    
+    const handleKeyDown = (e: KeyboardEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      // Cancel on ESC
+      if (e.key === 'Escape') {
+        cancelEditingKeybind();
+        return;
+      }
+      
+      // Ignore modifier-only keys
+      if (['Control', 'Shift', 'Alt', 'Meta'].includes(e.key)) {
+        return;
+      }
+      
+      // Capture the key
+      const key = e.key.toUpperCase();
+      setCapturedKey(key);
+      
+      // Auto-save after short delay
+      setTimeout(() => {
+        saveKeybind(key);
+      }, 300);
+    };
+    
+    document.addEventListener('keydown', handleKeyDown, true);
+    return () => document.removeEventListener('keydown', handleKeyDown, true);
+  }, [editingKeybind]);
+
   return (
     <div className="h-full flex flex-col bg-dm-panel overflow-hidden">
+      {/* Keybind Dialog */}
+      {editingKeybind && (
+        <div 
+          className="fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center"
+          onClick={cancelEditingKeybind}
+        >
+          <div 
+            className="bg-dm-panel border-2 border-dm-highlight rounded-lg p-6 shadow-2xl w-96"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close button */}
+            <button
+              onClick={cancelEditingKeybind}
+              className="absolute top-2 right-2 text-gray-500 hover:text-gray-300 transition-colors"
+              title="Cancel (ESC)"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            
+            {/* Dialog content */}
+            <div className="text-center">
+              <h3 className="text-lg font-semibold text-white mb-2">
+                Set Keybind
+              </h3>
+              <p className="text-sm text-gray-400 mb-4">
+                for <span className="text-dm-highlight font-medium">{editingKeybind.buttonLabel}</span>
+              </p>
+              
+              {/* Key display */}
+              <div className="mb-4">
+                <div className="bg-dm-dark border-2 border-dm-highlight/30 rounded-lg p-6 min-h-[80px] flex items-center justify-center">
+                  {capturedKey ? (
+                    <span className="text-4xl font-bold text-dm-highlight font-mono">
+                      {capturedKey}
+                    </span>
+                  ) : (
+                    <span className="text-gray-500 text-sm">
+                      Press any key...
+                    </span>
+                  )}
+                </div>
+              </div>
+              
+              {/* Conflict warning */}
+              {conflictingButton && (
+                <div className="mb-4 p-3 bg-yellow-900/20 border border-yellow-700/50 rounded-lg">
+                  <p className="text-xs text-yellow-400 mb-3">
+                    ⚠️ <span className="font-semibold">{capturedKey}</span> is already used by <span className="font-semibold">{conflictingButton.label}</span>
+                  </p>
+                  <div className="text-xs text-gray-400 mb-3 p-2 bg-dm-dark/50 rounded">
+                    <div className="flex items-center justify-between mb-1">
+                      <span>{editingKeybind.buttonLabel}:</span>
+                      <span className="font-mono">
+                        <span className="text-gray-600 line-through">{editingKeybind.defaultKeybind}</span>
+                        {' → '}
+                        <span className="text-dm-highlight">{capturedKey}</span>
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>{conflictingButton.label}:</span>
+                      <span className="font-mono">
+                        <span className="text-gray-600 line-through">{capturedKey}</span>
+                        {' → '}
+                        <span className="text-blue-400">{conflictingButton.currentKeybind}</span>
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={cancelEditingKeybind}
+                      className="flex-1 px-3 py-2 bg-dm-dark hover:bg-dm-border text-gray-300 rounded transition-colors text-xs"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={swapKeybinds}
+                      className="flex-1 px-3 py-2 bg-dm-highlight hover:bg-dm-highlight/80 text-white rounded transition-colors text-xs font-medium"
+                    >
+                      Swap Keybinds
+                    </button>
+                  </div>
+                </div>
+              )}
+              
+              {/* Instructions */}
+              {!conflictingButton && (
+                <p className="text-xs text-gray-500 mb-4">
+                  Press <span className="text-gray-400 font-mono">ESC</span> to cancel
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+      
       {/* Sub-tab Navigation */}
       <div className="flex gap-1 p-2 border-b border-dm-border">
         <button

@@ -24,15 +24,17 @@ export const zoomButtonConfig: ToolButtonConfig = {
 
 interface ZoomButtonPropsExtended extends ToolButtonProps {
   isAltPressed: boolean;
+  customKeybind?: string;
 }
 
-const ZoomButton = ({ activeTool, setActiveTool, isAltPressed }: ZoomButtonPropsExtended) => {
+const ZoomButton = ({ activeTool, setActiveTool, isAltPressed, customKeybind }: ZoomButtonPropsExtended) => {
   const isActive = activeTool === 'zoom-in' || activeTool === 'zoom-out';
+  const effectiveKeybind = customKeybind || zoomButtonConfig.shortcutKey || 'Z';
 
   const handleClick = () => setActiveTool(zoomButtonConfig.tool!);
   
   // Handle keyboard shortcut
-  useKeyboardShortcut('z', handleClick);
+  useKeyboardShortcut(effectiveKeybind.toLowerCase(), handleClick);
 
   return (
     <div className="relative flex flex-col items-center">
@@ -51,7 +53,7 @@ const ZoomButton = ({ activeTool, setActiveTool, isAltPressed }: ZoomButtonProps
             ? 'bg-dm-highlight text-white'
             : 'bg-dm-dark hover:bg-dm-border text-gray-300 hover:text-white'
         }`}
-        title={zoomButtonConfig.shortcutKey}
+        title={effectiveKeybind}
       >
         {isAltPressed && isActive ? (
           <ZoomOut size={18} />
@@ -59,7 +61,7 @@ const ZoomButton = ({ activeTool, setActiveTool, isAltPressed }: ZoomButtonProps
           <ZoomIn size={18} />
         )}
       </button>
-      <span className="text-[9px] text-gray-500 font-medium mt-0.5">{zoomButtonConfig.shortcutKey}</span>
+      <span className="text-[9px] text-gray-500 font-medium mt-0.5">{effectiveKeybind}</span>
       <div
         className="badge-tooltip"
         style={{

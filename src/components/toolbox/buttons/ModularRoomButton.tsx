@@ -23,18 +23,21 @@ export const modularRoomButtonConfig: ToolButtonConfig = {
 
 interface ModularRoomButtonProps extends ToolButtonProps {
   onSwitchToModulesTab?: () => void;
+  customKeybind?: string;
 }
 
 const ModularRoomButton = ({
   activeTool,
   setActiveTool,
   onSwitchToModulesTab,
+  customKeybind,
 }: ModularRoomButtonProps) => {
   const isActive = activeTool === modularRoomButtonConfig.tool;
+  const effectiveKeybind = customKeybind || modularRoomButtonConfig.shortcutKey || 'M';
 
   // Register keyboard shortcut
   useKeyboardShortcut(
-    modularRoomButtonConfig.shortcutKey!,
+    effectiveKeybind.toLowerCase(),
     () => {
       setActiveTool(modularRoomButtonConfig.tool!);
       if (onSwitchToModulesTab) onSwitchToModulesTab();

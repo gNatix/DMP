@@ -313,7 +313,7 @@ const ScenesTab = ({
               )}
             </button>
             <div className="w-12 h-12 rounded bg-dm-border flex-shrink-0 overflow-hidden">
-              <img src={scene.backgroundMapUrl} alt={scene.name} className="w-full h-full object-cover" />
+              <img src={scene.backgroundMapUrl} alt={scene.name} className="w-full h-full object-cover" draggable={false} />
             </div>
             <div className="flex-1 min-w-0">
               {isEditing ? (
@@ -394,7 +394,7 @@ const ScenesTab = ({
               const getElementDisplay = (el: MapElement) => {
                 if (el.type === 'token') {
                   return {
-                    icon: el.imageUrl ? <img src={el.imageUrl} alt={el.name} className="w-full h-full object-cover" /> : null,
+                    icon: el.imageUrl ? <img src={el.imageUrl} alt={el.name} className="w-full h-full object-cover" draggable={false} /> : null,
                     name: el.name || 'Unnamed Token',
                     type: 'Token'
                   };
@@ -798,6 +798,7 @@ const ScenesTab = ({
                 src={selectedMapUrl} 
                 alt={selectedMapName}
                 className="w-full h-full object-cover"
+                draggable={false}
               />
             </div>
             

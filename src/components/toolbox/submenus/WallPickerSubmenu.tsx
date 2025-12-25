@@ -149,6 +149,7 @@ const WallPickerSubmenu = ({
                   objectFit: 'cover',
                   imageRendering: 'pixelated'
                 }}
+                draggable={false}
               />
             </button>
           ))}

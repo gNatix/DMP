@@ -15,6 +15,7 @@ export interface UserSettings {
   activeSceneId: string | null;
   viewport?: { x: number; y: number; zoom: number };
   hiddenToolbarButtons?: string[]; // Button IDs hidden by user in toolbar settings
+  customKeybinds?: Record<string, string>; // Custom keyboard shortcuts: buttonId -> key
   // Add more settings as needed
 }
 
@@ -25,6 +26,7 @@ interface SupabaseUserSettings {
   active_scene_id: string | null;
   viewport: { x: number; y: number; zoom: number } | null;
   hidden_toolbar_buttons: string[] | null;
+  custom_keybinds: Record<string, string> | null;
   updated_at: string;
 }
 
@@ -52,6 +54,7 @@ export const saveUserSettings = async (
       active_scene_id: settings.activeSceneId,
       viewport: settings.viewport || { x: 0, y: 0, zoom: 1 },
       hidden_toolbar_buttons: settings.hiddenToolbarButtons || [],
+      custom_keybinds: settings.customKeybinds || {},
       updated_at: new Date().toISOString(),
     };
 
@@ -113,6 +116,7 @@ export const loadUserSettings = async (
       activeSceneId: row.active_scene_id,
       viewport: row.viewport || undefined,
       hiddenToolbarButtons: row.hidden_toolbar_buttons || [],
+      customKeybinds: row.custom_keybinds || {},
     };
 
     return { settings, error: null };

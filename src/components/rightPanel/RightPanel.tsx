@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Settings, Boxes, Map, Users, Paintbrush } from 'lucide-react';
-import { Scene, MapElement, TokenTemplate, ToolType, Collection, CollectionAppearance, RoomSubTool, TerrainShapeMode, ModularRoomElement, WallGroup } from '../../types';
+import { Scene, MapElement, TokenTemplate, ToolType, Collection, CollectionAppearance, TerrainShapeMode, ModularRoomElement, WallGroup } from '../../types';
 import ScenesTab from './ScenesTab';
 import TokensTab from './TokensTab';
-import RoomBuilderPanel from './RoomBuilderPanel';
+import EnvironmentTab from './EnvironmentTab';
 import XLabPanel from './XLabPanel';
 import SettingsTab from './SettingsTab';
 import ModulesTab from './ModulesTab';
@@ -35,36 +35,18 @@ interface RightPanelProps {
   setActiveTokenTemplate: (template: TokenTemplate | null) => void;
   onRecentTokensChange?: (tokens: TokenTemplate[]) => void;
   activeTool: ToolType;
-  selectedFloorTexture: string | null;
-  onSelectFloorTexture: (url: string) => void;
-  tileSize: number;
-  onTileSizeChange: (size: number) => void;
-  showWalls: boolean;
-  onShowWallsChange: (show: boolean) => void;
-  selectedWallTexture: string | null;
-  onSelectWallTexture: (url: string) => void;
-  wallTextures?: { name: string; download_url: string }[];
-  wallThickness: number;
-  onWallThicknessChange: (thickness: number) => void;
-  wallTileSize: number;
-  onWallTileSizeChange: (size: number) => void;
-  roomSubTool: RoomSubTool;
-  setRoomSubTool: (subTool: RoomSubTool) => void;
-  autoMergeRooms?: boolean;
-  setAutoMergeRooms?: (value: boolean) => void;
-  defaultCornerRadius?: number;
-  setDefaultCornerRadius?: (value: number) => void;
-  onMergeRooms?: () => void;
-  onMergeWalls?: () => void;
   onCenterElement?: (elementId: string) => void;
+  // Environment tab props
   selectedTerrainBrush: string | null;
   onSelectTerrainBrush: (url: string) => void;
   backgroundBrushSize: number;
   onBackgroundBrushSizeChange: (size: number) => void;
-  activeTab?: 'scenes' | 'tokens' | 'draw' | 'modules' | 'xlab' | 'settings';
-  onActiveTabChange?: (tab: 'scenes' | 'tokens' | 'draw' | 'modules' | 'xlab' | 'settings') => void;
+  backgroundBrushOpacity: number;
+  onBackgroundBrushOpacityChange: (opacity: number) => void;
   xlabShapeMode: TerrainShapeMode;
   onXlabShapeModeChange: (mode: TerrainShapeMode) => void;
+  activeTab?: 'scenes' | 'tokens' | 'draw' | 'modules' | 'xlab' | 'settings';
+  onActiveTabChange?: (tab: 'scenes' | 'tokens' | 'draw' | 'modules' | 'xlab' | 'settings') => void;
   onMouseEnter?: () => void;
   // Modular rooms props
   wallGroups?: WallGroup[];
@@ -75,6 +57,8 @@ interface RightPanelProps {
   // Toolbar customization
   hiddenToolbarButtons?: Set<string>;
   onHiddenToolbarButtonsChange?: (buttons: Set<string>) => void;
+  customKeybinds?: Record<string, string>;
+  onCustomKeybindsChange?: (keybinds: Record<string, string>) => void;
   // Token drag-and-drop
   onStartDragToken?: (template: TokenTemplate | null) => void;
 }
@@ -108,36 +92,17 @@ const RightPanel = ({
   setActiveTokenTemplate,
   onRecentTokensChange,
   activeTool,
-  selectedFloorTexture,
-  onSelectFloorTexture,
-  tileSize,
-  onTileSizeChange,
-  showWalls,
-  onShowWallsChange,
-  selectedWallTexture,
-  onSelectWallTexture,
-  wallTextures = [],
-  wallThickness,
-  onWallThicknessChange,
-  wallTileSize,
-  onWallTileSizeChange,
-  roomSubTool,
-  setRoomSubTool,
-  autoMergeRooms = false,
-  setAutoMergeRooms,
-  defaultCornerRadius = 1,
-  setDefaultCornerRadius,
-  onMergeRooms,
-  onMergeWalls,
   onCenterElement,
   selectedTerrainBrush,
   onSelectTerrainBrush,
   backgroundBrushSize,
   onBackgroundBrushSizeChange,
-  activeTab: externalActiveTab,
-  onActiveTabChange,
+  backgroundBrushOpacity,
+  onBackgroundBrushOpacityChange,
   xlabShapeMode,
   onXlabShapeModeChange,
+  activeTab: externalActiveTab,
+  onActiveTabChange,
   onMouseEnter,
   wallGroups = [],
   updateWallGroup = () => {},
@@ -146,10 +111,11 @@ const RightPanel = ({
   onDefaultWallStyleChange = () => {},
   hiddenToolbarButtons = new Set(),
   onHiddenToolbarButtonsChange = () => {},
+  customKeybinds = {},
+  onCustomKeybindsChange = () => {},
   onStartDragToken,
 }: RightPanelProps) => {
   const [internalActiveTab, setInternalActiveTab] = useState<TabType>('scenes');
-  const [activeDrawTab, setActiveDrawTab] = useState<'room' | 'terrain' | 'walls'>('room');
   
   // Use external tab if provided, otherwise use internal
   const activeTab = externalActiveTab || internalActiveTab;
@@ -163,19 +129,12 @@ const RightPanel = ({
     el => el.type === 'modularRoom' && selectedElementIds.includes(el.id)
   ) as ModularRoomElement[];
 
-  // Auto-switch to draw tab and draw sub-tab when terrain-brush tool is active
+  // Auto-switch tabs based on active tool
   useEffect(() => {
-    if (activeTool === 'room') {
-      setActiveTab('draw');
-      setActiveDrawTab('room');
-    } else if (activeTool === 'token') {
+    if (activeTool === 'token') {
       setActiveTab('tokens');
     } else if (activeTool === 'background') {
       setActiveTab('draw');
-      setActiveDrawTab('terrain');
-    } else if (activeTool === 'wall' || activeTool === 'wall-line') {
-      setActiveTab('draw');
-      setActiveDrawTab('walls');
     } else if (activeTool === 'xlab') {
       setActiveTab('xlab');
     } else if (activeTool === 'modularRoom') {
@@ -281,42 +240,17 @@ const RightPanel = ({
           />
         )}
         {activeTab === 'draw' && (
-          <RoomBuilderPanel
+          <EnvironmentTab
             activeTool={activeTool}
-            selectedFloorTexture={selectedFloorTexture}
-            onSelectFloorTexture={onSelectFloorTexture}
-            tileSize={tileSize}
-            onTileSizeChange={onTileSizeChange}
-            showWalls={showWalls}
-            onShowWallsChange={onShowWallsChange}
-            selectedWallTexture={selectedWallTexture}
-            onSelectWallTexture={onSelectWallTexture}
-            wallTextures={wallTextures}
-            wallThickness={wallThickness}
-            onWallThicknessChange={onWallThicknessChange}
-            wallTileSize={wallTileSize}
-            onWallTileSizeChange={onWallTileSizeChange}
-            selectedRoom={selectedElement?.type === 'room' ? selectedElement : null}
-            selectedWall={selectedElement?.type === 'wall' ? selectedElement : null}
-            updateElement={updateElement}
-            allElements={allElements}
             setActiveTool={setActiveTool}
-            roomSubTool={roomSubTool}
-            setRoomSubTool={setRoomSubTool}
-            autoMergeRooms={autoMergeRooms}
-            setAutoMergeRooms={setAutoMergeRooms}
-            defaultCornerRadius={defaultCornerRadius}
-            setDefaultCornerRadius={setDefaultCornerRadius}
-            onMergeRooms={onMergeRooms}
-            onMergeWalls={onMergeWalls}
             selectedTerrainBrush={selectedTerrainBrush}
             onSelectTerrainBrush={onSelectTerrainBrush}
-            backgroundBrushSize={backgroundBrushSize}
+            brushSize={backgroundBrushSize}
             onBrushSizeChange={onBackgroundBrushSizeChange}
-            activeDrawTab={activeDrawTab}
-            onActiveDrawTabChange={setActiveDrawTab}
-            terrainShapeMode={xlabShapeMode}
-            onTerrainShapeModeChange={onXlabShapeModeChange}
+            brushOpacity={backgroundBrushOpacity}
+            onBrushOpacityChange={onBackgroundBrushOpacityChange}
+            shapeMode={xlabShapeMode}
+            onShapeModeChange={onXlabShapeModeChange}
           />
         )}
         {activeTab === 'modules' && (
@@ -341,6 +275,8 @@ const RightPanel = ({
           <SettingsTab 
             hiddenToolbarButtons={hiddenToolbarButtons}
             onHiddenToolbarButtonsChange={onHiddenToolbarButtonsChange}
+            customKeybinds={customKeybinds}
+            onCustomKeybindsChange={onCustomKeybindsChange}
           />
         )}
       </div>

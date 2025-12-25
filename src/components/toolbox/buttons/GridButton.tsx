@@ -30,6 +30,7 @@ interface GridButtonPropsExtended extends ToolButtonProps {
   onToggleGrid: () => void;
   onGridSizeChange: (size: number) => void;
   handleGridScroll: (e: React.WheelEvent) => void;
+  customKeybind?: string;
   // Central submenu system props
   openSubmenuId: string | null;
   submenuOpenedBy: 'click' | 'shortcut' | 'hover' | null;
@@ -47,6 +48,7 @@ const GridButton = ({
   onToggleGrid,
   onGridSizeChange,
   handleGridScroll,
+  customKeybind,
   openSubmenuId,
   submenuOpenedBy,
   onOpenSubmenu,
@@ -56,6 +58,7 @@ const GridButton = ({
   onSubmenuMouseLeave
 }: GridButtonPropsExtended) => {
   const gridButtonRef = useRef<HTMLButtonElement>(null);
+  const effectiveKeybind = customKeybind || gridButtonConfig.shortcutKey || 'G';
 
   const isSubmenuOpen = openSubmenuId === 'grid';
 
@@ -93,7 +96,7 @@ const GridButton = ({
       >
         {gridButtonConfig.icon}
       </button>
-      <span className="text-[9px] text-gray-500 font-medium mt-0.5">{gridButtonConfig.shortcutKey}</span>
+      <span className="text-[9px] text-gray-500 font-medium mt-0.5">{effectiveKeybind}</span>
 
       {/* Grid Controls Submenu */}
       {isSubmenuOpen && (

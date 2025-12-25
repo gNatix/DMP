@@ -416,6 +416,7 @@ export interface TerrainStamp {
   y: number;
   size: number;
   textureUrl: string;
+  opacity?: number;  // 0-1, default 1
 }
 
 export interface TerrainTile {

@@ -208,7 +208,8 @@ const ModularRoomFloor: React.FC<{
   isMultiSelected?: boolean; // Part of multi-selection (shift-click or box select)
   isGhost?: boolean;
   isFloating?: boolean;
-}> = ({ room, isSelected, isMultiSelected = false, isGhost = false, isFloating = false }) => {
+  activeTool?: ToolType;
+}> = ({ room, isSelected, isMultiSelected = false, isGhost = false, isFloating = false, activeTool }) => {
   const rect = getRoomPixelRect(room);
   const rotation = room.rotation || 0;
   
@@ -234,7 +235,7 @@ const ModularRoomFloor: React.FC<{
         width: rect.w,
         height: rect.h,
         opacity: isGhost ? 0.5 : 1,
-        pointerEvents: isGhost || isFloating ? 'none' : 'auto',
+        pointerEvents: isGhost || isFloating || (activeTool && activeTool !== 'pointer') ? 'none' : 'auto',
       }}
     >
       {/* Inner container that rotates - sized to original image, centered, then rotated */}
@@ -880,6 +881,7 @@ const ModularRoomRenderer: React.FC<ModularRoomRendererProps> = ({
                   room={room}
                   isSelected={selectedRoomId === room.id}
                   isMultiSelected={selectedRoomIds.includes(room.id)}
+                  activeTool={activeTool}
                 />
               </div>
             );
@@ -945,6 +947,7 @@ const ModularRoomRenderer: React.FC<ModularRoomRendererProps> = ({
                         room={floatingRoom}
                         isSelected={room.id === dragPreview.roomId}
                         isFloating={true}
+                        activeTool={activeTool}
                       />
                       {/* Walls around each floating room - using room's group wall style */}
                       <FloatingWalls room={floatingRoom} wallStyleId={roomWallStyle} />
@@ -999,6 +1002,7 @@ const ModularRoomRenderer: React.FC<ModularRoomRendererProps> = ({
                             height: '100%',
                             objectFit: 'cover',
                           }}
+                          draggable={false}
                         />
                       )}
                     </div>

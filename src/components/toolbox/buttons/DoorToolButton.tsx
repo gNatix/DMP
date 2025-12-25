@@ -23,14 +23,20 @@ export const doorToolButtonConfig: ToolButtonConfig = {
 };
 // ==========================================
 
+interface DoorToolButtonProps extends ToolButtonProps {
+  customKeybind?: string;
+}
+
 const DoorToolButton = ({
   activeTool,
   setActiveTool,
-}: ToolButtonProps) => {
+  customKeybind,
+}: DoorToolButtonProps) => {
   const isActive = activeTool === doorToolButtonConfig.tool;
+  const effectiveKeybind = customKeybind || doorToolButtonConfig.shortcutKey || 'D';
 
   // Keyboard shortcut: D
-  useKeyboardShortcut('d', () => {
+  useKeyboardShortcut(effectiveKeybind.toLowerCase(), () => {
     setActiveTool('doorTool');
   });
 
@@ -60,7 +66,7 @@ const DoorToolButton = ({
       >
         {doorToolButtonConfig.icon}
       </button>
-      <span className="text-[9px] text-gray-500 font-medium mt-0.5">{doorToolButtonConfig.shortcutKey}</span>
+      <span className="text-[9px] text-gray-500 font-medium mt-0.5">{effectiveKeybind}</span>
       <div
         className="door-tool-badge"
         style={{

@@ -12,10 +12,10 @@
 const HIDE_POINTER = false;           // Main selection tool
 const HIDE_TOKEN = false;             // Token placement
 const HIDE_TERRAIN = false;           // Terrain brush
-const HIDE_ROOM = false;              // Room builder
+const HIDE_ROOM = true;               // Legacy room builder (deprecated - use Modular Rooms)
 const HIDE_MODULAR_ROOM = false;      // Modular room tool
-const HIDE_WALL = false;              // Wall drawing
-const HIDE_WALL_CUTTER = false;       // Wall cutter tool
+const HIDE_WALL = true;               // Legacy wall tool (deprecated - use Modular Rooms)
+const HIDE_WALL_CUTTER = true;        // Legacy wall cutter (deprecated - use Door tool)
 const HIDE_DOOR = false;              // Door tool
 
 const HIDE_PAN = true;                // Pan tool (use middle-click instead)

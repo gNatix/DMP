@@ -24,10 +24,14 @@ export const pointerButtonConfig: ToolButtonConfig = {
 
 interface PointerButtonPropsExtended extends ToolButtonProps {
   onCloseSubmenu?: (reason?: string) => void;
+  customKeybind?: string; // Custom keybind from user settings
 }
 
-const PointerButton = ({ activeTool, setActiveTool, onCloseSubmenu }: PointerButtonPropsExtended) => {
+const PointerButton = ({ activeTool, setActiveTool, onCloseSubmenu, customKeybind }: PointerButtonPropsExtended) => {
   const isActive = activeTool === pointerButtonConfig.tool;
+  
+  // Use custom keybind if available, otherwise use default
+  const effectiveKeybind = customKeybind || pointerButtonConfig.shortcutKey || 'V';
   
   const handleClick = () => {
     setActiveTool(pointerButtonConfig.tool!);
@@ -38,7 +42,7 @@ const PointerButton = ({ activeTool, setActiveTool, onCloseSubmenu }: PointerBut
   };
 
   // Handle keyboard shortcut using custom hook
-  useKeyboardShortcut('v', handleClick);
+  useKeyboardShortcut(effectiveKeybind.toLowerCase(), handleClick);
   
   return (
     <div className="relative flex flex-col items-center">
@@ -57,11 +61,11 @@ const PointerButton = ({ activeTool, setActiveTool, onCloseSubmenu }: PointerBut
             ? 'bg-dm-highlight text-white'
             : 'bg-dm-dark hover:bg-dm-border text-gray-300 hover:text-white'
         }`}
-        title={pointerButtonConfig.shortcutKey}
+        title={effectiveKeybind}
       >
         {pointerButtonConfig.icon}
       </button>
-      <span className="text-[9px] text-gray-500 font-medium mt-0.5">{pointerButtonConfig.shortcutKey}</span>
+      <span className="text-[9px] text-gray-500 font-medium mt-0.5">{effectiveKeybind}</span>
       <div 
         className="badge-tooltip"
         style={{

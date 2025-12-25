@@ -6,10 +6,11 @@
 // ========================================
 
 // List of button IDs that are HIDDEN in this preset
-// Empty array = all buttons visible
+// Legacy room/wall tools are always hidden (replaced by Modular Rooms)
 export const BEGINNER_HIDDEN_BUTTONS: string[] = [
-  // All buttons are visible in beginner mode
-  // Add button IDs here to hide them
+  'room',        // Legacy room tool - use Modular Rooms instead
+  'wall',        // Legacy wall tool - use Modular Rooms instead
+  'wall-cutter', // Legacy wall cutter - use Door tool instead
 ];
 
 export const BEGINNER_PRESET = {

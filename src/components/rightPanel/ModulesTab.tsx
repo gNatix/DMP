@@ -598,6 +598,7 @@ const ModulesTab = ({
                         alt="Pillar"
                         className="max-w-full max-h-full object-contain"
                         style={{ filter: 'drop-shadow(0 0 2px rgba(0,0,0,0.8))' }}
+                        draggable={false}
                         onError={(e) => {
                           (e.target as HTMLImageElement).style.display = 'none';
                         }}

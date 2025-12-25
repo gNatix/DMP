@@ -40,10 +40,11 @@ import { useState, useRef, useEffect } from 'react';
 import PointerButton, { pointerButtonConfig } from './buttons/PointerButton';
 import TokenButton, { tokenButtonConfig } from './buttons/TokenButton';
 import TerrainButton, { terrainButtonConfig } from './buttons/TerrainButton';
-import RoomButton, { roomButtonConfig } from './buttons/RoomButton';
+// LEGACY TOOLS - Archived (see src/legacy/)
+// import RoomButton, { roomButtonConfig } from './buttons/RoomButton';
 import ModularRoomButton, { modularRoomButtonConfig } from './buttons/ModularRoomButton';
-import WallButton, { wallButtonConfig } from './buttons/WallButton';
-import WallCutterToolButton, { wallCutterToolButtonConfig } from './buttons/WallCutterToolButton';
+// import WallButton, { wallButtonConfig } from './buttons/WallButton';
+// import WallCutterToolButton, { wallCutterToolButtonConfig } from './buttons/WallCutterToolButton';
 import DoorToolButton, { doorToolButtonConfig } from './buttons/DoorToolButton';
 import PanButton, { panButtonConfig } from './buttons/PanButton';
 import ZoomButton, { zoomButtonConfig } from './buttons/ZoomButton';
@@ -124,6 +125,7 @@ interface ToolboxProps {
   viewMode?: 'planning' | 'game'; // Add viewMode prop
   activeSceneId?: string | null; // Used to reset submenus when scene changes
   hiddenToolbarButtons?: Set<string>; // Button IDs hidden by user in settings
+  customKeybinds?: Record<string, string>; // Custom keybinds (buttonId -> key)
 }
 
 // Registry of all available buttons with their configs
@@ -131,10 +133,11 @@ const BUTTON_REGISTRY = [
   { component: PointerButton, config: pointerButtonConfig },
   { component: TokenButton, config: tokenButtonConfig },
   { component: TerrainButton, config: terrainButtonConfig },
-  { component: RoomButton, config: roomButtonConfig },
+  // LEGACY TOOLS - Archived (replaced by Modular Rooms)
+  // { component: RoomButton, config: roomButtonConfig },
   { component: ModularRoomButton, config: modularRoomButtonConfig },
-  { component: WallButton, config: wallButtonConfig },
-  { component: WallCutterToolButton, config: wallCutterToolButtonConfig },
+  // { component: WallButton, config: wallButtonConfig },
+  // { component: WallCutterToolButton, config: wallCutterToolButtonConfig },
   { component: DoorToolButton, config: doorToolButtonConfig },
   { component: PanButton, config: panButtonConfig },
   { component: ZoomButton, config: zoomButtonConfig },
@@ -204,6 +207,7 @@ const Toolbox = (props: ToolboxProps) => {
     viewMode = 'planning', // Default to planning mode
     activeSceneId,
     hiddenToolbarButtons = new Set(),
+    customKeybinds = {},
   } = props;
 
   // ========== CENTRAL SUBMENU STATE (SINGLE SOURCE OF TRUTH) ==========
@@ -228,26 +232,41 @@ const Toolbox = (props: ToolboxProps) => {
   const [lastUsedRoomSubTool, setLastUsedRoomSubTool] = useState<RoomSubTool>('rectangle');
   const [lastUsedColorIndex, setLastUsedColorIndex] = useState<number>(0);
 
-  // ========== KEYBIND MAPPING (FROM BUTTON CONFIGS) ==========
+  // ========== KEYBIND MAPPING (FROM BUTTON CONFIGS + CUSTOM KEYBINDS) ==========
   // Maps shortcut keys to their submenu IDs
-  // Change shortcutKey in button configs to change keybinds
+  // Checks customKeybinds first, then falls back to default shortcutKey from button configs
   const keybindToSubmenuMap: Record<string, SubmenuId> = {};
   
+  // Helper to get effective keybind (custom or default)
+  const getEffectiveKeybind = (buttonId: string, defaultKey?: string): string | undefined => {
+    const custom = customKeybinds[buttonId];
+    return custom ? custom : defaultKey;
+  };
+  
   // Build mapping from button configs (only if shortcutKey is defined)
-  if (tokenButtonConfig.shortcutKey) {
-    keybindToSubmenuMap[tokenButtonConfig.shortcutKey.toLowerCase()] = 'token';
+  const tokenKey = getEffectiveKeybind('token', tokenButtonConfig.shortcutKey);
+  if (tokenKey) {
+    keybindToSubmenuMap[tokenKey.toLowerCase()] = 'token';
   }
-  if (terrainButtonConfig.shortcutKey) {
-    keybindToSubmenuMap[terrainButtonConfig.shortcutKey.toLowerCase()] = 'terrain';
+  
+  const terrainKey = getEffectiveKeybind('terrain', terrainButtonConfig.shortcutKey);
+  if (terrainKey) {
+    keybindToSubmenuMap[terrainKey.toLowerCase()] = 'terrain';
   }
-  if (roomButtonConfig.shortcutKey) {
-    keybindToSubmenuMap[roomButtonConfig.shortcutKey.toLowerCase()] = 'room';
-  }
-  if (wallButtonConfig.shortcutKey) {
-    keybindToSubmenuMap[wallButtonConfig.shortcutKey.toLowerCase()] = 'wall';
-  }
-  if (colorPickerButtonConfig.shortcutKey) {
-    keybindToSubmenuMap[colorPickerButtonConfig.shortcutKey.toLowerCase()] = 'color';
+  
+  // LEGACY - Room and Wall tools archived
+  // const roomKey = getEffectiveKeybind('modular-room', roomButtonConfig.shortcutKey);
+  // if (roomKey) {
+  //   keybindToSubmenuMap[roomKey.toLowerCase()] = 'room';
+  // }
+  // const wallKey = getEffectiveKeybind('wall', wallButtonConfig.shortcutKey);
+  // if (wallKey) {
+  //   keybindToSubmenuMap[wallKey.toLowerCase()] = 'wall';
+  // }
+  
+  const colorKey = getEffectiveKeybind('color', colorPickerButtonConfig.shortcutKey);
+  if (colorKey) {
+    keybindToSubmenuMap[colorKey.toLowerCase()] = 'color';
   }
 
   // ========== CENTRAL SUBMENU CONTROL FUNCTIONS ==========
@@ -747,10 +766,11 @@ const Toolbox = (props: ToolboxProps) => {
         ? button.config.enabledInGameMode ?? false
         : button.config.enabledInPlanningMode ?? button.config.enabled;
       
-      // Check if button is hidden by user in settings
-      const isHiddenByUser = hiddenToolbarButtons.has(button.config.id);
+      // NOTE: We now include buttons even if hidden by user settings
+      // This ensures their keyboard shortcuts still work (via useKeyboardShortcut hook)
+      // They will be visually hidden with CSS instead
       
-      if (isEnabledInCurrentMode && !isHiddenByUser) {
+      if (isEnabledInCurrentMode) {
         const category = button.config.category;
         if (!grouped[category]) {
           grouped[category] = [];
@@ -825,6 +845,7 @@ const Toolbox = (props: ToolboxProps) => {
                 onToolboxButtonMouseLeave,
                 onSubmenuMouseEnter,
                 onSubmenuMouseLeave,
+                customKeybind: customKeybinds[config.id], // Pass custom keybind if available
               };
 
               // Add specific props for specific buttons
@@ -985,12 +1006,21 @@ const Toolbox = (props: ToolboxProps) => {
                   break;
               }
 
+              // Check if button is hidden by user settings
+              const isHiddenByUser = hiddenToolbarButtons.has(config.id);
+
               return (
-                <ButtonComponent
+                <div
                   key={config.id}
-                  {...baseProps}
-                  {...specificProps}
-                />
+                  style={{
+                    display: isHiddenByUser ? 'none' : 'block',
+                  }}
+                >
+                  <ButtonComponent
+                    {...baseProps}
+                    {...specificProps}
+                  />
+                </div>
               );
             })}
           </div>

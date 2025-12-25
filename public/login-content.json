@@ -3,6 +3,11 @@
     "title": "News & Updates",
     "items": [
       {
+        "date": "2024-12-25",
+        "title": "⌨️ Custom Keybinds Released!",
+        "content": "Fully customize all toolbar keyboard shortcuts! Click any keybind in Settings to change it. Smart conflict detection automatically swaps keybinds when needed. Protected shortcuts (Undo/Redo/Delete) stay locked for consistency."
+      },
+      {
         "date": "2024-12-22",
         "title": "🚪 Free-Placement Door System!",
         "content": "Place doors anywhere on walls with 64px grid snapping! Doors now hide corner pillars automatically and persist through room merges, splits, moves, and rotations."
@@ -72,6 +77,24 @@
   "changelog": {
     "title": "Changelog",
     "versions": [
+      {
+        "version": "0.9.6",
+        "date": "2024-12-25",
+        "changes": [
+          "Custom keybind system: Customize all toolbar keyboard shortcuts",
+          "Dialog-based keybind editor with live keyboard capture",
+          "Smart conflict detection with automatic keybind swapping",
+          "Protected keybinds for core functions (Undo, Redo, Delete, Duplicate)",
+          "Visual indicators: Blue for custom, gray for default, 🔒 for locked",
+          "Keybind settings categories now start collapsed for cleaner UI",
+          "Global 'Reset All Keybinds' button for quick defaults restore",
+          "Custom keybinds sync to cloud and persist across sessions",
+          "Submenu shortcuts (token/terrain cycling) now respect custom keybinds",
+          "Archived legacy Room Tool, Wall Tool, and Wall Cutter Tool",
+          "Removed archived tools from toolbar (replaced by Modular Rooms)",
+          "Improved toolbar settings UI organization"
+        ]
+      },
       {
         "version": "0.9.5",
         "date": "2024-12-22",

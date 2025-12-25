@@ -149,22 +149,24 @@ function App() {
   // Recent tokens state for quick picker
   const [recentTokens, setRecentTokens] = useState<TokenTemplate[]>([]);
 
-  // Room builder state
-  const [selectedFloorTexture, setSelectedFloorTexture] = useState<string | null>(null);
-  const [tileSize, setTileSize] = useState<number>(30);
-  const [showWalls, setShowWalls] = useState<boolean>(true);
-  const [selectedWallTexture, setSelectedWallTexture] = useState<string | null>(null);
-  const [wallThickness, setWallThickness] = useState<number>(12);
-  const [wallTileSize, setWallTileSize] = useState<number>(30);
+  // Legacy Room builder state - ARCHIVED (see src/legacy/RoomBuilderPanel.tsx)
+  // UI creation is disabled but Canvas still renders existing legacy room elements
   const [roomSubTool, setRoomSubTool] = useState<RoomSubTool>('rectangle');
-  const [autoMergeRooms, setAutoMergeRooms] = useState<boolean>(true); // Default: auto-merge enabled
-  const [defaultCornerRadius, setDefaultCornerRadius] = useState<number>(1); // Default: rounded corners ON (1 = on, 0 = off)
+  const [selectedFloorTexture] = useState<string | null>(null);
+  const [tileSize] = useState<number>(30);
+  const [showWalls] = useState<boolean>(true);
+  const [selectedWallTexture, setSelectedWallTexture] = useState<string | null>(null);
+  const [wallThickness] = useState<number>(12);
+  const [wallTileSize] = useState<number>(30);
+  const [autoMergeRooms, setAutoMergeRooms] = useState<boolean>(true);
+  const [defaultCornerRadius] = useState<number>(1);
 
   // Wall Cutter tool state
   const [wallCutterToolBrushSize, setWallCutterToolBrushSize] = useState<number>(30);
 
   // Background painter state
   const [backgroundBrushSize, setBackgroundBrushSize] = useState<number>(100);
+  const [backgroundBrushOpacity, setBackgroundBrushOpacity] = useState<number>(1);
   const [terrainBrushes, setTerrainBrushes] = useState<{ name: string; download_url: string }[]>([]);
   const [selectedTerrainBrush, setSelectedTerrainBrush] = useState<string | null>(null);
   const [wallTextures, setWallTextures] = useState<{ name: string; download_url: string }[]>([]);
@@ -173,8 +175,9 @@ function App() {
   // X-Lab experimental features
   const [xlabShapeMode, setXlabShapeMode] = useState<TerrainShapeMode>(null);
 
-  // Toolbar customization - which buttons are hidden
+  // Toolbar customization - which buttons are hidden and custom keybinds
   const [hiddenToolbarButtons, setHiddenToolbarButtons] = useState<Set<string>>(new Set());
+  const [customKeybinds, setCustomKeybinds] = useState<Record<string, string>>({});
 
   // Token drag-and-drop from right panel to canvas
   const [draggingToken, setDraggingToken] = useState<TokenTemplate | null>(null);
@@ -233,6 +236,11 @@ function App() {
           setHiddenToolbarButtons(new Set(settingsResult.settings.hiddenToolbarButtons));
         }
         
+        // Restore custom keybinds
+        if (settingsResult.settings.customKeybinds) {
+          setCustomKeybinds(settingsResult.settings.customKeybinds);
+        }
+        
         // NOTE: We do NOT restore viewport from cloud settings.
         // Each scene should center itself when opened based on its map dimensions.
         // Restoring a global viewport causes issues when switching between scenes.
@@ -288,12 +296,13 @@ function App() {
         collections,
         activeSceneId,
         hiddenToolbarButtons: Array.from(hiddenToolbarButtons),
+        customKeybinds: customKeybinds,
         // NOTE: We don't save viewport - each scene centers itself when opened
       }, user.handle, user.authProvider);
     }, 500);
 
     return () => clearTimeout(timeoutId);
-  }, [collections, activeSceneId, hiddenToolbarButtons, user, hasLoadedFromCloud]);
+  }, [collections, activeSceneId, hiddenToolbarButtons, customKeybinds, user, hasLoadedFromCloud]);
 
   // Load terrain brushes on mount
   useEffect(() => {
@@ -1072,6 +1081,7 @@ function App() {
         onHideToolPreviewReady={setHideToolPreviewHandler}
         selectedBackgroundTexture={selectedTerrainBrush}
         backgroundBrushSize={backgroundBrushSize}
+        backgroundBrushOpacity={backgroundBrushOpacity}
         terrainBrushes={terrainBrushes}
         selectedTerrainBrush={selectedTerrainBrush}
         onSelectTerrainBrush={setSelectedTerrainBrush}
@@ -1091,6 +1101,7 @@ function App() {
         setPlacingModularFloor={setPlacingModularFloor}
         defaultWallStyleId={defaultWallStyleId}
         hiddenToolbarButtons={hiddenToolbarButtons}
+        customKeybinds={customKeybinds}
         draggingToken={draggingToken}
         setDraggingToken={setDraggingToken}
       />
@@ -1123,36 +1134,17 @@ function App() {
             setActiveTokenTemplate={setActiveTokenTemplate}
             onRecentTokensChange={setRecentTokens}
             activeTool={activeTool}
-            selectedFloorTexture={selectedFloorTexture}
-            onSelectFloorTexture={setSelectedFloorTexture}
-            tileSize={tileSize}
-            onTileSizeChange={setTileSize}
-            showWalls={showWalls}
-            onShowWallsChange={setShowWalls}
-            selectedWallTexture={selectedWallTexture}
-            onSelectWallTexture={setSelectedWallTexture}
-            wallTextures={wallTextures}
-            wallThickness={wallThickness}
-            onWallThicknessChange={setWallThickness}
-            wallTileSize={wallTileSize}
-            onWallTileSizeChange={setWallTileSize}
-            roomSubTool={roomSubTool}
-            setRoomSubTool={setRoomSubTool}
-            autoMergeRooms={autoMergeRooms}
-            setAutoMergeRooms={setAutoMergeRooms}
-            defaultCornerRadius={defaultCornerRadius}
-            setDefaultCornerRadius={setDefaultCornerRadius}
-            onMergeRooms={mergeRoomsHandlerRef.current || undefined}
-            onMergeWalls={mergeWallsHandlerRef.current || undefined}
             onCenterElement={handleCenterElement}
             selectedTerrainBrush={selectedTerrainBrush}
             onSelectTerrainBrush={setSelectedTerrainBrush}
             backgroundBrushSize={backgroundBrushSize}
             onBackgroundBrushSizeChange={setBackgroundBrushSize}
-            activeTab={rightPanelActiveTab}
-            onActiveTabChange={setRightPanelActiveTab}
+            backgroundBrushOpacity={backgroundBrushOpacity}
+            onBackgroundBrushOpacityChange={setBackgroundBrushOpacity}
             xlabShapeMode={xlabShapeMode}
             onXlabShapeModeChange={setXlabShapeMode}
+            activeTab={rightPanelActiveTab}
+            onActiveTabChange={setRightPanelActiveTab}
             onMouseEnter={handleHideToolPreview}
             wallGroups={wallGroups}
             updateWallGroup={updateWallGroup}
@@ -1162,6 +1154,8 @@ function App() {
             selectedElementIds={selectedElementIds}
             hiddenToolbarButtons={hiddenToolbarButtons}
             onHiddenToolbarButtonsChange={setHiddenToolbarButtons}
+            customKeybinds={customKeybinds}
+            onCustomKeybindsChange={setCustomKeybinds}
             onStartDragToken={setDraggingToken}
           />
       )}

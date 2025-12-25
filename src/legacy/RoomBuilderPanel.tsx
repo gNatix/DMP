@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { RoomElement, WallElement, MapElement, RoomSubTool, ToolType, TerrainShapeMode } from '../../types';
+import { RoomElement, WallElement, MapElement, RoomSubTool, ToolType, TerrainShapeMode } from '../types';
 
 interface RoomBuilderPanelProps {
   activeTool: ToolType;
