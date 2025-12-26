@@ -416,6 +416,12 @@ const ScenesTab = ({
                     name: el.label || el.notes || 'Annotation',
                     type: 'Marker'
                   };
+                } else if (el.type === 'asset') {
+                  return {
+                    icon: el.imageUrl ? <img src={el.imageUrl} alt={el.name} className="w-full h-full object-cover" /> : null,
+                    name: el.name || 'Unnamed Asset',
+                    type: 'Asset'
+                  };
                 }
                 return { icon: null, name: 'Element', type: 'Unknown' };
               };

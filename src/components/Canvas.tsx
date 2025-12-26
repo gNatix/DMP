@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
-import { Scene, MapElement, AnnotationElement, TokenElement, RoomElement, WallElement, ModularRoomElement, ToolType, IconType, ColorType, TokenTemplate, RoomSubTool, Point, TerrainTile, TerrainStamp, TerrainShapeMode, ViewMode, WallOpening, WallGroup, ModularRoomsState } from '../types';
+import { Scene, MapElement, AnnotationElement, TokenElement, AssetElement, RoomElement, WallElement, ModularRoomElement, ToolType, IconType, ColorType, TokenTemplate, AssetTemplate, RoomSubTool, Point, TerrainTile, TerrainStamp, TerrainShapeMode, ViewMode, WallOpening, WallGroup, ModularRoomsState } from '../types';
 import { Circle, Square, Triangle, Star, Diamond, Heart, Skull, MapPin, Search, Eye, DoorOpen, Landmark, Footprints, Info, Gamepad2, StopCircle } from 'lucide-react';
 import Toolbox from './toolbox/Toolbox';
 import polygonClipping from 'polygon-clipping';
@@ -153,6 +153,7 @@ interface CanvasProps {
   activeColor: ColorType;
   activeIcon: IconType;
   activeTokenTemplate: TokenTemplate | null;
+  selectedAsset: AssetTemplate | null;
   selectedElementId: string | null;
   setSelectedElementId: (id: string | null) => void;
   selectedElementIds: string[];
@@ -200,6 +201,7 @@ interface CanvasProps {
   onSelectWallTexture?: (url: string) => void;
   onSwitchToDrawTab: () => void;
   onSwitchToTokensTab?: () => void;
+  onSwitchToAssetsTab?: () => void;
   onSwitchToModulesTab?: () => void;
   wallCutterToolBrushSize: number;
   setWallCutterToolBrushSize: (size: number) => void;
@@ -228,6 +230,9 @@ interface CanvasProps {
   // Token drag-and-drop from right panel
   draggingToken?: TokenTemplate | null;
   setDraggingToken?: (token: TokenTemplate | null) => void;
+  // Asset drag-and-drop from right panel
+  draggingAsset?: AssetTemplate | null;
+  setDraggingAsset?: (asset: AssetTemplate | null) => void;
 }
 
 // Visual stacking order (back → front):
@@ -236,14 +241,16 @@ interface CanvasProps {
 // Layer 3: Floor tiles (floor parts of rooms, floor textures)
 // Layer 4: Grid (grid pattern overlay)
 // Layer 5: Wall textures (walls, wall strokes/segments)
-// Layer 6: Tokens (tokens, creatures, NPCs, markers - interactive elements on top)
+// Layer 6: Assets (furniture, decorations, interactive objects)
+// Layer 7: Tokens (tokens, creatures, NPCs, markers - above assets)
 
 const Z_MAP = 0;          // Layer 1: Map background
 const Z_TERRAIN = 1;      // Layer 2: Terrain brush tiles
 const Z_FLOOR = 2;        // Layer 3: Floor tiles (room floors)
 const Z_GRID = 3;         // Layer 4: Grid overlay
 const Z_WALL = 4;         // Layer 5: Wall textures
-const Z_TOKENS = 5;       // Layer 6: Tokens and interactive elements
+const Z_ASSETS = 5;       // Layer 6: Assets (furniture, decorations)
+const Z_TOKENS = 6;       // Layer 7: Tokens and interactive elements (above assets)
 
 // Element base offsets for scene.elements
 // Rooms are split into floor (below grid) and walls (above grid)
@@ -256,6 +263,7 @@ const Canvas = ({
   activeColor,
   activeIcon,
   activeTokenTemplate,
+  selectedAsset,
   selectedElementId,
   setSelectedElementId,
   selectedElementIds,
@@ -303,6 +311,7 @@ const Canvas = ({
   onSelectWallTexture = () => {},
   onSwitchToDrawTab,
   onSwitchToTokensTab,
+  onSwitchToAssetsTab,
   onSwitchToModulesTab,
   wallCutterToolBrushSize: wallCutterToolBrushSizeProp,
   setWallCutterToolBrushSize: setWallCutterToolBrushSizeProp,
@@ -318,6 +327,8 @@ const Canvas = ({
   customKeybinds = {},
   draggingToken,
   setDraggingToken,
+  draggingAsset,
+  setDraggingAsset,
 }: CanvasProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
@@ -345,6 +356,7 @@ const Canvas = ({
   const [isSpacePressed, setIsSpacePressed] = useState(false);
   const [selectionBox, setSelectionBox] = useState<{ startX: number; startY: number; endX: number; endY: number } | null>(null);
   const [modularSelectionBox, setModularSelectionBox] = useState<{ startX: number; startY: number; endX: number; endY: number } | null>(null);
+  const [assetSelectionBox, setAssetSelectionBox] = useState<{ startX: number; startY: number; endX: number; endY: number } | null>(null);
   const [draggedMultiple, setDraggedMultiple] = useState<{ offsetX: number; offsetY: number; initialOffsets?: Map<string, {x: number, y: number}> } | null>(null);
   const [cursorPosition, setCursorPosition] = useState<{ x: number; y: number } | null>(null);
   const [hasInitializedViewport, setHasInitializedViewport] = useState(false);
@@ -424,7 +436,8 @@ const Canvas = ({
     roomId: string;  // The primary room being dragged (the one clicked)
     groupRoomIds: string[];  // All rooms in the wall group (including roomId)
     groupTokenIds: string[];  // All tokens linked to rooms in the group
-    originalPositions: Map<string, { x: number; y: number }>;  // Original positions of all rooms and tokens
+    groupAssetIds: string[];  // All assets linked to rooms in the group
+    originalPositions: Map<string, { x: number; y: number }>;  // Original positions of all rooms, tokens, and assets
     ghostPosition: { x: number; y: number };     // Pixels (snapped or free) - offset for primary room
     cursorPosition: { x: number; y: number };    // Pixels (raw cursor)
     delta: { x: number; y: number };             // Movement delta from original
@@ -4283,6 +4296,71 @@ const Canvas = ({
     const effectiveTool = (e.ctrlKey || e.altKey) ? 'pointer' : activeTool;
 
     if (effectiveTool === 'pointer') {
+      // First, check if clicking on rotation/resize handle of SELECTED asset
+      if (selectedElementId) {
+        const selectedEl = scene.elements.find(el => el.id === selectedElementId);
+        if (selectedEl && selectedEl.type === 'asset') {
+          const asset = selectedEl as AssetElement;
+          const halfSize = asset.size / 2;
+          const handleOffset = 20 / viewport.zoom;
+          const handleSize = 24 / viewport.zoom;
+          const rotation = asset.rotation || 0;
+          const rotationRad = (rotation * Math.PI) / 180;
+          const cos = Math.cos(rotationRad);
+          const sin = Math.sin(rotationRad);
+          
+          const rotatePoint = (dx: number, dy: number) => ({
+            x: asset.x + dx * cos - dy * sin,
+            y: asset.y + dx * sin + dy * cos
+          });
+          
+          // Check rotation handles (outside corners)
+          const cornerDist = halfSize + handleOffset;
+          const rotationCorners = [
+            { name: 'tl', ...rotatePoint(-cornerDist, -cornerDist) },
+            { name: 'tr', ...rotatePoint(cornerDist, -cornerDist) },
+            { name: 'bl', ...rotatePoint(-cornerDist, cornerDist) },
+            { name: 'br', ...rotatePoint(cornerDist, cornerDist) },
+          ];
+          
+          for (const corner of rotationCorners) {
+            const halfHandle = handleSize / 2;
+            if (x >= corner.x - halfHandle && x <= corner.x + halfHandle && 
+                y >= corner.y - halfHandle && y <= corner.y + halfHandle) {
+              saveToHistory();
+              const startAngle = Math.atan2(y - asset.y, x - asset.x) * (180 / Math.PI);
+              setRotatingElement({
+                id: asset.id,
+                startAngle,
+                centerX: asset.x,
+                centerY: asset.y,
+                initialRotation: asset.rotation || 0
+              });
+              return;
+            }
+          }
+          
+          // Check resize handles (at corners of asset)
+          const resizeHandleSize = 12 / viewport.zoom;
+          const resizeCorners = [
+            { name: 'nw', ...rotatePoint(-halfSize, -halfSize) },
+            { name: 'ne', ...rotatePoint(halfSize, -halfSize) },
+            { name: 'sw', ...rotatePoint(-halfSize, halfSize) },
+            { name: 'se', ...rotatePoint(halfSize, halfSize) },
+          ];
+          
+          for (const corner of resizeCorners) {
+            const halfHandle = resizeHandleSize / 2;
+            if (x >= corner.x - halfHandle && x <= corner.x + halfHandle && 
+                y >= corner.y - halfHandle && y <= corner.y + halfHandle) {
+              saveToHistory();
+              setResizingElement({ id: asset.id, handle: corner.name });
+              return;
+            }
+          }
+        }
+      }
+      
       if (clickedElement) {
         // Ctrl click: Toggle element in multi-selection
         if (e.ctrlKey) {
@@ -4313,7 +4391,9 @@ const Canvas = ({
           if (lockedElement) {
             // Don't allow dragging if any element is locked
             const elementName = lockedElement.type === 'token' 
-              ? lockedElement.name 
+              ? lockedElement.name
+              : lockedElement.type === 'asset'
+              ? (lockedElement as AssetElement).name
               : lockedElement.type === 'room'
               ? lockedElement.name || 'Room'
               : 'Annotation';
@@ -4359,6 +4439,10 @@ const Canvas = ({
                 // For modular rooms, use pixel position directly
                 elX = el.x;
                 elY = el.y;
+              } else if (el.type === 'asset') {
+                // For assets, use center position
+                elX = (el as AssetElement).x;
+                elY = (el as AssetElement).y;
               } else if ('x' in el && 'y' in el) {
                 elX = el.x;
                 elY = el.y;
@@ -4536,9 +4620,197 @@ const Canvas = ({
         isShape: activeTokenTemplate.isShape,
         isPOI: activeTokenTemplate.isPOI,
         icon: activeTokenTemplate.icon,
-        color: activeTokenTemplate.color || activeColor // Always set color for border (use template color or selected color)
+        color: activeColor, // Always use activeColor from color picker
+        zIndex: Z_TOKENS
       };
       setTempElement(tempToken);
+    } else if (effectiveTool === 'asset') {
+      // Asset tool - works as pointer but ONLY for asset elements
+      
+      // First, check if clicking on rotation handle of SELECTED asset (handles are outside asset bounds, rotated with asset)
+      if (selectedElementId) {
+        const selectedEl = scene.elements.find(el => el.id === selectedElementId);
+        if (selectedEl && selectedEl.type === 'asset') {
+          const asset = selectedEl as AssetElement;
+          const halfSize = asset.size / 2;
+          const handleOffset = 20 / viewport.zoom;
+          const handleSize = 24 / viewport.zoom; // Larger hit area for easier clicking
+          const rotation = asset.rotation || 0;
+          const rotationRad = (rotation * Math.PI) / 180;
+          const cos = Math.cos(rotationRad);
+          const sin = Math.sin(rotationRad);
+          
+          // Helper to rotate a point around asset center
+          const rotatePoint = (dx: number, dy: number) => ({
+            x: asset.x + dx * cos - dy * sin,
+            y: asset.y + dx * sin + dy * cos
+          });
+          
+          // Corner positions (offset from center, then rotated)
+          const cornerDist = halfSize + handleOffset;
+          const corners = [
+            { name: 'tl', ...rotatePoint(-cornerDist, -cornerDist) },
+            { name: 'tr', ...rotatePoint(cornerDist, -cornerDist) },
+            { name: 'bl', ...rotatePoint(-cornerDist, cornerDist) },
+            { name: 'br', ...rotatePoint(cornerDist, cornerDist) },
+          ];
+          
+          for (const corner of corners) {
+            const halfHandle = handleSize / 2;
+            if (x >= corner.x - halfHandle && x <= corner.x + halfHandle && 
+                y >= corner.y - halfHandle && y <= corner.y + halfHandle) {
+              // Start rotation
+              saveToHistory();
+              const startAngle = Math.atan2(y - asset.y, x - asset.x) * (180 / Math.PI);
+              setRotatingElement({
+                id: asset.id,
+                startAngle,
+                centerX: asset.x,
+                centerY: asset.y,
+                initialRotation: asset.rotation || 0
+              });
+              return;
+            }
+          }
+          
+          // Also check resize handles BEFORE checking clickedAsset
+          // Resize handles are at the corners of the asset (on the edge)
+          const resizeHandleSize = 12 / viewport.zoom; // Slightly larger hit area
+          const resizeCorners = [
+            { name: 'nw', ...rotatePoint(-halfSize, -halfSize) },
+            { name: 'ne', ...rotatePoint(halfSize, -halfSize) },
+            { name: 'sw', ...rotatePoint(-halfSize, halfSize) },
+            { name: 'se', ...rotatePoint(halfSize, halfSize) },
+          ];
+          
+          for (const corner of resizeCorners) {
+            const halfHandle = resizeHandleSize / 2;
+            if (x >= corner.x - halfHandle && x <= corner.x + halfHandle && 
+                y >= corner.y - halfHandle && y <= corner.y + halfHandle) {
+              // Start resize
+              saveToHistory();
+              setResizingElement({ id: asset.id, handle: corner.name });
+              return;
+            }
+          }
+        }
+      }
+      
+      // Check if clicking on an existing asset (for selection/movement)
+      const clickedAsset = scene.elements.find(el => {
+        if (el.type !== 'asset') return false;
+        const asset = el as AssetElement;
+        // Check if click is within asset bounds (center-based, like tokens)
+        const halfSize = asset.size / 2;
+        return x >= asset.x - halfSize && x <= asset.x + halfSize &&
+               y >= asset.y - halfSize && y <= asset.y + halfSize;
+      });
+      
+      if (clickedAsset) {
+        // Ctrl click: Toggle asset in multi-selection
+        if (e.ctrlKey) {
+          if (selectedElementIds.includes(clickedAsset.id)) {
+            // Remove from selection
+            const newSelection = selectedElementIds.filter(id => id !== clickedAsset.id);
+            setSelectedElementIds(newSelection);
+            setSelectedElementId(null);
+          } else {
+            // Add to selection
+            const newIds = selectedElementIds.length > 0 
+              ? [...selectedElementIds, clickedAsset.id]
+              : selectedElementId 
+                ? [selectedElementId, clickedAsset.id]
+                : [clickedAsset.id];
+            setSelectedElementIds(newIds);
+            setSelectedElementId(null);
+          }
+          return; // Don't start dragging when modifying selection
+        }
+        
+        // Check if clicking on asset that's part of current multi-selection
+        if (selectedElementIds.length > 0 && selectedElementIds.includes(clickedAsset.id)) {
+          // Check if any selected assets are locked
+          const lockedAsset = selectedElementIds
+            .map(id => scene.elements.find(e => e.id === id))
+            .find(el => el?.type === 'asset' && el.locked);
+          
+          if (lockedAsset) {
+            setLockedElementError(`The asset "${(lockedAsset as AssetElement).name}" is locked. Unlock before moving.`);
+            setTimeout(() => setLockedElementError(null), 3000);
+            return;
+          }
+          
+          // Start dragging multiple assets - DON'T change selection
+          const dragOffsets = new Map<string, {x: number, y: number}>();
+          selectedElementIds.forEach(id => {
+            const el = scene.elements.find(e => e.id === id);
+            if (el && el.type === 'asset') {
+              const asset = el as AssetElement;
+              dragOffsets.set(id, { x: x - asset.x, y: y - asset.y });
+            }
+          });
+          saveToHistory();
+          setDraggedMultiple({ offsetX: x, offsetY: y, initialOffsets: dragOffsets });
+          return; // Important: Don't continue to single asset selection
+        }
+        
+        // Single asset selection - check if locked
+        if ((clickedAsset as AssetElement).locked) {
+          setLockedElementError(`The asset "${(clickedAsset as AssetElement).name}" is locked. Unlock before moving.`);
+          setTimeout(() => setLockedElementError(null), 3000);
+          return;
+        }
+        
+        // Select and start dragging the asset
+        setSelectedElementId(clickedAsset.id);
+        setSelectedElementIds([]);
+        
+        saveToHistory();
+        setDraggedElement({
+          id: clickedAsset.id,
+          offsetX: x - (clickedAsset as AssetElement).x,
+          offsetY: y - (clickedAsset as AssetElement).y
+        });
+      } else if (selectedAsset && e.shiftKey) {
+        // SHIFT STAMP MODE: Instantly place asset at default size (continuous placement)
+        e.preventDefault();
+        
+        // Find parent modular room for binding (if any)
+        const modularRooms = getModularRooms(scene.elements);
+        const parentRoom = modularRooms.find(room => {
+          const roomRight = room.x + room.tilesW * MODULAR_TILE_PX;
+          const roomBottom = room.y + room.tilesH * MODULAR_TILE_PX;
+          return x >= room.x && x <= roomRight &&
+                 y >= room.y && y <= roomBottom;
+        });
+        
+        const newAsset: AssetElement = {
+          id: `asset-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          type: 'asset',
+          x,
+          y,
+          size: MODULAR_TILE_PX,
+          name: selectedAsset.name,
+          imageUrl: selectedAsset.imageUrl,
+          notes: '',
+          category: selectedAsset.category,
+          zIndex: Z_ASSETS,
+          ...(parentRoom && {
+            parentRoomId: parentRoom.id,
+            parentRoomOffset: { x: x - parentRoom.x, y: y - parentRoom.y }
+          })
+        };
+        
+        saveToHistory();
+        addElement(newAsset);
+        // Don't clear selectedAsset - allow continuous placement
+        return;
+      } else {
+        // Click on empty space - start asset selection box
+        setAssetSelectionBox({ startX: x, startY: y, endX: x, endY: y });
+        setSelectedElementId(null);
+        setSelectedElementIds([]);
+      }
     } else if (effectiveTool === 'modularRoom' && placingModularFloor) {
       // Modular Room placement - free placement with magnetic snap to nearby rooms
       e.preventDefault();
@@ -5033,6 +5305,31 @@ const Canvas = ({
             }
           }
           
+          // Update ALL assets linked to any selected room using parentRoomOffset
+          const allAssets = scene.elements.filter(el => el.type === 'asset') as AssetElement[];
+          for (const asset of allAssets) {
+            if (asset.parentRoomId && groupRoomIds.includes(asset.parentRoomId)) {
+              const roomNewPos = roomNewPositions.get(asset.parentRoomId);
+              const roomOrigPos = originalPositions.get(asset.parentRoomId);
+              
+              if (roomNewPos && asset.parentRoomOffset) {
+                // Use stored offset to calculate new position
+                elementUpdatesMap.set(asset.id, {
+                  x: roomNewPos.x + asset.parentRoomOffset.x,
+                  y: roomNewPos.y + asset.parentRoomOffset.y,
+                });
+              } else if (roomNewPos && roomOrigPos) {
+                // Fallback: calculate offset from room's ORIGINAL position
+                const currentOffset = { x: asset.x - roomOrigPos.x, y: asset.y - roomOrigPos.y };
+                elementUpdatesMap.set(asset.id, {
+                  x: roomNewPos.x + currentOffset.x,
+                  y: roomNewPos.y + currentOffset.y,
+                  parentRoomOffset: currentOffset,
+                } as Partial<AssetElement>);
+              }
+            }
+          }
+          
           // Apply all element updates
           const updatedElements = scene.elements.map(el => {
             const updates = elementUpdatesMap.get(el.id);
@@ -5441,13 +5738,15 @@ const Canvas = ({
     }
   };
 
-  // Handle drag over for modular floor placement from panel and token drag-drop
+  // Handle drag over for modular floor placement from panel and token/asset drag-drop
   const handleDragOver = (e: React.DragEvent) => {
     // Check if this is a token drag from the right panel
     const hasTokenData = e.dataTransfer.types.includes('application/json');
+    // Check if this is an asset drag from the right panel
+    const hasAssetData = e.dataTransfer.types.includes('application/asset');
     
-    // Allow drop if we're placing a modular floor OR dragging a token
-    if ((placingModularFloor && activeTool === 'modularRoom') || hasTokenData || draggingToken) {
+    // Allow drop if we're placing a modular floor OR dragging a token OR dragging an asset
+    if ((placingModularFloor && activeTool === 'modularRoom') || hasTokenData || draggingToken || hasAssetData || draggingAsset) {
       e.preventDefault(); // Allow drop
       
       const rect = containerRef.current?.getBoundingClientRect();
@@ -5460,9 +5759,73 @@ const Canvas = ({
     }
   };
 
-  // Handle token drop from right panel
+  // Handle token/asset drop from right panel
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
+    
+    // Calculate drop position
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    
+    const x = (e.clientX - rect.left - viewport.x) / viewport.zoom;
+    const y = (e.clientY - rect.top - viewport.y) / viewport.zoom;
+    
+    // Try to get asset data first (higher priority)
+    const assetDataStr = e.dataTransfer.getData('application/asset');
+    if (assetDataStr) {
+      let assetTemplate: AssetTemplate;
+      try {
+        assetTemplate = JSON.parse(assetDataStr);
+      } catch {
+        return;
+      }
+      
+      // Create the asset element
+      const newAsset: AssetElement = {
+        id: `asset-${Date.now()}`,
+        type: 'asset',
+        x,
+        y,
+        size: MODULAR_TILE_PX, // Default size = one tile (128px)
+        name: assetTemplate.name,
+        imageUrl: assetTemplate.imageUrl,
+        notes: '',
+        category: assetTemplate.category,
+        zIndex: Z_ASSETS,
+      };
+      
+      // Check if asset is dropped on a modular room and link it
+      if (scene) {
+        const modularRooms = getModularRooms(scene.elements);
+        const parentRoom = modularRooms.find(room => {
+          const roomRight = room.x + room.tilesW * MODULAR_TILE_PX;
+          const roomBottom = room.y + room.tilesH * MODULAR_TILE_PX;
+          return x >= room.x && x <= roomRight && y >= room.y && y <= roomBottom;
+        });
+        
+        if (parentRoom) {
+          (newAsset as any).parentRoomId = parentRoom.id;
+          (newAsset as any).parentRoomOffset = { x: x - parentRoom.x, y: y - parentRoom.y };
+        }
+      }
+      
+      // Save to history and add the asset
+      saveToHistory();
+      addElement(newAsset);
+      
+      // Select the newly placed asset
+      setSelectedElementId(newAsset.id);
+      setSelectedElementIds([]);
+      
+      // Clear cursor position
+      setCursorPosition(null);
+      
+      // Clear dragging state
+      if (setDraggingAsset) {
+        setDraggingAsset(null);
+      }
+      return;
+    }
     
     // Try to get token data from drag event
     const tokenDataStr = e.dataTransfer.getData('application/json');
@@ -5474,13 +5837,6 @@ const Canvas = ({
     } catch {
       return;
     }
-    
-    // Calculate drop position
-    const rect = containerRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    
-    const x = (e.clientX - rect.left - viewport.x) / viewport.zoom;
-    const y = (e.clientY - rect.top - viewport.y) / viewport.zoom;
     
     // Create the token element
     const newToken: TokenElement = {
@@ -5495,7 +5851,8 @@ const Canvas = ({
       isShape: tokenTemplate.isShape,
       isPOI: tokenTemplate.isPOI,
       icon: tokenTemplate.icon,
-      color: tokenTemplate.color || activeColor
+      color: activeColor, // Always use activeColor from color picker
+      zIndex: Z_TOKENS
     };
     
     // Check if token is dropped on a modular room and link it
@@ -5599,10 +5956,16 @@ const Canvas = ({
           const groupTokens = allTokens.filter(t => t.parentRoomId && groupRoomIds.includes(t.parentRoomId));
           const groupTokenIds = groupTokens.map(t => t.id);
           
-          // Store original positions for selected rooms and their tokens
+          // Find all assets linked to any SELECTED room
+          const allAssets = scene.elements.filter(el => el.type === 'asset') as AssetElement[];
+          const groupAssets = allAssets.filter(a => a.parentRoomId && groupRoomIds.includes(a.parentRoomId));
+          const groupAssetIds = groupAssets.map(a => a.id);
+          
+          // Store original positions for selected rooms, their tokens, and their assets
           const originalPositions = new Map<string, { x: number; y: number }>();
           selectedRooms.forEach(r => originalPositions.set(r.id, { x: r.x, y: r.y }));
           groupTokens.forEach(t => originalPositions.set(t.id, { x: t.x, y: t.y }));
+          groupAssets.forEach(a => originalPositions.set(a.id, { x: a.x, y: a.y }));
           
           // Remove AUTO doors involving any selected room immediately when starting drag
           // Keep manual doors - they will be preserved by recalculateAllDoors when drag ends
@@ -5640,6 +6003,7 @@ const Canvas = ({
             roomId: modRoom.id,
             groupRoomIds,
             groupTokenIds,
+            groupAssetIds,
             originalPositions,
             ghostPosition: { x: snapResult.x, y: snapResult.y },
             cursorPosition: { x: centeredX, y: centeredY },
@@ -5891,6 +6255,9 @@ const Canvas = ({
     // Update cursor position for token preview - only if scene exists and not over UI
     if (activeTool === 'token' && activeTokenTemplate && scene && !isOverUI) {
       setCursorPosition({ x, y });
+    } else if (activeTool === 'asset' && selectedAsset && isShiftPressed && scene && !isOverUI) {
+      // Update cursor position for asset stamp mode preview (Shift held)
+      setCursorPosition({ x, y });
     } else if (activeTool === 'modularRoom' && placingModularFloor && scene && !isOverUI) {
       // Update cursor position for modular floor preview
       setCursorPosition({ x, y });
@@ -6069,6 +6436,12 @@ const Canvas = ({
       return;
     }
 
+    // Handle asset selection box
+    if (assetSelectionBox) {
+      setAssetSelectionBox(prev => prev ? { ...prev, endX: x, endY: y } : null);
+      return;
+    }
+
     // Handle multi-element dragging
     if (draggedMultiple && scene && selectedElementIds.length > 0) {
       const updates = new Map<string, Partial<MapElement>>();
@@ -6206,15 +6579,16 @@ const Canvas = ({
     // Handle rotation
     if (rotatingElement && scene) {
       const element = scene.elements.find(el => el.id === rotatingElement.id);
-      if (element && element.type === 'room') {
+      if (element && (element.type === 'room' || element.type === 'asset')) {
         // Calculate current angle from center to mouse
         const currentAngle = Math.atan2(y - rotatingElement.centerY, x - rotatingElement.centerX) * (180 / Math.PI);
         
         // Calculate rotation delta
         const angleDelta = currentAngle - rotatingElement.startAngle;
         
-        // Apply rotation
-        const newRotation = (rotatingElement.initialRotation + angleDelta) % 360;
+        // Apply rotation (normalize to 0-360)
+        let newRotation = (rotatingElement.initialRotation + angleDelta) % 360;
+        if (newRotation < 0) newRotation += 360;
         
         updateElement(element.id, { rotation: newRotation });
       }
@@ -6681,6 +7055,32 @@ const Canvas = ({
                 } as Partial<TokenElement>);
               } else {
                 console.log('[POINTER DROP] -> SKIPPED: roomNewPos or roomOrigPos missing');
+              }
+            }
+          }
+          
+          // Update ALL assets linked to any selected room using parentRoomOffset
+          const allAssets = scene.elements.filter(el => el.type === 'asset') as AssetElement[];
+          for (const asset of allAssets) {
+            if (asset.parentRoomId && groupRoomIds.includes(asset.parentRoomId)) {
+              const roomNewPos = roomNewPositions.get(asset.parentRoomId);
+              const roomOrigPos = originalPositions.get(asset.parentRoomId);
+              
+              if (roomNewPos && asset.parentRoomOffset) {
+                // Use stored offset to calculate new position
+                const newX = roomNewPos.x + asset.parentRoomOffset.x;
+                const newY = roomNewPos.y + asset.parentRoomOffset.y;
+                elementUpdatesMap.set(asset.id, { x: newX, y: newY });
+              } else if (roomNewPos && roomOrigPos) {
+                // Fallback: calculate offset from room's ORIGINAL position
+                const currentOffset = { x: asset.x - roomOrigPos.x, y: asset.y - roomOrigPos.y };
+                const newX = roomNewPos.x + currentOffset.x;
+                const newY = roomNewPos.y + currentOffset.y;
+                elementUpdatesMap.set(asset.id, {
+                  x: newX,
+                  y: newY,
+                  parentRoomOffset: currentOffset,
+                } as Partial<AssetElement>);
               }
             }
           }
@@ -7292,6 +7692,34 @@ const Canvas = ({
       return;
     }
 
+    // Finalize asset selection box - ONLY selects assets
+    if (assetSelectionBox && scene) {
+      const minX = Math.min(assetSelectionBox.startX, assetSelectionBox.endX);
+      const maxX = Math.max(assetSelectionBox.startX, assetSelectionBox.endX);
+      const minY = Math.min(assetSelectionBox.startY, assetSelectionBox.endY);
+      const maxY = Math.max(assetSelectionBox.startY, assetSelectionBox.endY);
+
+      // Only select assets - ignore all other element types
+      const assets = scene.elements.filter(el => el.type === 'asset') as AssetElement[];
+      const selected = assets.filter(asset => {
+        const halfSize = asset.size / 2;
+        const assetMinX = asset.x - halfSize;
+        const assetMaxX = asset.x + halfSize;
+        const assetMinY = asset.y - halfSize;
+        const assetMaxY = asset.y + halfSize;
+        
+        // Check if asset bounding box overlaps with selection box
+        return !(assetMaxX < minX || assetMinX > maxX || assetMaxY < minY || assetMinY > maxY);
+      }).map(a => a.id);
+
+      if (selected.length > 0) {
+        setSelectedElementIds(selected);
+        setSelectedElementId(null);
+      }
+      setAssetSelectionBox(null);
+      return;
+    }
+
     // Finalize element creation
     if (isCreating && tempElement && tempElement.id === 'temp') {
       let finalElement = { ...tempElement, id: `${tempElement.type}-${Date.now()}` };
@@ -7328,11 +7756,46 @@ const Canvas = ({
         }
       }
       
+      // For assets: same drag threshold and room binding as tokens
+      if (finalElement.type === 'asset' && createStart) {
+        const asset = finalElement as AssetElement;
+        const dragDistance = Math.sqrt(
+          (asset.x - createStart.x) ** 2 + (asset.y - createStart.y) ** 2
+        );
+        // If drag distance is less than 10px, use default tile size
+        if (dragDistance < 10 || asset.size < MODULAR_TILE_PX * 0.5) {
+          finalElement = { ...finalElement, size: MODULAR_TILE_PX } as AssetElement;
+        }
+      }
+      
+      // For assets, check if they're placed on a modular room and link them
+      if (finalElement.type === 'asset' && scene) {
+        const asset = finalElement as AssetElement;
+        const modularRooms = getModularRooms(scene.elements);
+        
+        // Find which modular room (if any) contains this asset's center
+        const parentRoom = modularRooms.find(room => {
+          const roomRight = room.x + room.tilesW * MODULAR_TILE_PX;
+          const roomBottom = room.y + room.tilesH * MODULAR_TILE_PX;
+          return asset.x >= room.x && asset.x <= roomRight &&
+                 asset.y >= room.y && asset.y <= roomBottom;
+        });
+        
+        if (parentRoom) {
+          console.log('[ASSET] Linking asset to modular room:', parentRoom.id.slice(-8));
+          const parentRoomOffset = { x: asset.x - parentRoom.x, y: asset.y - parentRoom.y };
+          finalElement = { ...finalElement, parentRoomId: parentRoom.id, parentRoomOffset } as AssetElement;
+        }
+      }
+      
       // Save history immediately BEFORE adding - but with the new element included
       if (scene) {
         const elementWithZIndex = {
           ...finalElement,
-          zIndex: finalElement.type === 'room' ? -100 : (finalElement.zIndex ?? 0)
+          zIndex: finalElement.type === 'room' ? -100 : 
+                  finalElement.type === 'asset' ? Z_ASSETS : 
+                  finalElement.type === 'token' ? Z_TOKENS : 
+                  (finalElement.zIndex ?? 0)
         };
         const newElements = [...scene.elements, elementWithZIndex];
         const newHistoryEntry = {
@@ -8466,6 +8929,7 @@ const Canvas = ({
                     dragPreview={modularRoomDragPreview}
                     placingFloor={placingModularFloor}
                     linkedTokens={scene.elements.filter(el => el.type === 'token') as TokenElement[]}
+                    linkedAssets={scene.elements.filter(el => el.type === 'asset') as AssetElement[]}
                     activeTool={activeTool}
                   />
                 </div>
@@ -8568,6 +9032,7 @@ const Canvas = ({
                     dragPreview={modularRoomDragPreview}
                     placingFloor={placingModularFloor}
                     linkedTokens={scene.elements.filter(el => el.type === 'token') as TokenElement[]}
+                    linkedAssets={scene.elements.filter(el => el.type === 'asset') as AssetElement[]}
                     activeTool={activeTool}
                   />
                   
@@ -8592,6 +9057,13 @@ const Canvas = ({
                       if (el.type === 'token' && modularRoomDragPreview) {
                         const token = el as TokenElement;
                         if (token.parentRoomId && modularRoomDragPreview.groupRoomIds.includes(token.parentRoomId)) {
+                          return false; // Don't render - it's in the ghost preview
+                        }
+                      }
+                      // Hide assets that are linked to ANY room in the drag group (they're shown in the ghost preview)
+                      if (el.type === 'asset' && modularRoomDragPreview) {
+                        const asset = el as AssetElement;
+                        if (asset.parentRoomId && modularRoomDragPreview.groupRoomIds.includes(asset.parentRoomId)) {
                           return false; // Don't render - it's in the ghost preview
                         }
                       }
@@ -8732,6 +9204,7 @@ const Canvas = ({
                 dragPreview={modularRoomDragPreview}
                 placingFloor={placingModularFloor}
                 linkedTokens={scene.elements.filter(el => el.type === 'token') as TokenElement[]}
+                linkedAssets={scene.elements.filter(el => el.type === 'asset') as AssetElement[]}
                 activeTool={activeTool}
               />
             </div>
@@ -8814,6 +9287,7 @@ const Canvas = ({
                 dragPreview={modularRoomDragPreview}
                 placingFloor={placingModularFloor}
                 linkedTokens={scene.elements.filter(el => el.type === 'token') as TokenElement[]}
+                linkedAssets={scene.elements.filter(el => el.type === 'asset') as AssetElement[]}
                 activeTool={activeTool}
               />
               
@@ -8829,6 +9303,13 @@ const Canvas = ({
                   if (el.type === 'token' && modularRoomDragPreview) {
                     const token = el as TokenElement;
                     if (token.parentRoomId && modularRoomDragPreview.groupRoomIds.includes(token.parentRoomId)) {
+                      return false; // Don't render - it's in the ghost preview
+                    }
+                  }
+                  // Hide assets that are linked to ANY room in the drag group (they're shown in the ghost preview)
+                  if (el.type === 'asset' && modularRoomDragPreview) {
+                    const asset = el as AssetElement;
+                    if (asset.parentRoomId && modularRoomDragPreview.groupRoomIds.includes(asset.parentRoomId)) {
                       return false; // Don't render - it's in the ghost preview
                     }
                   }
@@ -9583,6 +10064,22 @@ const Canvas = ({
               />
             )}
 
+        {/* Asset selection box - only selects assets */}
+        {scene && assetSelectionBox && (
+              <div
+                style={{
+                  position: 'absolute',
+                  left: viewport.x + Math.min(assetSelectionBox.startX, assetSelectionBox.endX) * viewport.zoom,
+                  top: viewport.y + Math.min(assetSelectionBox.startY, assetSelectionBox.endY) * viewport.zoom,
+                  width: Math.abs(assetSelectionBox.endX - assetSelectionBox.startX) * viewport.zoom,
+                  height: Math.abs(assetSelectionBox.endY - assetSelectionBox.startY) * viewport.zoom,
+                  border: '2px dashed #f97316',
+                  backgroundColor: 'rgba(249, 115, 22, 0.1)',
+                  pointerEvents: 'none'
+                }}
+              />
+            )}
+
         {/* Merge Rooms Button - works for both canvas and maps */}
         {scene && (() => {
               
@@ -9805,6 +10302,58 @@ const Canvas = ({
                 ) : null}
               </div>
             )}
+
+        {/* Drag-and-drop asset preview from right panel */}
+        {scene && draggingAsset && cursorPosition && (
+              <div
+                style={{
+                  position: 'absolute',
+                  left: viewport.x + cursorPosition.x * viewport.zoom - (MODULAR_TILE_PX / 2) * viewport.zoom,
+                  top: viewport.y + cursorPosition.y * viewport.zoom - (MODULAR_TILE_PX / 2) * viewport.zoom,
+                  width: MODULAR_TILE_PX * viewport.zoom,
+                  height: MODULAR_TILE_PX * viewport.zoom,
+                  pointerEvents: 'none',
+                  opacity: 0.8,
+                  zIndex: 50,
+                  border: '2px solid #60a5fa',
+                  borderRadius: '4px',
+                  backgroundColor: 'rgba(30, 41, 59, 0.5)',
+                }}
+              >
+                <img 
+                  src={draggingAsset.imageUrl} 
+                  alt={draggingAsset.name} 
+                  className="w-full h-full object-contain" 
+                  draggable={false} 
+                />
+              </div>
+            )}
+
+        {/* Asset stamp mode preview (Shift + asset tool + selectedAsset) */}
+        {scene && activeTool === 'asset' && selectedAsset && isShiftPressed && cursorPosition && !draggingAsset && !isCreating && (
+          <div
+            style={{
+              position: 'absolute',
+              left: viewport.x + cursorPosition.x * viewport.zoom - (MODULAR_TILE_PX / 2) * viewport.zoom,
+              top: viewport.y + cursorPosition.y * viewport.zoom - (MODULAR_TILE_PX / 2) * viewport.zoom,
+              width: MODULAR_TILE_PX * viewport.zoom,
+              height: MODULAR_TILE_PX * viewport.zoom,
+              pointerEvents: 'none',
+              opacity: 0.6,
+              zIndex: 50,
+              border: '2px dashed #10b981',
+              borderRadius: '4px',
+              backgroundColor: 'rgba(16, 185, 129, 0.1)',
+            }}
+          >
+            <img 
+              src={selectedAsset.imageUrl} 
+              alt={selectedAsset.name} 
+              className="w-full h-full object-contain" 
+              draggable={false} 
+            />
+          </div>
+        )}
 
         {/* Modular Floor cursor preview */}
         {scene && activeTool === 'modularRoom' && placingModularFloor && cursorPosition && (
@@ -10135,6 +10684,7 @@ const Canvas = ({
         activeSceneId={activeSceneId}
         onSwitchToDrawTab={onSwitchToDrawTab}
         onSwitchToTokensTab={onSwitchToTokensTab}
+        onSwitchToAssetsTab={onSwitchToAssetsTab}
         onSwitchToModulesTab={onSwitchToModulesTab}
         hiddenToolbarButtons={hiddenToolbarButtons}
         customKeybinds={customKeybinds}
@@ -10631,6 +11181,214 @@ const MapElementComponent = ({ element, isSelected, viewport, showTokenBadges, r
           </>
         )}
       </div>
+    );
+  }
+
+  if (element.type === 'asset') {
+    // Asset rendering - similar to image token but without circular crop
+    const assetEl = element as AssetElement;
+    const rotation = assetEl.rotation || 0;
+    const handleSize = 24 / viewport.zoom; // Larger hit area for easier clicking
+    const handleOffset = 20 / viewport.zoom; // Distance from corner for rotation handles
+    const halfSize = element.size / 2;
+    
+    // Calculate rotated corner positions for rotation handles
+    const rotationRad = (rotation * Math.PI) / 180;
+    const cos = Math.cos(rotationRad);
+    const sin = Math.sin(rotationRad);
+    
+    // Helper to rotate a point around center
+    const rotatePoint = (dx: number, dy: number) => ({
+      x: element.x + dx * cos - dy * sin,
+      y: element.y + dx * sin + dy * cos
+    });
+    
+    // Corner positions (offset from center, then rotated)
+    const cornerDist = halfSize + handleOffset;
+    const tlPos = rotatePoint(-cornerDist, -cornerDist);
+    const trPos = rotatePoint(cornerDist, -cornerDist);
+    const blPos = rotatePoint(-cornerDist, cornerDist);
+    const brPos = rotatePoint(cornerDist, cornerDist);
+    
+    return (
+      <>
+        {/* Asset image container (rotates) */}
+        <div
+          style={{
+            position: 'absolute',
+            left: element.x - halfSize,
+            top: element.y - halfSize,
+            width: element.size,
+            height: element.size,
+            transform: rotation ? `rotate(${rotation}deg)` : undefined,
+            transformOrigin: 'center center',
+            pointerEvents: 'none',
+            userSelect: 'none',
+          }}
+          title={element.name}
+        >
+          {element.imageUrl && (
+            <img
+              src={element.imageUrl}
+              alt={element.name}
+              style={{
+                width: '100%',
+                height: '100%',
+                border: isSelected 
+                  ? `${Math.max(2, element.size * 0.02)}px solid #22c55e` 
+                  : 'none',
+                objectFit: 'contain',
+                imageRendering: 'auto',
+                userSelect: 'none',
+                WebkitUserDrag: 'none',
+                filter: 'drop-shadow(0 4px 6px rgba(0, 0, 0, 0.6)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4))',
+              } as React.CSSProperties}
+              draggable={false}
+              onDragStart={(e) => e.preventDefault()}
+            />
+          )}
+        </div>
+        
+        {/* Selection handles container (does NOT rotate - we calculate rotated cursor manually) */}
+        {isSelected && (() => {
+          // Calculate cursor based on rotation - pick the cursor that points toward center
+          // Cursors and their visual angles:
+          // nwse-resize: ↖↘ = 45° diagonal (top-left to bottom-right line)
+          // nesw-resize: ↙↗ = 135° diagonal (top-right to bottom-left line)
+          // ew-resize: ←→ = 0°/180° horizontal
+          // ns-resize: ↑↓ = 90° vertical
+          
+          // Base diagonal angles (the line the corner is on):
+          // TL and BR are on the 45° diagonal (nwse)
+          // TR and BL are on the 135° diagonal (nesw)
+          const getResizeCursor = (baseAngle: number): string => {
+            // Add rotation and normalize to 0-180 (cursors are symmetric)
+            let angle = (baseAngle + rotation) % 180;
+            if (angle < 0) angle += 180;
+            
+            // Map to nearest cursor based on angle ranges
+            // Each cursor covers 45° (180° / 4 cursors)
+            if (angle < 22.5 || angle >= 157.5) return 'ew-resize';     // ~0° horizontal
+            if (angle < 67.5) return 'nwse-resize';                      // ~45° diagonal
+            if (angle < 112.5) return 'ns-resize';                       // ~90° vertical
+            return 'nesw-resize';                                        // ~135° diagonal
+          };
+          
+          // TL and BR corners are on the 45° diagonal
+          // TR and BL corners are on the 135° diagonal
+          const tlCursor = getResizeCursor(45);
+          const trCursor = getResizeCursor(135);
+          const blCursor = getResizeCursor(135);
+          const brCursor = getResizeCursor(45);
+          
+          // Calculate rotated positions for resize handles
+          const resizeCorners = [
+            { pos: rotatePoint(-halfSize, -halfSize), cursor: tlCursor },
+            { pos: rotatePoint(halfSize, -halfSize), cursor: trCursor },
+            { pos: rotatePoint(-halfSize, halfSize), cursor: blCursor },
+            { pos: rotatePoint(halfSize, halfSize), cursor: brCursor },
+          ];
+          const resizeSize = 8 / viewport.zoom;
+          
+          return (
+            <>
+              {resizeCorners.map((corner, i) => (
+                <div 
+                  key={i}
+                  style={{ 
+                    position: 'absolute', 
+                    left: corner.pos.x - resizeSize / 2, 
+                    top: corner.pos.y - resizeSize / 2, 
+                    width: resizeSize, 
+                    height: resizeSize, 
+                    backgroundColor: 'white', 
+                    border: '1px solid #22c55e', 
+                    cursor: corner.cursor, 
+                    pointerEvents: 'auto' 
+                  }}
+                  draggable={false}
+                  onDragStart={(e) => e.preventDefault()}
+                />
+              ))}
+            </>
+          );
+        })()}
+        
+        {/* Rotation handles (outside corners, follow rotation, invisible with rotation cursor on hover) */}
+        {isSelected && (() => {
+          // Use same rotation cursor as during rotation (white double-arrow)
+          const rotateCursor = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'><path d='M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2'/></svg>") 12 12, grabbing`;
+          
+          return (
+          <>
+            {/* Top-left rotation */}
+            <div 
+              data-rotation-handle="tl"
+              className="rotation-handle"
+              draggable={false}
+              onDragStart={(e) => e.preventDefault()}
+              style={{ 
+                position: 'absolute', 
+                left: tlPos.x - handleSize / 2, 
+                top: tlPos.y - handleSize / 2, 
+                width: handleSize, 
+                height: handleSize, 
+                cursor: rotateCursor,
+                pointerEvents: 'auto',
+              }}
+            />
+            {/* Top-right rotation */}
+            <div 
+              data-rotation-handle="tr"
+              className="rotation-handle"
+              draggable={false}
+              onDragStart={(e) => e.preventDefault()}
+              style={{ 
+                position: 'absolute', 
+                left: trPos.x - handleSize / 2, 
+                top: trPos.y - handleSize / 2, 
+                width: handleSize, 
+                height: handleSize, 
+                cursor: rotateCursor,
+                pointerEvents: 'auto',
+              }}
+            />
+            {/* Bottom-left rotation */}
+            <div 
+              data-rotation-handle="bl"
+              className="rotation-handle"
+              draggable={false}
+              onDragStart={(e) => e.preventDefault()}
+              style={{ 
+                position: 'absolute', 
+                left: blPos.x - handleSize / 2, 
+                top: blPos.y - handleSize / 2, 
+                width: handleSize, 
+                height: handleSize, 
+                cursor: rotateCursor,
+                pointerEvents: 'auto',
+              }}
+            />
+            {/* Bottom-right rotation */}
+            <div 
+              data-rotation-handle="br"
+              className="rotation-handle"
+              draggable={false}
+              onDragStart={(e) => e.preventDefault()}
+              style={{ 
+                position: 'absolute', 
+                left: brPos.x - handleSize / 2, 
+                top: brPos.y - handleSize / 2, 
+                width: handleSize, 
+                height: handleSize, 
+                cursor: rotateCursor,
+                pointerEvents: 'auto',
+              }}
+            />
+          </>
+          );
+        })()}
+      </>
     );
   }
 

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Scene, MapElement, ToolType, TokenTemplate, ColorType, IconType, Collection, CollectionAppearance, RoomSubTool, TerrainShapeMode, ViewMode } from './types';
+import { Scene, MapElement, ToolType, TokenTemplate, AssetTemplate, ColorType, IconType, Collection, CollectionAppearance, RoomSubTool, TerrainShapeMode, ViewMode } from './types';
 import Canvas from './components/Canvas';
 import { DEFAULT_COLLECTION_NAME, DEFAULT_CANVAS_NAME } from './constants';
 import RightPanel from './components/rightPanel/RightPanel';
@@ -47,6 +47,9 @@ function App() {
   // Token library
   const [tokenTemplates, setTokenTemplates] = useState<TokenTemplate[]>([]);
   const [activeTokenTemplate, setActiveTokenTemplate] = useState<TokenTemplate | null>(null);
+
+  // Asset library
+  const [selectedAsset, setSelectedAsset] = useState<AssetTemplate | null>(null);
 
   // Load tokens from webhotel on startup (with recursive subfolder support)
   useEffect(() => {
@@ -170,7 +173,7 @@ function App() {
   const [terrainBrushes, setTerrainBrushes] = useState<{ name: string; download_url: string }[]>([]);
   const [selectedTerrainBrush, setSelectedTerrainBrush] = useState<string | null>(null);
   const [wallTextures, setWallTextures] = useState<{ name: string; download_url: string }[]>([]);
-  const [rightPanelActiveTab, setRightPanelActiveTab] = useState<'scenes' | 'tokens' | 'draw' | 'modules' | 'xlab' | 'settings'>('scenes');
+  const [rightPanelActiveTab, setRightPanelActiveTab] = useState<'scenes' | 'tokens' | 'assets' | 'draw' | 'modules' | 'xlab' | 'settings'>('scenes');
 
   // X-Lab experimental features
   const [xlabShapeMode, setXlabShapeMode] = useState<TerrainShapeMode>(null);
@@ -181,6 +184,9 @@ function App() {
 
   // Token drag-and-drop from right panel to canvas
   const [draggingToken, setDraggingToken] = useState<TokenTemplate | null>(null);
+
+  // Asset drag-and-drop from right panel to canvas
+  const [draggingAsset, setDraggingAsset] = useState<AssetTemplate | null>(null);
 
   // Reset cloud load state when user logs out
   useEffect(() => {
@@ -1042,6 +1048,7 @@ function App() {
         activeColor={activeColor}
         activeIcon={activeIcon}
         activeTokenTemplate={activeTokenTemplate}
+        selectedAsset={selectedAsset}
         selectedElementId={selectedElementId}
         setSelectedElementId={setSelectedElementId}
         selectedElementIds={selectedElementIds}
@@ -1089,6 +1096,7 @@ function App() {
         onSelectWallTexture={setSelectedWallTexture}
         onSwitchToDrawTab={() => setRightPanelActiveTab('draw')}
         onSwitchToTokensTab={() => setRightPanelActiveTab('tokens')}
+        onSwitchToAssetsTab={() => setRightPanelActiveTab('assets')}
         onSwitchToModulesTab={() => setRightPanelActiveTab('modules')}
         wallCutterToolBrushSize={wallCutterToolBrushSize}
         setWallCutterToolBrushSize={setWallCutterToolBrushSize}
@@ -1104,6 +1112,8 @@ function App() {
         customKeybinds={customKeybinds}
         draggingToken={draggingToken}
         setDraggingToken={setDraggingToken}
+        draggingAsset={draggingAsset}
+        setDraggingAsset={setDraggingAsset}
       />
 
       {/* Right Panel (Planning Mode Only) */}
@@ -1132,6 +1142,8 @@ function App() {
             setActiveTool={setActiveTool}
             activeTokenTemplate={activeTokenTemplate}
             setActiveTokenTemplate={setActiveTokenTemplate}
+            selectedAsset={selectedAsset}
+            onSelectAsset={setSelectedAsset}
             onRecentTokensChange={setRecentTokens}
             activeTool={activeTool}
             onCenterElement={handleCenterElement}
@@ -1157,6 +1169,7 @@ function App() {
             customKeybinds={customKeybinds}
             onCustomKeybindsChange={setCustomKeybinds}
             onStartDragToken={setDraggingToken}
+            onStartDragAsset={setDraggingAsset}
           />
       )}
 

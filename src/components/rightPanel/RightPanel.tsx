@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Settings, Boxes, Map, Users, Paintbrush } from 'lucide-react';
-import { Scene, MapElement, TokenTemplate, ToolType, Collection, CollectionAppearance, TerrainShapeMode, ModularRoomElement, WallGroup } from '../../types';
+import { Settings, Boxes, Map, Users, Paintbrush, Package } from 'lucide-react';
+import { Scene, MapElement, TokenTemplate, AssetTemplate, ToolType, Collection, CollectionAppearance, TerrainShapeMode, ModularRoomElement, WallGroup } from '../../types';
 import ScenesTab from './ScenesTab';
 import TokensTab from './TokensTab';
+import AssetsTab from './AssetsTab';
 import EnvironmentTab from './EnvironmentTab';
 import XLabPanel from './XLabPanel';
 import SettingsTab from './SettingsTab';
@@ -33,6 +34,8 @@ interface RightPanelProps {
   setActiveTool: (tool: ToolType) => void;
   activeTokenTemplate: TokenTemplate | null;
   setActiveTokenTemplate: (template: TokenTemplate | null) => void;
+  selectedAsset: AssetTemplate | null;
+  onSelectAsset: (asset: AssetTemplate) => void;
   onRecentTokensChange?: (tokens: TokenTemplate[]) => void;
   activeTool: ToolType;
   onCenterElement?: (elementId: string) => void;
@@ -45,8 +48,8 @@ interface RightPanelProps {
   onBackgroundBrushOpacityChange: (opacity: number) => void;
   xlabShapeMode: TerrainShapeMode;
   onXlabShapeModeChange: (mode: TerrainShapeMode) => void;
-  activeTab?: 'scenes' | 'tokens' | 'draw' | 'modules' | 'xlab' | 'settings';
-  onActiveTabChange?: (tab: 'scenes' | 'tokens' | 'draw' | 'modules' | 'xlab' | 'settings') => void;
+  activeTab?: 'scenes' | 'tokens' | 'assets' | 'draw' | 'modules' | 'xlab' | 'settings';
+  onActiveTabChange?: (tab: 'scenes' | 'tokens' | 'assets' | 'draw' | 'modules' | 'xlab' | 'settings') => void;
   onMouseEnter?: () => void;
   // Modular rooms props
   wallGroups?: WallGroup[];
@@ -61,9 +64,11 @@ interface RightPanelProps {
   onCustomKeybindsChange?: (keybinds: Record<string, string>) => void;
   // Token drag-and-drop
   onStartDragToken?: (template: TokenTemplate | null) => void;
+  // Asset drag-and-drop
+  onStartDragAsset?: (asset: AssetTemplate | null) => void;
 }
 
-type TabType = 'scenes' | 'tokens' | 'draw' | 'modules' | 'xlab' | 'settings';
+type TabType = 'scenes' | 'tokens' | 'assets' | 'draw' | 'modules' | 'xlab' | 'settings';
 
 const RightPanel = ({
   scenes,
@@ -90,6 +95,8 @@ const RightPanel = ({
   setActiveTool,
   activeTokenTemplate,
   setActiveTokenTemplate,
+  selectedAsset,
+  onSelectAsset,
   onRecentTokensChange,
   activeTool,
   onCenterElement,
@@ -114,6 +121,7 @@ const RightPanel = ({
   customKeybinds = {},
   onCustomKeybindsChange = () => {},
   onStartDragToken,
+  onStartDragAsset,
 }: RightPanelProps) => {
   const [internalActiveTab, setInternalActiveTab] = useState<TabType>('scenes');
   
@@ -133,6 +141,8 @@ const RightPanel = ({
   useEffect(() => {
     if (activeTool === 'token') {
       setActiveTab('tokens');
+    } else if (activeTool === 'asset') {
+      setActiveTab('assets');
     } else if (activeTool === 'background') {
       setActiveTab('draw');
     } else if (activeTool === 'xlab') {
@@ -170,6 +180,17 @@ const RightPanel = ({
           title="Tokens - Characters, monsters and objects"
         >
           <Users className="w-4 h-4" />
+        </button>
+        <button
+          onClick={() => setActiveTab('assets')}
+          className={`flex-1 py-3 text-sm font-medium transition-colors flex items-center justify-center ${
+            activeTab === 'assets'
+              ? 'bg-dm-dark text-dm-highlight border-b-2 border-dm-highlight'
+              : 'text-gray-400 hover:text-gray-200'
+          }`}
+          title="Assets - Furniture, decorations and interactive objects"
+        >
+          <Package className="w-4 h-4" />
         </button>
         <button
           onClick={() => setActiveTab('modules')}
@@ -237,6 +258,15 @@ const RightPanel = ({
             setActiveTokenTemplate={setActiveTokenTemplate}
             onRecentTokensChange={onRecentTokensChange}
             onStartDragToken={onStartDragToken}
+          />
+        )}
+        {activeTab === 'assets' && (
+          <AssetsTab
+            activeTool={activeTool}
+            setActiveTool={setActiveTool}
+            selectedAsset={selectedAsset}
+            onSelectAsset={onSelectAsset}
+            onStartDragAsset={onStartDragAsset}
           />
         )}
         {activeTab === 'draw' && (

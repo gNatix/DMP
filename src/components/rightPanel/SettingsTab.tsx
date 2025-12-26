@@ -51,6 +51,7 @@ const KEYBIND_CATEGORIES: KeybindCategory[] = [
     label: 'Drawing Tools',
     items: [
       { id: 'token', label: 'Token Tool', keybind: 'Q', canToggle: false, tip: 'Press Q again or scroll on button to cycle tokens' },
+      { id: 'asset', label: 'Asset Tool', keybind: 'A', canToggle: false, tip: 'Place furniture, decorations and interactive objects' },
       { id: 'terrain', label: 'Terrain Brush', keybind: 'E', canToggle: false, tip: 'Press E again or scroll on button to cycle brushes' },
       // LEGACY TOOLS - Archived (replaced by Modular Rooms)
       // { id: 'room', label: 'Room Builder', keybind: 'R', canToggle: false },

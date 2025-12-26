@@ -162,7 +162,7 @@ const PlaylistPanel = ({
 
   // Get element display name
   const getElementName = (element: MapElement): string => {
-    if (element.type === 'token' || element.type === 'room' || element.type === 'wall') {
+    if (element.type === 'token' || element.type === 'room' || element.type === 'wall' || element.type === 'asset') {
       return element.name || 'Unnamed';
     }
     if (element.type === 'annotation') {

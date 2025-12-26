@@ -8,6 +8,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Asset Multi-Selection System**: Assets can now be selected and moved in groups
+  - Orange selection box for selecting multiple assets (separate from general green and modular room purple boxes)
+  - Ctrl+click to add/remove individual assets from selection
+  - Multi-drag support for assets in both Asset Tool and Pointer Tool
+  - Selection box ignores non-asset elements (modular rooms, tokens) to allow free dragging
+  - Locked asset protection prevents moving when any selected asset is locked
+- **Asset Naming System**: Assets automatically get clean, editable names
+  - Names generated from filenames with underscores, hyphens, brackets, and parentheses removed
+  - Names editable in Left Panel when asset is selected
+  - Asset names displayed in ScenesTab element lists
+  - Asset names displayed in Game Mode playlist for better organization
+
+### Fixed
+- **Modular Room Ghost Preview Walls**: Vertical walls in drag preview now render correctly
+  - Ghost preview walls now use same rotation and positioning method as placed rooms
+  - Fixes visual misalignment where vertical walls appeared too close to center during drag
+
+### Added (Previous Session)
 - **Modular Room Multi-Select Drag**: Pointer tool now supports dragging multiple modular rooms together
   - Shift-click to select multiple modular rooms
   - All selected rooms move together with ghost preview

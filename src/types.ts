@@ -2,9 +2,9 @@
 
 export type ViewMode = "planning" | "game";
 
-export type ElementType = "annotation" | "token" | "room" | "wall" | "modularRoom";
+export type ElementType = "annotation" | "token" | "asset" | "room" | "wall" | "modularRoom";
 
-export type ToolType = "pointer" | "marker" | "token" | "pan" | "zoom-in" | "zoom-out" | "room" | "background" | "wall" | "wall-line" | "xlab" | "doorTool" | "wallCutterTool" | "modularRoom";
+export type ToolType = "pointer" | "marker" | "token" | "asset" | "pan" | "zoom-in" | "zoom-out" | "room" | "background" | "wall" | "wall-line" | "xlab" | "doorTool" | "wallCutterTool" | "modularRoom";
 
 export type RoomSubTool = "rectangle" | "pentagon" | "hexagon" | "octagon" | "erase" | "custom" | 
   "subtract-rectangle" | "subtract-pentagon" | "subtract-hexagon" | "subtract-octagon" | "subtract-custom";
@@ -72,6 +72,26 @@ export interface TokenElement {
   locked?: boolean; // Prevent movement when true
   playlistObject?: boolean; // Display in game mode playlist
   parentRoomId?: string; // Link to modular room - token moves with room
+  parentRoomOffset?: { x: number; y: number }; // Relative offset from room's top-left corner
+}
+
+export interface AssetElement {
+  id: string;
+  type: "asset";
+  x: number;
+  y: number;
+  size: number;
+  name: string;
+  imageUrl: string;
+  notes: string;
+  category: string; // Asset pack category (e.g., "tavern-essentials")
+  rotation?: number; // Rotation angle in degrees (0-360)
+  zIndex?: number; // For layering control
+  visible?: boolean; // For hiding elements (default true)
+  widgets?: Widget[]; // For properties panel customization
+  locked?: boolean; // Prevent movement when true
+  playlistObject?: boolean; // Display in game mode playlist
+  parentRoomId?: string; // Link to modular room - asset moves with room
   parentRoomOffset?: { x: number; y: number }; // Relative offset from room's top-left corner
 }
 
@@ -396,7 +416,7 @@ export interface ModularDropSimulation {
   affectedRoomIds: string[];
 }
 
-export type MapElement = AnnotationElement | TokenElement | RoomElement | WallElement | ModularRoomElement;
+export type MapElement = AnnotationElement | TokenElement | AssetElement | RoomElement | WallElement | ModularRoomElement;
 
 export interface CollectionAppearance {
   gradient: string; // CSS gradient string
@@ -470,6 +490,14 @@ export interface TokenTemplate {
   isPOI?: boolean; // True for POI icons (no background circle)
   icon?: IconType; // For shape tokens
   color?: ColorType; // For shape tokens
+}
+
+export interface AssetTemplate {
+  id: string;
+  name: string;
+  imageUrl: string;
+  category: string; // Asset pack name (e.g., "tavern-essentials")
+  download_url: string; // Full URL to asset image
 }
 
 export interface ViewportState {

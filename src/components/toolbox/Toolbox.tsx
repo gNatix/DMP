@@ -39,6 +39,7 @@ import { useState, useRef, useEffect } from 'react';
 // Import ALL button components
 import PointerButton, { pointerButtonConfig } from './buttons/PointerButton';
 import TokenButton, { tokenButtonConfig } from './buttons/TokenButton';
+import AssetButton, { assetButtonConfig } from './buttons/AssetButton';
 import TerrainButton, { terrainButtonConfig } from './buttons/TerrainButton';
 // LEGACY TOOLS - Archived (see src/legacy/)
 // import RoomButton, { roomButtonConfig } from './buttons/RoomButton';
@@ -116,6 +117,7 @@ interface ToolboxProps {
   setWallCutterToolBrushSize: (size: number) => void;
   onSwitchToDrawTab?: () => void;
   onSwitchToTokensTab?: () => void;
+  onSwitchToAssetsTab?: () => void;
   onSwitchToModulesTab?: () => void;
   forceShowTerrainSubmenu?: boolean;
   forceShowGridSubmenu?: boolean;
@@ -132,6 +134,7 @@ interface ToolboxProps {
 const BUTTON_REGISTRY = [
   { component: PointerButton, config: pointerButtonConfig },
   { component: TokenButton, config: tokenButtonConfig },
+  { component: AssetButton, config: assetButtonConfig },
   { component: TerrainButton, config: terrainButtonConfig },
   // LEGACY TOOLS - Archived (replaced by Modular Rooms)
   // { component: RoomButton, config: roomButtonConfig },
@@ -200,6 +203,7 @@ const Toolbox = (props: ToolboxProps) => {
     setWallCutterToolBrushSize,
     onSwitchToDrawTab,
     onSwitchToTokensTab,
+    onSwitchToAssetsTab,
     onSwitchToModulesTab,
     onSwitchToXLab,
     isLeftPanelOpen,
@@ -866,6 +870,12 @@ const Toolbox = (props: ToolboxProps) => {
                     cycleToken,
                     selectLastUsedToken,
                     onSwitchToTokensTab,
+                  };
+                  break;
+
+                case 'asset':
+                  specificProps = {
+                    onSwitchToAssetsTab,
                   };
                   break;
 

@@ -14,6 +14,7 @@ import {
   WallGroup,
   ModularDoor,
   TokenElement,
+  AssetElement,
   ToolType,
   SegmentStatesMap,
   EdgeDoorsMap,
@@ -74,6 +75,8 @@ interface ModularRoomRendererProps {
   } | null;
   // Tokens linked to rooms (for showing in drag preview)
   linkedTokens?: TokenElement[];
+  // Assets linked to rooms (for showing in drag preview)
+  linkedAssets?: AssetElement[];
   // Active tool - used to disable door pointer events when door tool is active
   activeTool?: ToolType;
 }
@@ -134,33 +137,51 @@ const FloatingWalls: React.FC<{
         transform: 'scaleY(-1)',
       }} />
       
-      {/* Left wall - rotated horizontal sprite */}
+      {/* Left wall - rotated horizontal sprite using same method as normal wall rendering */}
       <div style={{
         position: 'absolute',
-        left: 0,
+        left: -wallHeight / 2,
         top: pillarSize / 2,
-        width: heightPx - pillarSize,
-        height: wallHeight,
-        backgroundImage: `url(${tilesH > 2 ? wall2xUrl : wall1xUrl})`,
-        backgroundSize: `${MODULAR_TILE_PX * (tilesH > 2 ? 2 : 1)}px ${wallHeight}px`,
-        backgroundRepeat: 'repeat-x',
-        transform: 'rotate(90deg) translateY(-100%)',
-        transformOrigin: '0 0',
-      }} />
+        width: wallHeight,
+        height: heightPx - pillarSize,
+        overflow: 'hidden',
+      }}>
+        <div style={{
+          position: 'absolute',
+          left: (wallHeight - (heightPx - pillarSize)) / 2,
+          top: ((heightPx - pillarSize) - wallHeight) / 2,
+          width: heightPx - pillarSize,
+          height: wallHeight,
+          backgroundImage: `url(${tilesH > 2 ? wall2xUrl : wall1xUrl})`,
+          backgroundSize: `${MODULAR_TILE_PX * (tilesH > 2 ? 2 : 1)}px ${wallHeight}px`,
+          backgroundRepeat: 'repeat-x',
+          transform: 'rotate(90deg)',
+          transformOrigin: 'center center',
+        }} />
+      </div>
       
-      {/* Right wall - rotated horizontal sprite */}
+      {/* Right wall - rotated horizontal sprite using same method as normal wall rendering */}
       <div style={{
         position: 'absolute',
-        left: widthPx,
+        left: widthPx - wallHeight / 2,
         top: pillarSize / 2,
-        width: heightPx - pillarSize,
-        height: wallHeight,
-        backgroundImage: `url(${tilesH > 2 ? wall2xUrl : wall1xUrl})`,
-        backgroundSize: `${MODULAR_TILE_PX * (tilesH > 2 ? 2 : 1)}px ${wallHeight}px`,
-        backgroundRepeat: 'repeat-x',
-        transform: 'rotate(90deg)',
-        transformOrigin: '0 0',
-      }} />
+        width: wallHeight,
+        height: heightPx - pillarSize,
+        overflow: 'hidden',
+      }}>
+        <div style={{
+          position: 'absolute',
+          left: (wallHeight - (heightPx - pillarSize)) / 2,
+          top: ((heightPx - pillarSize) - wallHeight) / 2,
+          width: heightPx - pillarSize,
+          height: wallHeight,
+          backgroundImage: `url(${tilesH > 2 ? wall2xUrl : wall1xUrl})`,
+          backgroundSize: `${MODULAR_TILE_PX * (tilesH > 2 ? 2 : 1)}px ${wallHeight}px`,
+          backgroundRepeat: 'repeat-x',
+          transform: 'rotate(90deg)',
+          transformOrigin: 'center center',
+        }} />
+      </div>
       
       {/* Corner pillars - centered on tile corners */}
       {/* Top-left */}
@@ -800,6 +821,7 @@ const ModularRoomRenderer: React.FC<ModularRoomRendererProps> = ({
   dragPreview,
   placingFloor,
   linkedTokens,
+  linkedAssets,
   activeTool,
 }) => {
   // When dragging, exclude ALL rooms in the group from static rendering
@@ -899,6 +921,9 @@ const ModularRoomRenderer: React.FC<ModularRoomRendererProps> = ({
             
             // Get ALL tokens linked to any room in the group (using parentRoomId)
             const groupTokens = linkedTokens?.filter(t => t.parentRoomId && groupRoomIdsSet.has(t.parentRoomId)) || [];
+            
+            // Get ALL assets linked to any room in the group (using parentRoomId)
+            const groupAssets = linkedAssets?.filter(a => a.parentRoomId && groupRoomIdsSet.has(a.parentRoomId)) || [];
             
             // Build map of wallGroupId -> wallStyleId for quick lookup
             const wallStyleByGroupId = new Map<string, string>();
@@ -1005,6 +1030,56 @@ const ModularRoomRenderer: React.FC<ModularRoomRendererProps> = ({
                           draggable={false}
                         />
                       )}
+                    </div>
+                  );
+                })}
+                
+                {/* Render ALL linked assets at their new positions using parentRoomOffset */}
+                {groupAssets.map(asset => {
+                  if (!asset.parentRoomId) return null;
+                  const roomNewPos = roomNewPositions.get(asset.parentRoomId);
+                  if (!roomNewPos) return null;
+                  
+                  // Get room's ORIGINAL position from dragPreview (before drag started)
+                  const roomOrigPos = dragPreview.originalPositions.get(asset.parentRoomId);
+                  
+                  // Calculate asset position using parentRoomOffset or calculate from original room position
+                  let assetX: number, assetY: number;
+                  if (asset.parentRoomOffset) {
+                    assetX = roomNewPos.x + asset.parentRoomOffset.x;
+                    assetY = roomNewPos.y + asset.parentRoomOffset.y;
+                  } else if (roomOrigPos) {
+                    // Fallback: calculate offset from room's ORIGINAL position
+                    const currentOffset = { x: asset.x - roomOrigPos.x, y: asset.y - roomOrigPos.y };
+                    assetX = roomNewPos.x + currentOffset.x;
+                    assetY = roomNewPos.y + currentOffset.y;
+                  } else {
+                    return null;
+                  }
+                  
+                  return (
+                    <div
+                      key={`ghost-asset-${asset.id}`}
+                      style={{
+                        position: 'absolute',
+                        left: assetX - asset.size / 2,
+                        top: assetY - asset.size / 2,
+                        width: asset.size,
+                        height: asset.size,
+                        transform: asset.rotation ? `rotate(${asset.rotation}deg)` : undefined,
+                        opacity: 0.8,
+                      }}
+                    >
+                      <img
+                        src={asset.imageUrl}
+                        alt={asset.name}
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'contain',
+                        }}
+                        draggable={false}
+                      />
                     </div>
                   );
                 })}

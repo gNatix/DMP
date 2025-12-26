@@ -3,6 +3,11 @@
     "title": "News & Updates",
     "items": [
       {
+        "date": "2025-12-26",
+        "title": "🎨 Asset System Enhancements!",
+        "content": "Assets now have editable names and support multi-selection! Use the orange selection box to select multiple assets, Ctrl+click to add/remove, and drag them all together. Asset names are cleanly generated from filenames and visible in element lists and playlists."
+      },
+      {
         "date": "2025-12-25",
         "title": "⌨️ Custom Keybinds Released!",
         "content": "Fully customize all toolbar keyboard shortcuts! Click any keybind in Settings to change it. Smart conflict detection automatically swaps keybinds when needed. Protected shortcuts (Undo/Redo/Delete) stay locked for consistency."
