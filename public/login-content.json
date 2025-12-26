@@ -83,6 +83,27 @@
     "title": "Changelog",
     "versions": [
       {
+        "version": "0.9.7",
+        "date": "2025-12-26",
+        "changes": [
+          "Assets Tool & Asset Library: New decorative asset placement system (proof of concept)",
+          "Asset Tool in toolbar for placing and managing decorative elements",
+          "Asset Library tab in right panel with browsable categories",
+          "Drag-and-drop assets directly onto maps",
+          "Shift+click stamp mode for quick continuous placement",
+          "360° rotation with invisible handles outside corners",
+          "Free resize with dynamic cursors based on rotation",
+          "Multi-selection with orange selection box",
+          "Room binding: Assets placed on modular rooms follow when rooms move",
+          "Category styling with preview images",
+          "Automatic asset naming from filenames (editable in left panel)",
+          "Assets display in element lists and game mode playlists",
+          "Support for both Asset Tool and Pointer Tool interactions",
+          "Fixed: Modular room ghost preview vertical walls now render correctly",
+          "More asset libraries will be added in future updates"
+        ]
+      },
+      {
         "version": "0.9.6",
         "date": "2025-12-25",
         "changes": [
