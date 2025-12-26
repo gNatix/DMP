@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [0.9.7] - 2025-12-26
+
 ### Added
 - **Assets Tool & Asset Library (Proof of Concept)**: New decorative asset placement system
   - Asset Tool in toolbar for placing and managing decorative elements
@@ -26,7 +30,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Modular room ghost preview vertical walls now render correctly during drag
 
-### Added (Previous Session)
+---
+
+## [0.9.6] - Previous Updates
+
+### Added
 - **Modular Room Multi-Select Drag**: Pointer tool now supports dragging multiple modular rooms together
   - Shift-click to select multiple modular rooms
   - All selected rooms move together with ghost preview
