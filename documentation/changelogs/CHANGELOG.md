@@ -8,22 +8,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **Asset Multi-Selection System**: Assets can now be selected and moved in groups
-  - Orange selection box for selecting multiple assets (separate from general green and modular room purple boxes)
-  - Ctrl+click to add/remove individual assets from selection
-  - Multi-drag support for assets in both Asset Tool and Pointer Tool
-  - Selection box ignores non-asset elements (modular rooms, tokens) to allow free dragging
-  - Locked asset protection prevents moving when any selected asset is locked
-- **Asset Naming System**: Assets automatically get clean, editable names
-  - Names generated from filenames with underscores, hyphens, brackets, and parentheses removed
-  - Names editable in Left Panel when asset is selected
-  - Asset names displayed in ScenesTab element lists
-  - Asset names displayed in Game Mode playlist for better organization
+- **Assets Tool & Asset Library (Proof of Concept)**: New decorative asset placement system
+  - Asset Tool in toolbar for placing and managing decorative elements
+  - Asset Library tab in right panel with browsable categories
+  - Drag-and-drop assets directly onto maps
+  - Shift+click stamp mode for quick continuous placement
+  - 360° rotation with invisible handles outside corners
+  - Free resize with dynamic cursors based on rotation
+  - Multi-selection with orange selection box (separate from other tools)
+  - Room binding: Assets placed on modular rooms follow when rooms move
+  - Category styling with preview images
+  - Automatic asset naming from filenames (editable in left panel)
+  - Assets display in element lists and game mode playlists
+  - Support for both Asset Tool and Pointer Tool interactions
+  - More asset libraries will be added in future updates
 
 ### Fixed
-- **Modular Room Ghost Preview Walls**: Vertical walls in drag preview now render correctly
-  - Ghost preview walls now use same rotation and positioning method as placed rooms
-  - Fixes visual misalignment where vertical walls appeared too close to center during drag
+- Modular room ghost preview vertical walls now render correctly during drag
 
 ### Added (Previous Session)
 - **Modular Room Multi-Select Drag**: Pointer tool now supports dragging multiple modular rooms together

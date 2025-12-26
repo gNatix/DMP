@@ -4,8 +4,8 @@
     "items": [
       {
         "date": "2025-12-26",
-        "title": "🎨 Asset System Enhancements!",
-        "content": "Assets now have editable names and support multi-selection! Use the orange selection box to select multiple assets, Ctrl+click to add/remove, and drag them all together. Asset names are cleanly generated from filenames and visible in element lists and playlists."
+        "title": "🎨 Assets Tool & Asset Library Added!",
+        "content": "New Assets Tool released as proof of concept! Browse and place decorative assets on your maps. Drag-and-drop from the library, use Shift for stamp mode, rotate 360°, and resize freely. Multi-select with orange selection box. More asset libraries coming soon!"
       },
       {
         "date": "2025-12-25",
