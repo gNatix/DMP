@@ -1942,20 +1942,21 @@ const Canvas = ({
       };
     } else if (el.type === 'asset') {
       const asset = el as AssetElement;
-      const halfSize = asset.size / 2;
+      const halfWidth = asset.size / 2;
+      const halfHeight = (asset.height || asset.size) / 2;
       // For rotated assets, use a bounding box that covers all rotations
-      // This is a simplification - a rotated square's bounding box is larger
+      // This is a simplification - a rotated rectangle's bounding box is larger
       const rotation = asset.rotation || 0;
       if (rotation === 0) {
         return {
-          minX: asset.x - halfSize,
-          minY: asset.y - halfSize,
-          maxX: asset.x + halfSize,
-          maxY: asset.y + halfSize
+          minX: asset.x - halfWidth,
+          minY: asset.y - halfHeight,
+          maxX: asset.x + halfWidth,
+          maxY: asset.y + halfHeight
         };
       } else {
         // For rotated elements, use diagonal as bounding box
-        const diagonal = halfSize * Math.SQRT2;
+        const diagonal = Math.sqrt(halfWidth * halfWidth + halfHeight * halfHeight);
         return {
           minX: asset.x - diagonal,
           minY: asset.y - diagonal,
@@ -4207,6 +4208,33 @@ const Canvas = ({
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
+    // Check if clicking on a rotation handle - ALWAYS start rotation, never deselect
+    const target = e.target as HTMLElement;
+    const rotationHandle = target.closest('[data-rotation-handle]') as HTMLElement | null;
+    if (rotationHandle && selectedElementId) {
+      e.preventDefault();
+      e.stopPropagation();
+      const selectedEl = scene?.elements.find(el => el.id === selectedElementId);
+      if (selectedEl && selectedEl.type === 'asset') {
+        const asset = selectedEl as AssetElement;
+        const rect = containerRef.current?.getBoundingClientRect();
+        if (rect) {
+          const x = (e.clientX - rect.left - viewport.x) / viewport.zoom;
+          const y = (e.clientY - rect.top - viewport.y) / viewport.zoom;
+          saveToHistory();
+          const startAngle = Math.atan2(y - asset.y, x - asset.x) * (180 / Math.PI);
+          setRotatingElement({
+            id: asset.id,
+            startAngle,
+            centerX: asset.x,
+            centerY: asset.y,
+            initialRotation: asset.rotation || 0
+          });
+        }
+      }
+      return;
+    }
+
     // Clear selected vertex when clicking elsewhere (unless clicking on a vertex)
     // This will be set again if we click on a vertex
     const willClickVertex = hoveringVertex !== null;
@@ -4667,9 +4695,10 @@ const Canvas = ({
         const selectedEl = scene.elements.find(el => el.id === selectedElementId);
         if (selectedEl && selectedEl.type === 'asset') {
           const asset = selectedEl as AssetElement;
-          const halfSize = asset.size / 2;
-          const handleOffset = 20 / viewport.zoom;
-          const handleSize = 24 / viewport.zoom;
+          const halfWidth = asset.size / 2;
+          const halfHeight = (asset.height || asset.size) / 2;
+          const handleOffset = 25 / viewport.zoom;
+          const handleSize = 40 / viewport.zoom; // Match rendering handleSize for rotation
           const rotation = asset.rotation || 0;
           const rotationRad = (rotation * Math.PI) / 180;
           const cos = Math.cos(rotationRad);
@@ -4681,12 +4710,13 @@ const Canvas = ({
           });
           
           // Check rotation handles (outside corners)
-          const cornerDist = halfSize + handleOffset;
+          const cornerDistX = halfWidth + handleOffset;
+          const cornerDistY = halfHeight + handleOffset;
           const rotationCorners = [
-            { name: 'tl', ...rotatePoint(-cornerDist, -cornerDist) },
-            { name: 'tr', ...rotatePoint(cornerDist, -cornerDist) },
-            { name: 'bl', ...rotatePoint(-cornerDist, cornerDist) },
-            { name: 'br', ...rotatePoint(cornerDist, cornerDist) },
+            { name: 'tl', ...rotatePoint(-cornerDistX, -cornerDistY) },
+            { name: 'tr', ...rotatePoint(cornerDistX, -cornerDistY) },
+            { name: 'bl', ...rotatePoint(-cornerDistX, cornerDistY) },
+            { name: 'br', ...rotatePoint(cornerDistX, cornerDistY) },
           ];
           
           for (const corner of rotationCorners) {
@@ -4709,10 +4739,10 @@ const Canvas = ({
           // Check resize handles (at corners of asset)
           const resizeHandleSize = 12 / viewport.zoom;
           const resizeCorners = [
-            { name: 'nw', ...rotatePoint(-halfSize, -halfSize) },
-            { name: 'ne', ...rotatePoint(halfSize, -halfSize) },
-            { name: 'sw', ...rotatePoint(-halfSize, halfSize) },
-            { name: 'se', ...rotatePoint(halfSize, halfSize) },
+            { name: 'nw', ...rotatePoint(-halfWidth, -halfHeight) },
+            { name: 'ne', ...rotatePoint(halfWidth, -halfHeight) },
+            { name: 'sw', ...rotatePoint(-halfWidth, halfHeight) },
+            { name: 'se', ...rotatePoint(halfWidth, halfHeight) },
           ];
           
           for (const corner of resizeCorners) {
@@ -5179,19 +5209,33 @@ const Canvas = ({
         
         // Find parent modular room for binding (if any)
         const modularRooms = getModularRooms(scene.elements);
+        
+        // Use original dimensions if available
+        const assetWidth = selectedAsset.width || MODULAR_TILE_PX;
+        const assetHeight = selectedAsset.height || MODULAR_TILE_PX;
+        
+        // Asset position is the CENTER of the asset (x, y = center point)
+        // Click position is already where we want the center
+        const assetCenterX = x;
+        const assetCenterY = y;
+        
+        // Calculate top-left for room containment check
+        const assetTopLeft = { x: assetCenterX - assetWidth / 2, y: assetCenterY - assetHeight / 2 };
+        
         const parentRoom = modularRooms.find(room => {
           const roomRight = room.x + room.tilesW * MODULAR_TILE_PX;
           const roomBottom = room.y + room.tilesH * MODULAR_TILE_PX;
-          return x >= room.x && x <= roomRight &&
-                 y >= room.y && y <= roomBottom;
+          return assetTopLeft.x >= room.x && assetTopLeft.x <= roomRight &&
+                 assetTopLeft.y >= room.y && assetTopLeft.y <= roomBottom;
         });
         
         const newAsset: AssetElement = {
           id: `asset-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           type: 'asset',
-          x,
-          y,
-          size: MODULAR_TILE_PX,
+          x: assetCenterX,
+          y: assetCenterY,
+          size: assetWidth,
+          height: assetHeight,
           name: selectedAsset.name,
           imageUrl: selectedAsset.imageUrl,
           notes: '',
@@ -5199,7 +5243,7 @@ const Canvas = ({
           zIndex: Z_ASSETS,
           ...(parentRoom && {
             parentRoomId: parentRoom.id,
-            parentRoomOffset: { x: x - parentRoom.x, y: y - parentRoom.y }
+            parentRoomOffset: { x: assetTopLeft.x - parentRoom.x, y: assetTopLeft.y - parentRoom.y }
           })
         };
         
@@ -6186,13 +6230,27 @@ const Canvas = ({
         return;
       }
       
-      // Create the asset element
+      // Use original dimensions if available, otherwise default to 128px
+      const assetWidth = assetTemplate.width || MODULAR_TILE_PX;
+      const assetHeight = assetTemplate.height || MODULAR_TILE_PX;
+      
+      // Asset position is the CENTER of the asset (x, y = center point)
+      // Drop position is where we want the center
+      const assetCenterX = x;
+      const assetCenterY = y;
+      
+      // Calculate top-left for room containment check
+      const assetTopLeftX = assetCenterX - assetWidth / 2;
+      const assetTopLeftY = assetCenterY - assetHeight / 2;
+      
+      // Create the asset element - x, y is the CENTER
       const newAsset: AssetElement = {
         id: `asset-${Date.now()}`,
         type: 'asset',
-        x,
-        y,
-        size: MODULAR_TILE_PX, // Default size = one tile (128px)
+        x: assetCenterX,
+        y: assetCenterY,
+        size: assetWidth,
+        height: assetHeight,
         name: assetTemplate.name,
         imageUrl: assetTemplate.imageUrl,
         notes: '',
@@ -6206,12 +6264,12 @@ const Canvas = ({
         const parentRoom = modularRooms.find(room => {
           const roomRight = room.x + room.tilesW * MODULAR_TILE_PX;
           const roomBottom = room.y + room.tilesH * MODULAR_TILE_PX;
-          return x >= room.x && x <= roomRight && y >= room.y && y <= roomBottom;
+          return assetTopLeftX >= room.x && assetTopLeftX <= roomRight && assetTopLeftY >= room.y && assetTopLeftY <= roomBottom;
         });
         
         if (parentRoom) {
           (newAsset as any).parentRoomId = parentRoom.id;
-          (newAsset as any).parentRoomOffset = { x: x - parentRoom.x, y: y - parentRoom.y };
+          (newAsset as any).parentRoomOffset = { x: assetTopLeftX - parentRoom.x, y: assetTopLeftY - parentRoom.y };
         }
       }
       
@@ -8981,7 +9039,7 @@ const Canvas = ({
     const elementsWithIndex = elements.map((el, idx) => ({ element: el, originalIndex: idx }));
     
     // Sort elements by type-layer (highest first = check tokens before assets before walls)
-    // Then by array position (later = on top, check first)
+    // Then by zIndex (higher = on top), then by array position (later = on top, check first)
     const sortedElements = elementsWithIndex.sort((a, b) => {
       // Type layer: higher = rendered on top = check first
       const aTypeLayer = getTypeLayerOrder(a.element.type);
@@ -8989,7 +9047,13 @@ const Canvas = ({
       if (bTypeLayer !== aTypeLayer) {
         return bTypeLayer - aTypeLayer; // Higher type-layer first (tokens before assets)
       }
-      // Same type: later elements (higher index) are on top, check them first
+      // Same type: check zIndex first (higher zIndex = on top = check first)
+      const aZIndex = (a.element as any).zIndex || 0;
+      const bZIndex = (b.element as any).zIndex || 0;
+      if (bZIndex !== aZIndex) {
+        return bZIndex - aZIndex; // Higher zIndex first
+      }
+      // Same zIndex: later elements (higher index) are on top, check them first
       return b.originalIndex - a.originalIndex;
     });
 
@@ -9091,13 +9155,17 @@ const Canvas = ({
       } else if (element.type === 'asset') {
         // Handle asset elements - rectangle hit test with rotation
         const asset = element as AssetElement;
-        const halfSize = asset.size / 2;
+        const halfWidth = asset.size / 2;
+        const halfHeight = (asset.height || asset.size) / 2;
         const rotation = asset.rotation || 0;
+        
+        // Add a small margin for easier clicking (5px in world space)
+        const clickMargin = 5;
         
         if (rotation === 0) {
           // Simple rectangle check when not rotated
-          if (x >= asset.x - halfSize && x <= asset.x + halfSize &&
-              y >= asset.y - halfSize && y <= asset.y + halfSize) {
+          if (x >= asset.x - halfWidth - clickMargin && x <= asset.x + halfWidth + clickMargin &&
+              y >= asset.y - halfHeight - clickMargin && y <= asset.y + halfHeight + clickMargin) {
             return element;
           }
         } else {
@@ -9113,9 +9181,9 @@ const Canvas = ({
           const localX = dx * cos - dy * sin;
           const localY = dx * sin + dy * cos;
           
-          // Check if rotated point is inside unrotated rectangle
-          if (localX >= -halfSize && localX <= halfSize &&
-              localY >= -halfSize && localY <= halfSize) {
+          // Check if rotated point is inside unrotated rectangle (with margin)
+          if (localX >= -halfWidth - clickMargin && localX <= halfWidth + clickMargin &&
+              localY >= -halfHeight - clickMargin && localY <= halfHeight + clickMargin) {
             return element;
           }
         }
@@ -9683,7 +9751,11 @@ const Canvas = ({
                       const aTypeLayer = getTypeLayerOrder(a.element.type);
                       const bTypeLayer = getTypeLayerOrder(b.element.type);
                       if (aTypeLayer !== bTypeLayer) return aTypeLayer - bTypeLayer;
-                      // Same type: use array position (higher index = rendered on top)
+                      // Same type: sort by zIndex (higher = on top)
+                      const aZIndex = (a.element as any).zIndex || 0;
+                      const bZIndex = (b.element as any).zIndex || 0;
+                      if (aZIndex !== bZIndex) return aZIndex - bZIndex;
+                      // Same zIndex: use array position (higher index = rendered on top)
                       return a.originalIndex - b.originalIndex;
                     })
                     .map(({ element }) => (
@@ -9929,7 +10001,11 @@ const Canvas = ({
                   const aTypeLayer = getTypeLayerOrder(a.element.type);
                   const bTypeLayer = getTypeLayerOrder(b.element.type);
                   if (aTypeLayer !== bTypeLayer) return aTypeLayer - bTypeLayer;
-                  // Same type: use array position (higher index = rendered on top)
+                  // Same type: sort by zIndex (higher = on top)
+                  const aZIndex = (a.element as any).zIndex || 0;
+                  const bZIndex = (b.element as any).zIndex || 0;
+                  if (aZIndex !== bZIndex) return aZIndex - bZIndex;
+                  // Same zIndex: use array position (higher index = rendered on top)
                   return a.originalIndex - b.originalIndex;
                 })
                 .map(({ element }) => (
@@ -9939,6 +10015,7 @@ const Canvas = ({
                     isSelected={selectedElementId === element.id || selectedElementIds.includes(element.id)}
                     viewport={viewport}
                     showTokenBadges={showTokenBadges}
+                    viewMode={viewMode}
                   />
                 ))}
 
@@ -9950,6 +10027,7 @@ const Canvas = ({
                   viewport={viewport}
                   showTokenBadges={showTokenBadges}
                   renderLayer="full"
+                  viewMode={viewMode}
                 />
               )}
             </div>
@@ -11196,22 +11274,23 @@ const Canvas = ({
             )}
 
         {/* Drag-and-drop asset preview from right panel */}
-        {scene && draggingAsset && cursorPosition && (
+        {scene && draggingAsset && cursorPosition && (() => {
+              const previewWidth = draggingAsset.width || MODULAR_TILE_PX;
+              const previewHeight = draggingAsset.height || MODULAR_TILE_PX;
+              return (
               <div
                 style={{
                   position: 'absolute',
-                  left: viewport.x + cursorPosition.x * viewport.zoom - (MODULAR_TILE_PX / 2),
-                  top: viewport.y + cursorPosition.y * viewport.zoom - (MODULAR_TILE_PX / 2),
-                  width: MODULAR_TILE_PX,
-                  height: MODULAR_TILE_PX,
+                  left: viewport.x + cursorPosition.x * viewport.zoom - (previewWidth / 2) * viewport.zoom,
+                  top: viewport.y + cursorPosition.y * viewport.zoom - (previewHeight / 2) * viewport.zoom,
+                  width: previewWidth * viewport.zoom,
+                  height: previewHeight * viewport.zoom,
                   pointerEvents: 'none',
                   opacity: 0.8,
                   zIndex: 50,
                   border: '2px solid #60a5fa',
                   borderRadius: '4px',
                   backgroundColor: 'rgba(30, 41, 59, 0.5)',
-                  transform: `scale(${viewport.zoom})`,
-                  transformOrigin: 'center center',
                 }}
               >
                 <img 
@@ -11221,17 +11300,21 @@ const Canvas = ({
                   draggable={false} 
                 />
               </div>
-            )}
+              );
+            })()}
 
         {/* Asset stamp mode preview (Shift + asset tool + selectedAsset) */}
-        {scene && activeTool === 'asset' && selectedAsset && isShiftPressed && cursorPosition && !draggingAsset && !isCreating && (
+        {scene && activeTool === 'asset' && selectedAsset && isShiftPressed && cursorPosition && !draggingAsset && !isCreating && (() => {
+          const stampWidth = selectedAsset.width || MODULAR_TILE_PX;
+          const stampHeight = selectedAsset.height || MODULAR_TILE_PX;
+          return (
           <div
             style={{
               position: 'absolute',
-              left: viewport.x + cursorPosition.x * viewport.zoom - (MODULAR_TILE_PX / 2) * viewport.zoom,
-              top: viewport.y + cursorPosition.y * viewport.zoom - (MODULAR_TILE_PX / 2) * viewport.zoom,
-              width: MODULAR_TILE_PX * viewport.zoom,
-              height: MODULAR_TILE_PX * viewport.zoom,
+              left: viewport.x + cursorPosition.x * viewport.zoom - (stampWidth / 2) * viewport.zoom,
+              top: viewport.y + cursorPosition.y * viewport.zoom - (stampHeight / 2) * viewport.zoom,
+              width: stampWidth * viewport.zoom,
+              height: stampHeight * viewport.zoom,
               pointerEvents: 'none',
               opacity: 0.6,
               zIndex: 50,
@@ -11247,7 +11330,8 @@ const Canvas = ({
               draggable={false} 
             />
           </div>
-        )}
+          );
+        })()}
 
         {/* Modular Floor cursor preview */}
         {scene && activeTool === 'modularRoom' && placingModularFloor && cursorPosition && (
@@ -11807,9 +11891,10 @@ interface MapElementComponentProps {
   showTokenBadges: boolean;
   renderLayer?: 'floor' | 'walls' | 'full'; // Split room rendering into floor/walls layers
   selectedVertex?: { id: string; vertexIndex: number; holeIndex?: number } | null;
+  viewMode?: ViewMode; // For hiding selection outline in game mode
 }
 
-const MapElementComponent = ({ element, isSelected, viewport, showTokenBadges, renderLayer = 'full', selectedVertex = null }: MapElementComponentProps) => {
+const MapElementComponent = ({ element, isSelected, viewport, showTokenBadges, renderLayer = 'full', selectedVertex = null, viewMode = 'planning' }: MapElementComponentProps) => {
   const colorMap: Record<ColorType, string> = {
     red: '#ef4444',
     blue: '#3b82f6',
@@ -12157,9 +12242,10 @@ const MapElementComponent = ({ element, isSelected, viewport, showTokenBadges, r
     // Asset rendering - similar to image token but without circular crop
     const assetEl = element as AssetElement;
     const rotation = assetEl.rotation || 0;
-    const handleSize = 24 / viewport.zoom; // Larger hit area for easier clicking
-    const handleOffset = 20 / viewport.zoom; // Distance from corner for rotation handles
-    const halfSize = element.size / 2;
+    const handleSize = 60 / viewport.zoom; // Very large hit area for rotation handles
+    const handleOffset = 15 / viewport.zoom; // Closer to corner so it overlaps more with asset edge
+    const halfWidth = element.size / 2;
+    const halfHeight = (assetEl.height || element.size) / 2;
     
     // Calculate rotated corner positions for rotation handles
     const rotationRad = (rotation * Math.PI) / 180;
@@ -12173,11 +12259,12 @@ const MapElementComponent = ({ element, isSelected, viewport, showTokenBadges, r
     });
     
     // Corner positions (offset from center, then rotated)
-    const cornerDist = halfSize + handleOffset;
-    const tlPos = rotatePoint(-cornerDist, -cornerDist);
-    const trPos = rotatePoint(cornerDist, -cornerDist);
-    const blPos = rotatePoint(-cornerDist, cornerDist);
-    const brPos = rotatePoint(cornerDist, cornerDist);
+    const cornerDistX = halfWidth + handleOffset;
+    const cornerDistY = halfHeight + handleOffset;
+    const tlPos = rotatePoint(-cornerDistX, -cornerDistY);
+    const trPos = rotatePoint(cornerDistX, -cornerDistY);
+    const blPos = rotatePoint(-cornerDistX, cornerDistY);
+    const brPos = rotatePoint(cornerDistX, cornerDistY);
     
     return (
       <>
@@ -12185,10 +12272,10 @@ const MapElementComponent = ({ element, isSelected, viewport, showTokenBadges, r
         <div
           style={{
             position: 'absolute',
-            left: element.x - halfSize,
-            top: element.y - halfSize,
+            left: element.x - halfWidth,
+            top: element.y - halfHeight,
             width: element.size,
-            height: element.size,
+            height: assetEl.height || element.size,
             transform: rotation ? `rotate(${rotation}deg)` : undefined,
             transformOrigin: 'center center',
             pointerEvents: 'none',
@@ -12203,9 +12290,10 @@ const MapElementComponent = ({ element, isSelected, viewport, showTokenBadges, r
               style={{
                 width: '100%',
                 height: '100%',
-                border: isSelected 
+                outline: isSelected && viewMode === 'planning'
                   ? `${Math.max(2, element.size * 0.02)}px solid #22c55e` 
                   : 'none',
+                outlineOffset: '-1px',
                 objectFit: 'contain',
                 imageRendering: 'auto',
                 userSelect: 'none',
@@ -12252,10 +12340,10 @@ const MapElementComponent = ({ element, isSelected, viewport, showTokenBadges, r
           
           // Calculate rotated positions for resize handles
           const resizeCorners = [
-            { pos: rotatePoint(-halfSize, -halfSize), cursor: tlCursor },
-            { pos: rotatePoint(halfSize, -halfSize), cursor: trCursor },
-            { pos: rotatePoint(-halfSize, halfSize), cursor: blCursor },
-            { pos: rotatePoint(halfSize, halfSize), cursor: brCursor },
+            { pos: rotatePoint(-halfWidth, -halfHeight), cursor: tlCursor },
+            { pos: rotatePoint(halfWidth, -halfHeight), cursor: trCursor },
+            { pos: rotatePoint(-halfWidth, halfHeight), cursor: blCursor },
+            { pos: rotatePoint(halfWidth, halfHeight), cursor: brCursor },
           ];
           const resizeSize = 8 / viewport.zoom;
           

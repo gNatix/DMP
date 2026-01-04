@@ -96,6 +96,7 @@ export interface AssetElement {
   parentRoomId?: string; // Link to modular room - asset moves with room
   parentRoomOffset?: { x: number; y: number }; // Relative offset from room's top-left corner
   groupId?: string; // Permanent group ID - elements with same groupId move together
+  highlightColor?: ColorType; // Color for game mode highlight frame (like token aura)
 }
 
 // Legacy WallGap (deprecated - keeping for reference during migration)
@@ -501,6 +502,8 @@ export interface AssetTemplate {
   imageUrl: string;
   category: string; // Asset pack name (e.g., "tavern-essentials")
   download_url: string; // Full URL to asset image
+  width?: number; // Original image width in pixels
+  height?: number; // Original image height in pixels
 }
 
 export interface ViewportState {

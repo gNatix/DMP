@@ -38,6 +38,16 @@ interface AssetFile {
   download_url: string;
 }
 
+// Helper to get image dimensions
+const getImageDimensions = (url: string): Promise<{ width: number; height: number }> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+    img.onerror = reject;
+    img.src = url;
+  });
+};
+
 // Module-level cache
 let cachedCategories: AssetCategory[] | null = null;
 let assetsPromise: Promise<AssetCategory[]> | null = null;
@@ -80,26 +90,44 @@ async function loadAssetsFromServer(): Promise<AssetCategory[]> {
           )
         : [];
 
-      const assets: AssetTemplate[] = files.map(file => ({
-        id: `${categoryName}-${file.name}`,
-        name: file.name.split('.')[0]
-          .replace(/[_-]/g, ' ')              // Remove underscores and hyphens
-          .replace(/[\[\]()]/g, '')          // Remove brackets and parentheses
-          .replace(/\s+/g, ' ')               // Normalize multiple spaces
-          .trim(),                             // Remove leading/trailing spaces
-        imageUrl: file.download_url,
-        category: categoryName,
-        download_url: file.download_url,
-      }));
+      // Load image dimensions for each asset
+      const assetsWithDimensions: AssetTemplate[] = await Promise.all(
+        files.map(async (file) => {
+          const asset: AssetTemplate = {
+            id: `${categoryName}-${file.name}`,
+            name: file.name.split('.')[0]
+              .replace(/[_-]/g, ' ')
+              .replace(/[\[\]()]/g, '')
+              .replace(/\s+/g, ' ')
+              .trim(),
+            imageUrl: file.download_url,
+            category: categoryName,
+            download_url: file.download_url,
+          };
+          
+          // Get image dimensions
+          try {
+            const dimensions = await getImageDimensions(file.download_url);
+            asset.width = dimensions.width;
+            asset.height = dimensions.height;
+          } catch (err) {
+            // Use defaults if can't load dimensions
+            asset.width = 128;
+            asset.height = 128;
+          }
+          
+          return asset;
+        })
+      );
 
-      if (assets.length > 0) {
+      if (assetsWithDimensions.length > 0) {
         loadedCategories.push({
           name: categoryName,
           displayName: categoryName.split('-').map((word: string) => 
             word.charAt(0).toUpperCase() + word.slice(1)
           ).join(' '),
-          assets,
-          previewUrl: assets[0].imageUrl, // Use first image as category preview
+          assets: assetsWithDimensions,
+          previewUrl: assetsWithDimensions[0].imageUrl,
         });
       }
     }

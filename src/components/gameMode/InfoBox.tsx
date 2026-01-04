@@ -26,30 +26,35 @@ const InfoBox = ({ element, position, onClose, isLocked, onToggleLock, isPinned,
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
+  // Color map for display
+  const colorMap: Record<string, string> = {
+    red: '#ef4444',
+    blue: '#3b82f6',
+    yellow: '#eab308',
+    purple: '#a855f7',
+    orange: '#f97316',
+    pink: '#ec4899',
+    brown: '#92400e',
+    gray: '#6b7280',
+    black: '#000000',
+    white: '#ffffff',
+    cyan: '#06b6d4',
+    magenta: '#d946ef',
+    lime: '#84cc16',
+    indigo: '#6366f1',
+    teal: '#14b8a6',
+    green: '#22c55e'
+  };
+
   // Get border color based on element type and color
   const getBorderColor = () => {
     if (element.type === 'token' && element.color) {
-      const colorMap: Record<string, string> = {
-        red: '#ef4444',
-        blue: '#3b82f6',
-        yellow: '#eab308',
-        purple: '#a855f7',
-        orange: '#f97316',
-        pink: '#ec4899',
-        brown: '#92400e',
-        gray: '#6b7280',
-        black: '#000000',
-        white: '#ffffff',
-        cyan: '#06b6d4',
-        magenta: '#d946ef',
-        lime: '#84cc16',
-        indigo: '#6366f1',
-        teal: '#14b8a6',
-        green: '#22c55e'
-      };
       return colorMap[element.color] || '#3b82f6';
     }
-    return '#3b82f6'; // Default blue
+    if (element.type === 'asset' && (element as any).highlightColor) {
+      return colorMap[(element as any).highlightColor] || '#f59e0b';
+    }
+    return element.type === 'asset' ? '#f59e0b' : '#3b82f6'; // Default orange for assets, blue otherwise
   };
 
   const handleDragStart = (e: React.MouseEvent) => {

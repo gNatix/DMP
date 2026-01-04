@@ -282,13 +282,27 @@ function App() {
         // Restore active scene ONLY if user had one saved and it's not deleted
         if (settingsResult.settings.activeSceneId && !deletedSceneIds.has(settingsResult.settings.activeSceneId)) {
           const sceneExists = scenesResult.scenes?.some(s => s.id === settingsResult.settings!.activeSceneId);
+          console.log('[APP] Checking activeSceneId:', settingsResult.settings.activeSceneId, 'exists:', sceneExists, 'total scenes:', scenesResult.scenes?.length);
           if (sceneExists) {
+            console.log('[APP] Setting activeSceneId to:', settingsResult.settings.activeSceneId);
             setActiveSceneId(settingsResult.settings.activeSceneId);
+          } else {
+            console.log('[APP] Saved activeSceneId not found in loaded scenes!');
+            // Try to set first available scene
+            if (scenesResult.scenes && scenesResult.scenes.length > 0) {
+              console.log('[APP] Falling back to first scene:', scenesResult.scenes[0].id);
+              setActiveSceneId(scenesResult.scenes[0].id);
+            }
           }
-          // If saved scene doesn't exist anymore, leave activeSceneId as null
-          // User will need to manually select a scene from the Scenes tab
+        } else {
+          console.log('[APP] No valid activeSceneId in settings, checking for scenes...');
+          // No saved activeSceneId - try to set first scene
+          if (scenesResult.scenes && scenesResult.scenes.length > 0) {
+            console.log('[APP] Setting activeSceneId to first scene:', scenesResult.scenes[0].id);
+            setActiveSceneId(scenesResult.scenes[0].id);
+          }
         }
-        // If no saved activeSceneId, leave as null - user must choose
+        // If no scenes, leave as null - user must create one
       }
       // No settings saved yet - leave activeSceneId as null, user must choose a scene
     };
@@ -628,12 +642,28 @@ function App() {
 
   // Update element in active scene
   const updateElement = (elementId: string, updates: Partial<MapElement>) => {
-    if (!activeSceneId || !activeScene) return;
+    console.log('[App] updateElement called:', elementId, updates);
+    if (!activeSceneId || !activeScene) {
+      console.log('[App] updateElement: No active scene!');
+      return;
+    }
+    console.log('[App] Updating element in scene:', activeSceneId);
     updateScene(activeSceneId, {
       elements: activeScene.elements.map(e => 
         e.id === elementId ? { ...e, ...updates } as MapElement : e
       )
     });
+  };
+
+  // Handle color change from toolbox - also updates selected asset's highlightColor
+  const handleColorChange = (color: ColorType) => {
+    setActiveColor(color);
+    
+    // If an asset is selected, update its highlightColor
+    if (selectedElement && selectedElement.type === 'asset') {
+      console.log('[App] Updating asset highlightColor to:', color);
+      updateElement(selectedElement.id, { highlightColor: color } as Partial<MapElement>);
+    }
   };
 
   // Activate auto-created scene (called when first terrain brush is painted)
@@ -1143,7 +1173,7 @@ function App() {
         tokenTemplates={tokenTemplates}
         onSelectToken={handleSelectTokenFromPicker}
         selectedColor={activeColor}
-        onColorChange={setActiveColor}
+        onColorChange={handleColorChange}
         selectedFloorTexture={selectedFloorTexture}
         tileSize={tileSize}
         showWalls={showWalls}
@@ -1272,9 +1302,12 @@ function App() {
             if (!element || !element.playlistObject) return null;
             
             const infoBoxPos = infoBoxPositions.get(elementId) || getInfoBoxPosition(element);
+            // Get highlight color for assets to include in key for re-rendering
+            const assetHighlightColor = element.type === 'asset' ? (element as any).highlightColor : undefined;
+            console.log('[App] Rendering InfoBox for element:', elementId, 'type:', element.type, 'highlightColor:', assetHighlightColor);
             
             return (
-              <div key={elementId}>
+              <div key={`${elementId}-${assetHighlightColor || 'none'}`}>
                 <InfoBox
                   element={element}
                   position={infoBoxPos}
@@ -1291,12 +1324,14 @@ function App() {
                   }}
                 />
                 {/* Connector line between element and InfoBox */}
-                {element.type === 'token' && 'x' in element && 'y' in element && 'size' in element && (
+                {(element.type === 'token' || element.type === 'asset') && 'x' in element && 'y' in element && 'size' in element && (
                   <InfoBoxConnector
                     element={element}
                     infoBoxPosition={infoBoxPos}
                     elementScreenPosition={worldToScreen(element.x, element.y)}
                     elementSize={element.size}
+                    elementHeight={element.type === 'asset' ? (element as any).height : undefined}
+                    elementRotation={element.type === 'asset' ? ((element as any).rotation || 0) : 0}
                     viewport={viewport}
                   />
                 )}
