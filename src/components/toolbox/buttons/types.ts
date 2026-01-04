@@ -190,6 +190,14 @@ export interface ToolButtonConfig {
    */
   hasSubmenu: boolean;
   
+  /**
+   * required - Whether this button is essential and cannot be hidden
+   * true  = Button is always visible in toolbar (toggle disabled in settings)
+   * false = Button can be shown/hidden via settings (default)
+   * Example: Pointer tool is required, but Undo/Redo are not
+   */
+  required?: boolean;
+  
   // ========== ADVANCED SETTINGS ==========
   
   /**

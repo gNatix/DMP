@@ -704,10 +704,23 @@ const ScenesTab = ({
     );
   };
 
-  const uncategorizedScenes = scenes.filter(s => !s.collectionId && !isEmptyCanvas(s));
+  // Scenes without a collection OR with a collection ID that doesn't exist anymore
+  const uncategorizedScenes = scenes.filter(s => {
+    // No collection ID = uncategorized
+    if (!s.collectionId) return !isEmptyCanvas(s);
+    
+    // Has collection ID but collection doesn't exist = treat as uncategorized
+    const collectionExists = collections.some(c => c.id === s.collectionId);
+    if (!collectionExists) return !isEmptyCanvas(s);
+    
+    return false;
+  });
 
   // Helper function to check if a scene is an empty canvas that should be hidden
   function isEmptyCanvas(scene: Scene): boolean {
+    // NEVER hide the active scene - it should always be visible in the list
+    if (scene.id === activeSceneId) return false;
+    
     // Only hide auto-created canvases that are still empty
     if (!scene.isAutoCreated) return false;
     

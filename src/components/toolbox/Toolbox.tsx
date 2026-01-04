@@ -52,6 +52,7 @@ import ZoomButton, { zoomButtonConfig } from './buttons/ZoomButton';
 import UndoButton, { undoButtonConfig } from './buttons/UndoButton';
 import RedoButton, { redoButtonConfig } from './buttons/RedoButton';
 import DuplicateButton, { duplicateButtonConfig } from './buttons/DuplicateButton';
+import GroupButton, { groupButtonConfig } from './buttons/GroupButton';
 import DeleteButton, { deleteButtonConfig } from './buttons/DeleteButton';
 import LayerUpButton, { layerUpButtonConfig } from './buttons/LayerUpButton';
 import LayerDownButton, { layerDownButtonConfig } from './buttons/LayerDownButton';
@@ -78,6 +79,7 @@ interface ToolboxProps {
   onUndo: () => void;
   onRedo: () => void;
   onDuplicate: () => void;
+  onToggleGroup: () => void;
   onDelete: () => void;
   onLayerUp: () => void;
   onLayerDown: () => void;
@@ -86,6 +88,8 @@ interface ToolboxProps {
   canUndo: boolean;
   canRedo: boolean;
   hasSelection: boolean;
+  hasMultipleSelection: boolean;
+  isGrouped: boolean;  // True if selected elements are all in the same permanent group
   showTokenBadges: boolean;
   selectedTokenHasBadge: boolean;
   onToggleBadges: () => void;
@@ -147,6 +151,7 @@ const BUTTON_REGISTRY = [
   { component: UndoButton, config: undoButtonConfig },
   { component: RedoButton, config: redoButtonConfig },
   { component: DuplicateButton, config: duplicateButtonConfig },
+  { component: GroupButton, config: groupButtonConfig },
   { component: DeleteButton, config: deleteButtonConfig },
   { component: LayerUpButton, config: layerUpButtonConfig },
   { component: LayerDownButton, config: layerDownButtonConfig },
@@ -167,6 +172,7 @@ const Toolbox = (props: ToolboxProps) => {
     onUndo,
     onRedo,
     onDuplicate,
+    onToggleGroup,
     onDelete,
     onLayerUp,
     onLayerDown,
@@ -175,6 +181,8 @@ const Toolbox = (props: ToolboxProps) => {
     canUndo,
     canRedo,
     hasSelection,
+    hasMultipleSelection,
+    isGrouped,
     showTokenBadges,
     selectedTokenHasBadge,
     onToggleBadges,
@@ -817,22 +825,46 @@ const Toolbox = (props: ToolboxProps) => {
         }}
         className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-dm-panel border border-dm-border rounded-lg shadow-2xl p-2 flex items-center gap-1 z-50"
       >
-      {Object.keys(buttonsByCategory)
-        .sort((a, b) => {
-          const weightA = TOOLBOX_CONFIG.categoryOrderWeights[a] ?? 999;
-          const weightB = TOOLBOX_CONFIG.categoryOrderWeights[b] ?? 999;
-          return weightA - weightB;
-        })
-        .map((category, categoryIndex) => {
+      {(() => {
+        // Get sorted category keys
+        const sortedCategories = Object.keys(buttonsByCategory)
+          .sort((a, b) => {
+            const weightA = TOOLBOX_CONFIG.categoryOrderWeights[a] ?? 999;
+            const weightB = TOOLBOX_CONFIG.categoryOrderWeights[b] ?? 999;
+            return weightA - weightB;
+          });
+        
+        // Track which categories have visible buttons for separator logic
+        let previousCategoryHadVisibleButtons = false;
+        
+        return sortedCategories.map((category) => {
         const buttons = buttonsByCategory[category];
         
         if (!buttons || buttons.length === 0) return null;
+        
+        // Check if this category has any visible buttons (not hidden by user and not required)
+        const hasVisibleButtons = buttons.some(({ config }) => {
+          const isHiddenByUser = hiddenToolbarButtons.has(config.id);
+          const isRequired = config.required === true;
+          return isRequired || !isHiddenByUser;
+        });
+        
+        // Skip rendering entirely if no visible buttons
+        if (!hasVisibleButtons) return null;
+        
+        // Only show separator if both previous and current category have visible buttons
+        const showSeparator = TOOLBOX_CONFIG.showCategoryDividers && 
+          previousCategoryHadVisibleButtons && 
+          hasVisibleButtons;
+        
+        // Update tracker for next iteration
+        previousCategoryHadVisibleButtons = true;
 
         return (
           <div key={category} className="flex items-center gap-1">
-            {/* Render category divider */}
-            {TOOLBOX_CONFIG.showCategoryDividers && categoryIndex > 0 && (
-              <div className="w-px h-6 bg-dm-border mx-1"></div>
+            {/* Render category divider only if both categories have visible buttons */}
+            {showSeparator && (
+              <div className="w-px h-6 bg-dm-border mx-0.5"></div>
             )}
 
             {/* Render buttons in this category */}
@@ -937,6 +969,10 @@ const Toolbox = (props: ToolboxProps) => {
                   specificProps = { onDuplicate, hasSelection };
                   break;
 
+                case 'group':
+                  specificProps = { onToggleGroup, hasMultipleSelection, isGrouped };
+                  break;
+
                 case 'delete':
                   specificProps = { onDelete, hasSelection };
                   break;
@@ -1017,7 +1053,8 @@ const Toolbox = (props: ToolboxProps) => {
               }
 
               // Check if button is hidden by user settings
-              const isHiddenByUser = hiddenToolbarButtons.has(config.id);
+              // Required buttons cannot be hidden
+              const isHiddenByUser = hiddenToolbarButtons.has(config.id) && config.required !== true;
 
               return (
                 <div
@@ -1035,7 +1072,8 @@ const Toolbox = (props: ToolboxProps) => {
             })}
           </div>
         );
-      })}
+      });
+      })()}
       </div>
     </>
   );

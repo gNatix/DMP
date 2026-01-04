@@ -386,6 +386,11 @@ const LeftPanel = ({
                     ? selectedElement.name || ''
                     : selectedElement.type === 'asset'
                     ? selectedElement.name || ''
+                    : selectedElement.type === 'modularRoom'
+                    ? (() => {
+                        const modRoom = selectedElement as any;
+                        return modRoom.label || `Room ${modRoom.tilesW || '?'}x${modRoom.tilesH || '?'}`;
+                      })()
                     : (selectedElement.type === 'annotation' && 'label' in selectedElement) 
                     ? selectedElement.label || '' 
                     : ''
@@ -399,6 +404,8 @@ const LeftPanel = ({
                     updateElement(selectedElement.id, { name: e.target.value, hasCustomName: true });
                   } else if (selectedElement.type === 'asset') {
                     updateElement(selectedElement.id, { name: e.target.value });
+                  } else if (selectedElement.type === 'modularRoom') {
+                    updateElement(selectedElement.id, { label: e.target.value });
                   } else if (selectedElement.type === 'annotation') {
                     updateElement(selectedElement.id, { label: e.target.value });
                   }
@@ -412,6 +419,8 @@ const LeftPanel = ({
                     ? 'Wall name...'
                     : selectedElement.type === 'asset'
                     ? 'Asset name...'
+                    : selectedElement.type === 'modularRoom'
+                    ? 'Modular room label...'
                     : 'Element name...'
                 }
                 className="flex-1 text-lg font-semibold bg-dm-dark border border-dm-border text-gray-200 focus:outline-none focus:border-blue-500 rounded px-3 py-2 hover:border-gray-600 transition-colors"

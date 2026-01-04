@@ -19,6 +19,7 @@ export const assetButtonConfig: ToolButtonConfig = {
   
   tool: 'asset',
   hasSubmenu: false, // Assets are selected from right panel, not submenu
+  required: true,               // Drawing tools are essential
 };
 // ==========================================
 

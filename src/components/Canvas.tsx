@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
 import { Scene, MapElement, AnnotationElement, TokenElement, AssetElement, RoomElement, WallElement, ModularRoomElement, ToolType, IconType, ColorType, TokenTemplate, AssetTemplate, RoomSubTool, Point, TerrainTile, TerrainStamp, TerrainShapeMode, ViewMode, WallOpening, WallGroup, ModularRoomsState } from '../types';
-import { Circle, Square, Triangle, Star, Diamond, Heart, Skull, MapPin, Search, Eye, DoorOpen, Landmark, Footprints, Info, Gamepad2, StopCircle } from 'lucide-react';
+import { Circle, Square, Triangle, Star, Diamond, Heart, Skull, MapPin, Search, Eye, DoorOpen, Landmark, Footprints, Info, Gamepad2, StopCircle, AlertTriangle } from 'lucide-react';
 import Toolbox from './toolbox/Toolbox';
 import polygonClipping from 'polygon-clipping';
 import ModularRoomRenderer from './canvas/ModularRoomRenderer';
@@ -358,6 +358,22 @@ const Canvas = ({
   const [modularSelectionBox, setModularSelectionBox] = useState<{ startX: number; startY: number; endX: number; endY: number } | null>(null);
   const [assetSelectionBox, setAssetSelectionBox] = useState<{ startX: number; startY: number; endX: number; endY: number } | null>(null);
   const [draggedMultiple, setDraggedMultiple] = useState<{ offsetX: number; offsetY: number; initialOffsets?: Map<string, {x: number, y: number}> } | null>(null);
+  
+  // Group transform state
+  const [groupRotating, setGroupRotating] = useState<{
+    centerX: number;
+    centerY: number;
+    startAngle: number;
+    initialPositions: Map<string, { x: number; y: number; rotation?: number }>;
+  } | null>(null);
+  const [groupScaling, setGroupScaling] = useState<{
+    centerX: number;
+    centerY: number;
+    startDistance: number;
+    corner: 'tl' | 'tr' | 'bl' | 'br';
+    initialPositions: Map<string, { x: number; y: number; size?: number; width?: number; height?: number }>;
+  } | null>(null);
+  
   const [cursorPosition, setCursorPosition] = useState<{ x: number; y: number } | null>(null);
   const [hasInitializedViewport, setHasInitializedViewport] = useState(false);
   const [lastClickTime, setLastClickTime] = useState<number>(0);
@@ -383,6 +399,8 @@ const Canvas = ({
     roomId: string;
     startX: number;
     startY: number;
+    clickOffsetX: number; // Offset from room's top-left corner to click position
+    clickOffsetY: number;
   } | null>(null);
   const [shouldRotateMap, setShouldRotateMap] = useState(false);
   const [isErasing, setIsErasing] = useState(false);
@@ -415,6 +433,17 @@ const Canvas = ({
   const [wallCutterToolStart, setWallCutterToolStart] = useState<{ x: number; y: number } | null>(null);
   const [doorToolHoverState, setDoorToolHoverState] = useState<'none' | 'wall' | 'door'>('none');
   const [wallCutterToolEnd, setWallCutterToolEnd] = useState<{ x: number; y: number } | null>(null);
+  
+  // Delete confirmation dialog state
+  const [deleteConfirmDialog, setDeleteConfirmDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: React.ReactNode;
+    linkedTokens: TokenElement[];
+    linkedAssets: AssetElement[];
+    roomIds: string[];
+    onConfirm: (deleteLinked: boolean) => void;
+  } | null>(null);
 
   // Interior wall drawing state (ALT + click on room edge)
   const [interiorWallStart, setInteriorWallStart] = useState<{ x: number; y: number; roomId: string; edgeIndex: number } | null>(null);
@@ -443,6 +472,8 @@ const Canvas = ({
     delta: { x: number; y: number };             // Movement delta from original
     snappedToRoom: string | null;  // ID of room we snapped to (outside our group)
     sharedEdgeTiles: number;       // How many tiles shared (0 if free)
+    clickOffsetX: number;  // Offset from room's top-left corner to click position
+    clickOffsetY: number;
   } | null>(null);
   // Note: placingModularFloor is now passed as a prop from App.tsx
 
@@ -553,6 +584,11 @@ const Canvas = ({
       el.type === 'token' && (el as TokenElement).parentRoomId === roomId
     ) as TokenElement[];
     
+    // Update assets linked to this room - rotate their offset to match room rotation
+    const linkedAssets = scene.elements.filter(el => 
+      el.type === 'asset' && (el as AssetElement).parentRoomId === roomId
+    ) as AssetElement[];
+    
     const elementUpdates = new Map<string, Partial<MapElement>>();
     
     // Update the room itself
@@ -599,6 +635,38 @@ const Canvas = ({
       elementUpdates.set(token.id, {
         x: newTokenX,
         y: newTokenY,
+        parentRoomOffset: { x: newOffsetX, y: newOffsetY },
+      });
+    }
+    
+    // Update each linked asset - rotate offset to compensate for room rotation
+    for (const asset of linkedAssets) {
+      if (!asset.parentRoomOffset) continue;
+      
+      const oldOffsetX = asset.parentRoomOffset.x;
+      const oldOffsetY = asset.parentRoomOffset.y;
+      
+      let newOffsetX: number;
+      let newOffsetY: number;
+      
+      // Transform offset based on rotation direction (same logic as tokens)
+      if (direction === 'right') {
+        // Rotate 90° clockwise
+        newOffsetX = oldHeightPx - oldOffsetY;
+        newOffsetY = oldOffsetX;
+      } else {
+        // Rotate 90° counter-clockwise
+        newOffsetX = oldOffsetY;
+        newOffsetY = oldWidthPx - oldOffsetX;
+      }
+      
+      // Calculate new absolute position
+      const newAssetX = newX + newOffsetX;
+      const newAssetY = newY + newOffsetY;
+      
+      elementUpdates.set(asset.id, {
+        x: newAssetX,
+        y: newAssetY,
         parentRoomOffset: { x: newOffsetX, y: newOffsetY },
       });
     }
@@ -1581,11 +1649,9 @@ const Canvas = ({
     }
   };
 
-  const handleDelete = () => {
+  // Actual delete execution after confirmation
+  const executeDelete = (idsToDelete: string[], deleteLinkedElements: boolean = false) => {
     if (!scene || !activeSceneId) return;
-    
-    const idsToDelete = selectedElementIds.length > 0 ? selectedElementIds : selectedElementId ? [selectedElementId] : [];
-    if (idsToDelete.length === 0) return;
     
     saveToHistory();
     
@@ -1594,9 +1660,44 @@ const Canvas = ({
       const el = scene.elements.find(e => e.id === id);
       return el?.type === 'modularRoom';
     });
+
+    // Find linked tokens and assets to these rooms
+    const linkedTokenIds: string[] = [];
+    const linkedAssetIds: string[] = [];
     
+    if (deleteLinkedElements) {
+      for (const roomId of modularRoomsToDelete) {
+        scene.elements.forEach(el => {
+          if (el.type === 'token' && (el as TokenElement).parentRoomId === roomId) {
+            linkedTokenIds.push(el.id);
+          }
+          if (el.type === 'asset' && (el as AssetElement).parentRoomId === roomId) {
+            linkedAssetIds.push(el.id);
+          }
+        });
+      }
+    } else {
+      // Unlink tokens and assets from deleted rooms (clear parentRoomId)
+      // This will be handled in the updateScene call below
+    }
+
+    // Combine all ids to delete
+    const allIdsToDelete = [...idsToDelete, ...linkedTokenIds, ...linkedAssetIds];
+
     // Start with elements after deletion
-    let updatedElements = scene.elements.filter(e => !idsToDelete.includes(e.id));
+    let updatedElements = scene.elements.filter(e => !allIdsToDelete.includes(e.id));
+    
+    // If not deleting linked elements, unlink them from the deleted rooms
+    if (!deleteLinkedElements && modularRoomsToDelete.length > 0) {
+      updatedElements = updatedElements.map(el => {
+        if ((el.type === 'token' || el.type === 'asset') && 
+            modularRoomsToDelete.includes((el as TokenElement | AssetElement).parentRoomId || '')) {
+          return { ...el, parentRoomId: undefined, parentRoomOffset: undefined } as MapElement;
+        }
+        return el;
+      });
+    }
+
     let updatedWallGroups = scene.modularRoomsState?.wallGroups || [];
     
     if (modularRoomsToDelete.length > 0) {
@@ -1688,6 +1789,220 @@ const Canvas = ({
     setSelectedElementIds([]);
   };
 
+  const handleDelete = () => {
+    if (!scene || !activeSceneId) return;
+    
+    const idsToDelete = selectedElementIds.length > 0 ? selectedElementIds : selectedElementId ? [selectedElementId] : [];
+    if (idsToDelete.length === 0) return;
+    
+    // Check for modular rooms being deleted
+    const modularRoomsToDelete = idsToDelete.filter(id => {
+      const el = scene.elements.find(e => e.id === id);
+      return el?.type === 'modularRoom';
+    });
+
+    // Check if any modular rooms have linked tokens or assets
+    if (modularRoomsToDelete.length > 0) {
+      const linkedTokens: TokenElement[] = [];
+      const linkedAssets: AssetElement[] = [];
+      
+      for (const roomId of modularRoomsToDelete) {
+        scene.elements.forEach(el => {
+          if (el.type === 'token' && (el as TokenElement).parentRoomId === roomId) {
+            linkedTokens.push(el as TokenElement);
+          }
+          if (el.type === 'asset' && (el as AssetElement).parentRoomId === roomId) {
+            linkedAssets.push(el as AssetElement);
+          }
+        });
+      }
+
+      // If there are linked elements, show confirmation dialog
+      if (linkedTokens.length > 0 || linkedAssets.length > 0) {
+        const tokenCount = linkedTokens.length;
+        const assetCount = linkedAssets.length;
+        const itemList: string[] = [];
+        if (tokenCount > 0) itemList.push(`${tokenCount} token${tokenCount > 1 ? 's' : ''}`);
+        if (assetCount > 0) itemList.push(`${assetCount} asset${assetCount > 1 ? 's' : ''}`);
+        
+        setDeleteConfirmDialog({
+          isOpen: true,
+          title: 'Delete Room with Linked Elements',
+          message: (
+            <div>
+              <p>This room has {itemList.join(' and ')} linked to it.</p>
+              <p className="mt-2">What would you like to do?</p>
+            </div>
+          ),
+          linkedTokens,
+          linkedAssets,
+          roomIds: modularRoomsToDelete,
+          onConfirm: (deleteLinked: boolean) => {
+            executeDelete(idsToDelete, deleteLinked);
+            setDeleteConfirmDialog(null);
+          }
+        });
+        return;
+      }
+    }
+
+    // No linked elements or not deleting modular rooms - proceed directly
+    executeDelete(idsToDelete, false);
+  };
+
+  // Toggle permanent group for selected elements (Ctrl+G)
+  const handleToggleGroup = () => {
+    if (!scene || !activeSceneId) return;
+    
+    const selectedIds = selectedElementIds.length > 0 
+      ? selectedElementIds 
+      : selectedElementId 
+        ? [selectedElementId] 
+        : [];
+    
+    // Need at least 2 elements to create a group, or 1 to ungroup
+    if (selectedIds.length === 0) return;
+    
+    const selectedElements = scene.elements.filter(el => selectedIds.includes(el.id));
+    if (selectedElements.length === 0) return;
+    
+    // Check if all selected elements are already in a group
+    const groupIds = new Set<string>();
+    let allHaveSameGroup = true;
+    let firstGroupId: string | undefined;
+    
+    selectedElements.forEach(el => {
+      const groupId = (el as TokenElement | AssetElement).groupId;
+      if (groupId) {
+        groupIds.add(groupId);
+        if (firstGroupId === undefined) {
+          firstGroupId = groupId;
+        } else if (firstGroupId !== groupId) {
+          allHaveSameGroup = false;
+        }
+      } else {
+        allHaveSameGroup = false;
+      }
+    });
+    
+    saveToHistory();
+    
+    if (allHaveSameGroup && firstGroupId && groupIds.size === 1) {
+      // All elements have the same groupId - UNGROUP them
+      const updatedElements = scene.elements.map(el => {
+        if (selectedIds.includes(el.id)) {
+          const { groupId, ...rest } = el as TokenElement | AssetElement;
+          return rest as MapElement;
+        }
+        return el;
+      });
+      
+      updateScene(activeSceneId, { elements: updatedElements });
+      console.log('[handleToggleGroup] Ungrouped', selectedIds.length, 'elements');
+    } else if (selectedIds.length >= 2) {
+      // Create a new group
+      const newGroupId = `group-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      
+      const updatedElements = scene.elements.map(el => {
+        if (selectedIds.includes(el.id) && (el.type === 'token' || el.type === 'asset')) {
+          return { ...el, groupId: newGroupId } as MapElement;
+        }
+        return el;
+      });
+      
+      updateScene(activeSceneId, { elements: updatedElements });
+      console.log('[handleToggleGroup] Created group', newGroupId, 'with', selectedIds.length, 'elements');
+    }
+  };
+
+  // ========== LAYER SYSTEM UTILITIES ==========
+  // Type-based layer order (lower = rendered first/behind)
+  const getTypeLayerOrder = (type: string): number => {
+    switch (type) {
+      case 'room': return 0;        // Legacy rooms (rarely used)
+      case 'modularRoom': return 1; // Modular rooms structure
+      case 'wall': return 2;        // Walls
+      case 'asset': return 3;       // Assets (furniture, objects)
+      case 'token': return 4;       // Tokens (characters, monsters)
+      case 'annotation': return 4;  // Annotations (same layer as tokens - they're from token menu)
+      default: return 3;
+    }
+  };
+
+  // Get bounding box for any element
+  const getElementBounds = (el: MapElement): { minX: number; minY: number; maxX: number; maxY: number } | null => {
+    if (el.type === 'token' || el.type === 'annotation') {
+      const elem = el as TokenElement | AnnotationElement;
+      const halfSize = elem.size / 2;
+      return {
+        minX: elem.x - halfSize,
+        minY: elem.y - halfSize,
+        maxX: elem.x + halfSize,
+        maxY: elem.y + halfSize
+      };
+    } else if (el.type === 'asset') {
+      const asset = el as AssetElement;
+      const halfSize = asset.size / 2;
+      // For rotated assets, use a bounding box that covers all rotations
+      // This is a simplification - a rotated square's bounding box is larger
+      const rotation = asset.rotation || 0;
+      if (rotation === 0) {
+        return {
+          minX: asset.x - halfSize,
+          minY: asset.y - halfSize,
+          maxX: asset.x + halfSize,
+          maxY: asset.y + halfSize
+        };
+      } else {
+        // For rotated elements, use diagonal as bounding box
+        const diagonal = halfSize * Math.SQRT2;
+        return {
+          minX: asset.x - diagonal,
+          minY: asset.y - diagonal,
+          maxX: asset.x + diagonal,
+          maxY: asset.y + diagonal
+        };
+      }
+    } else if (el.type === 'modularRoom') {
+      const room = el as ModularRoomElement;
+      const rect = getRoomPixelRect(room);
+      return {
+        minX: rect.x,
+        minY: rect.y,
+        maxX: rect.x + rect.w,
+        maxY: rect.y + rect.h
+      };
+    } else if (el.type === 'room') {
+      const room = el as RoomElement;
+      if (room.vertices && room.vertices.length > 0) {
+        const xs = room.vertices.map(v => v.x);
+        const ys = room.vertices.map(v => v.y);
+        return {
+          minX: Math.min(...xs),
+          minY: Math.min(...ys),
+          maxX: Math.max(...xs),
+          maxY: Math.max(...ys)
+        };
+      }
+    }
+    return null;
+  };
+
+  // Check if two elements overlap
+  const elementsOverlap = (el1: MapElement, el2: MapElement): boolean => {
+    const bounds1 = getElementBounds(el1);
+    const bounds2 = getElementBounds(el2);
+    if (!bounds1 || !bounds2) return false;
+    
+    // AABB intersection test
+    return !(bounds1.maxX < bounds2.minX || 
+             bounds1.minX > bounds2.maxX || 
+             bounds1.maxY < bounds2.minY || 
+             bounds1.minY > bounds2.maxY);
+  };
+
+  // ========== END LAYER SYSTEM UTILITIES ==========
+
   const handleLayerUp = () => {
     if (!scene || !activeSceneId) return;
     const selectedIds = selectedElementIds.length > 0 
@@ -1699,21 +2014,43 @@ const Canvas = ({
     if (selectedIds.length === 0) return;
 
     saveToHistory();
-    const updatedElements = scene.elements.map(el => {
-      if (selectedIds.includes(el.id)) {
-        const currentZ = (el as any).zIndex || 0;
-        const newZ = currentZ + 1;
-        // Rooms stay in range -200 to -1, tokens/others stay in range 0+
-        if (el.type === 'room') {
-          return { ...el, zIndex: Math.min(newZ, -1) };
-        } else {
-          return { ...el, zIndex: Math.max(newZ, 0) };
-        }
+    
+    // Get all elements as mutable array
+    let elements = [...scene.elements];
+    
+    // Process each selected element
+    for (const selectedId of selectedIds) {
+      const currentIndex = elements.findIndex(el => el.id === selectedId);
+      if (currentIndex === -1) continue;
+      
+      const selectedElement = elements[currentIndex];
+      const selectedType = selectedElement.type;
+      
+      // Find overlapping elements of SAME TYPE that are ABOVE this one in the array
+      const overlappingAbove = elements
+        .map((el, idx) => ({ element: el, index: idx }))
+        .filter(({ element, index }) => 
+          index > currentIndex &&                    // Above in array (rendered on top)
+          element.type === selectedType &&           // Same type
+          elementsOverlap(element, selectedElement)  // Actually overlapping
+        )
+        .sort((a, b) => a.index - b.index);          // Sort by index (nearest first)
+      
+      if (overlappingAbove.length === 0) {
+        // No overlapping element above - already at top among overlapping same-type elements
+        continue;
       }
-      return el;
-    });
+      
+      // Move to just AFTER the nearest overlapping element
+      const targetIndex = overlappingAbove[0].index;
+      
+      // Remove from current position
+      elements.splice(currentIndex, 1);
+      // Insert after target (targetIndex is now adjusted because we removed one element before it if currentIndex < targetIndex)
+      elements.splice(targetIndex, 0, selectedElement);
+    }
 
-    updateScene(activeSceneId, { elements: updatedElements });
+    updateScene(activeSceneId, { elements });
   };
 
   const handleLayerDown = () => {
@@ -1727,21 +2064,43 @@ const Canvas = ({
     if (selectedIds.length === 0) return;
 
     saveToHistory();
-    const updatedElements = scene.elements.map(el => {
-      if (selectedIds.includes(el.id)) {
-        const currentZ = (el as any).zIndex || 0;
-        const newZ = currentZ - 1;
-        // Rooms stay in range -200 to -1, tokens/others stay in range 0+
-        if (el.type === 'room') {
-          return { ...el, zIndex: Math.max(newZ, -200) };
-        } else {
-          return { ...el, zIndex: Math.max(newZ, 0) };
-        }
+    
+    // Get all elements as mutable array
+    let elements = [...scene.elements];
+    
+    // Process each selected element (in reverse to handle multiple selections correctly)
+    for (const selectedId of selectedIds) {
+      const currentIndex = elements.findIndex(el => el.id === selectedId);
+      if (currentIndex === -1) continue;
+      
+      const selectedElement = elements[currentIndex];
+      const selectedType = selectedElement.type;
+      
+      // Find overlapping elements of SAME TYPE that are BELOW this one in the array
+      const overlappingBelow = elements
+        .map((el, idx) => ({ element: el, index: idx }))
+        .filter(({ element, index }) => 
+          index < currentIndex &&                    // Below in array (rendered behind)
+          element.type === selectedType &&           // Same type
+          elementsOverlap(element, selectedElement)  // Actually overlapping
+        )
+        .sort((a, b) => b.index - a.index);          // Sort by index descending (nearest first)
+      
+      if (overlappingBelow.length === 0) {
+        // No overlapping element below - already at bottom among overlapping same-type elements
+        continue;
       }
-      return el;
-    });
+      
+      // Move to just BEFORE the nearest overlapping element
+      const targetIndex = overlappingBelow[0].index;
+      
+      // Remove from current position
+      elements.splice(currentIndex, 1);
+      // Insert before target
+      elements.splice(targetIndex, 0, selectedElement);
+    }
 
-    updateScene(activeSceneId, { elements: updatedElements });
+    updateScene(activeSceneId, { elements });
   };
 
   // Check if two rooms overlap or touch (considering wall thickness)
@@ -2900,6 +3259,13 @@ const Canvas = ({
         if (toCopy.length > 0) {
           setClipboard(JSON.parse(JSON.stringify(toCopy)));
         }
+        return;
+      }
+
+      // Toggle Group (Ctrl+G)
+      if (e.ctrlKey && e.key === 'g') {
+        e.preventDefault();
+        handleToggleGroup();
         return;
       }
 
@@ -4415,6 +4781,8 @@ const Canvas = ({
               roomId: modRoom.id,
               startX: x,
               startY: y,
+              clickOffsetX: x - modRoom.x,
+              clickOffsetY: y - modRoom.y,
             });
             return; // Don't use draggedMultiple
           }
@@ -4508,6 +4876,38 @@ const Canvas = ({
             // Tokens require explicit unlock via InfoBox (checked via locked property above)
           }
           
+          // Check if element is part of a permanent group
+          const clickedGroupId = (clickedElement as TokenElement | AssetElement).groupId;
+          if (clickedGroupId && !e.ctrlKey) {
+            // Select all elements in this group
+            const groupElements = scene.elements.filter(el => 
+              (el as TokenElement | AssetElement).groupId === clickedGroupId
+            );
+            
+            if (groupElements.length > 1) {
+              setSelectedElementId(clickedElement.id);
+              setSelectedElementIds(groupElements.map(el => el.id));
+              
+              // Start multi-drag for the group
+              const dragOffsets = new Map<string, {x: number, y: number}>();
+              groupElements.forEach(el => {
+                let elX = 0, elY = 0;
+                if (el.type === 'token') {
+                  elX = (el as TokenElement).x;
+                  elY = (el as TokenElement).y;
+                } else if (el.type === 'asset') {
+                  elX = (el as AssetElement).x;
+                  elY = (el as AssetElement).y;
+                }
+                dragOffsets.set(el.id, { x: x - elX, y: y - elY });
+              });
+              
+              saveToHistory();
+              setDraggedMultiple({ offsetX: x, offsetY: y, initialOffsets: dragOffsets });
+              return;
+            }
+          }
+          
           // Regular click: Select single and start dragging
           setSelectedElementId(clickedElement.id);
           setSelectedElementIds([]);
@@ -4547,6 +4947,8 @@ const Canvas = ({
               roomId: modRoom.id,
               startX: x,
               startY: y,
+              clickOffsetX: x - modRoom.x,
+              clickOffsetY: y - modRoom.y,
             });
             return; // Don't continue to setDraggedElement
           } else if (clickedElement.type === 'wall') {
@@ -5435,6 +5837,8 @@ const Canvas = ({
             roomId: modRoom.id,
             startX: x,
             startY: y,
+            clickOffsetX: x - modRoom.x,
+            clickOffsetY: y - modRoom.y,
           });
         } else {
           // Normal click on unselected room - select only this room
@@ -5446,6 +5850,8 @@ const Canvas = ({
             roomId: modRoom.id,
             startX: x,
             startY: y,
+            clickOffsetX: x - modRoom.x,
+            clickOffsetY: y - modRoom.y,
           });
         }
         
@@ -5894,6 +6300,77 @@ const Canvas = ({
     const x = (e.clientX - rect.left - viewport.x) / viewport.zoom;
     const y = (e.clientY - rect.top - viewport.y) / viewport.zoom;
 
+    // Handle group rotation
+    if (groupRotating && scene) {
+      const currentAngle = Math.atan2(y - groupRotating.centerY, x - groupRotating.centerX);
+      const angleDelta = currentAngle - groupRotating.startAngle;
+      const angleDeltaDeg = (angleDelta * 180) / Math.PI;
+      
+      const updatedElements = scene.elements.map(el => {
+        const initial = groupRotating.initialPositions.get(el.id);
+        if (!initial) return el;
+        
+        // Rotate position around center
+        const dx = initial.x - groupRotating.centerX;
+        const dy = initial.y - groupRotating.centerY;
+        const cos = Math.cos(angleDelta);
+        const sin = Math.sin(angleDelta);
+        const newX = groupRotating.centerX + dx * cos - dy * sin;
+        const newY = groupRotating.centerY + dx * sin + dy * cos;
+        
+        if (el.type === 'asset') {
+          // Asset x,y is CENTER point - update position and rotation
+          let newRotation = ((initial.rotation || 0) + angleDeltaDeg) % 360;
+          if (newRotation < 0) newRotation += 360;
+          return { 
+            ...el, 
+            x: newX, 
+            y: newY, 
+            rotation: newRotation 
+          } as MapElement;
+        }
+        return el;
+      });
+      
+      updateScene(activeSceneId!, { elements: updatedElements });
+      return;
+    }
+    
+    // Handle group scaling
+    if (groupScaling && scene) {
+      const currentDistance = Math.hypot(x - groupScaling.centerX, y - groupScaling.centerY);
+      const scale = currentDistance / groupScaling.startDistance;
+      
+      const updatedElements = scene.elements.map(el => {
+        const initial = groupScaling.initialPositions.get(el.id);
+        if (!initial) return el;
+        
+        // Scale position relative to center (both tokens and assets use center point for x,y)
+        const dx = initial.x - groupScaling.centerX;
+        const dy = initial.y - groupScaling.centerY;
+        const newX = groupScaling.centerX + dx * scale;
+        const newY = groupScaling.centerY + dy * scale;
+        
+        if (el.type === 'token') {
+          const newSize = Math.max(10, (initial.size || 40) * scale);
+          return { ...el, x: newX, y: newY, size: newSize } as MapElement;
+        } else if (el.type === 'asset') {
+          // Asset x,y is CENTER point (same as token)
+          const newSize = Math.max(10, (initial.size || 50) * scale);
+          return { 
+            ...el, 
+            x: newX, 
+            y: newY, 
+            size: newSize
+          } as MapElement;
+        }
+        return el;
+      });
+      
+      updateScene(activeSceneId!, { elements: updatedElements });
+      return;
+    }
+
     // Check if mouse is over left or right panel (by screen coordinates)
     // This is needed because Canvas receives mouse events even when panels overlay it
     const screenX = e.clientX;
@@ -5985,15 +6462,13 @@ const Canvas = ({
             }
           }
           
-          // Start "carrying" the group - center primary room under cursor
-          const roomWidthPx = modRoom.tilesW * MODULAR_TILE_PX;
-          const roomHeightPx = modRoom.tilesH * MODULAR_TILE_PX;
-          const centeredX = x - roomWidthPx / 2;
-          const centeredY = y - roomHeightPx / 2;
+          // Start "carrying" the group - keep room at same offset from cursor as when clicked
+          const targetX = x - pendingModularRoomDrag.clickOffsetX;
+          const targetY = y - pendingModularRoomDrag.clickOffsetY;
           
           // Calculate snap position - exclude all rooms in our group from snap targets
           const otherRooms = allModularRooms.filter(r => !groupRoomIds.includes(r.id));
-          const snapResult = findMagneticSnapPosition(modRoom, centeredX, centeredY, otherRooms);
+          const snapResult = findMagneticSnapPosition(modRoom, targetX, targetY, otherRooms);
           
           // Calculate snap delta from original position
           const snapDeltaX = snapResult.x - modRoom.x;
@@ -6006,10 +6481,12 @@ const Canvas = ({
             groupAssetIds,
             originalPositions,
             ghostPosition: { x: snapResult.x, y: snapResult.y },
-            cursorPosition: { x: centeredX, y: centeredY },
+            cursorPosition: { x: targetX, y: targetY },
             delta: { x: snapDeltaX, y: snapDeltaY },
             snappedToRoom: snapResult.snappedToRoom,
             sharedEdgeTiles: snapResult.sharedEdgeTiles,
+            clickOffsetX: pendingModularRoomDrag.clickOffsetX,
+            clickOffsetY: pendingModularRoomDrag.clickOffsetY,
           });
         }
         setPendingModularRoomDrag(null);
@@ -6265,16 +6742,14 @@ const Canvas = ({
       // Update carried modular room GROUP position (works with any tool)
       const room = scene.elements.find(el => el.id === modularRoomDragPreview.roomId) as ModularRoomElement | undefined;
       if (room) {
-        // Center primary room under cursor
-        const roomWidthPx = room.tilesW * MODULAR_TILE_PX;
-        const roomHeightPx = room.tilesH * MODULAR_TILE_PX;
-        const centeredX = x - roomWidthPx / 2;
-        const centeredY = y - roomHeightPx / 2;
+        // Keep room at same offset from cursor as when clicked
+        const targetX = x - modularRoomDragPreview.clickOffsetX;
+        const targetY = y - modularRoomDragPreview.clickOffsetY;
         
         // Get other rooms for magnetic snap - exclude all rooms in our group
         const allModularRooms = getModularRooms(scene.elements);
         const otherRooms = allModularRooms.filter(r => !modularRoomDragPreview.groupRoomIds.includes(r.id));
-        const snapResult = findMagneticSnapPosition(room, centeredX, centeredY, otherRooms);
+        const snapResult = findMagneticSnapPosition(room, targetX, targetY, otherRooms);
         
         // Calculate delta from original position of primary room
         const originalPos = modularRoomDragPreview.originalPositions.get(room.id);
@@ -6284,7 +6759,7 @@ const Canvas = ({
         setModularRoomDragPreview({
           ...modularRoomDragPreview,
           ghostPosition: { x: snapResult.x, y: snapResult.y },
-          cursorPosition: { x: centeredX, y: centeredY },
+          cursorPosition: { x: targetX, y: targetY },
           delta: { x: deltaX, y: deltaY },
           snappedToRoom: snapResult.snappedToRoom,
           sharedEdgeTiles: snapResult.sharedEdgeTiles,
@@ -6923,6 +7398,18 @@ const Canvas = ({
   };
 
   const handleMouseUp = async () => {
+    // Handle group rotation end
+    if (groupRotating) {
+      setGroupRotating(null);
+      return;
+    }
+    
+    // Handle group scaling end
+    if (groupScaling) {
+      setGroupScaling(null);
+      return;
+    }
+    
     // Handle pending modular room drag - if mouse released without moving, just select
     if (pendingModularRoomDrag) {
       // Mouse was released without moving enough to start drag - just select the room
@@ -7542,6 +8029,75 @@ const Canvas = ({
           updateElement(token.id, { parentRoomOffset: newParentRoomOffset });
         }
       }
+      
+      // Update asset's parentRoomId and offset when an asset drag ends
+      if (element && element.type === 'asset') {
+        const asset = element as AssetElement;
+        const modularRooms = getModularRooms(scene.elements);
+        
+        // Find if asset is now inside any modular room
+        const newParentRoom = modularRooms.find(room => {
+          const roomLeft = room.x;
+          const roomRight = room.x + room.tilesW * MODULAR_TILE_PX;
+          const roomTop = room.y;
+          const roomBottom = room.y + room.tilesH * MODULAR_TILE_PX;
+          return asset.x >= roomLeft && asset.x <= roomRight && 
+                 asset.y >= roomTop && asset.y <= roomBottom;
+        });
+        
+        const newParentRoomId = newParentRoom?.id || undefined;
+        
+        // Calculate offset from room's top-left corner (if inside a room)
+        const newParentRoomOffset = newParentRoom 
+          ? { x: asset.x - newParentRoom.x, y: asset.y - newParentRoom.y }
+          : undefined;
+        
+        // Only update if parentRoomId changed
+        if (asset.parentRoomId !== newParentRoomId) {
+          console.log('[ASSET] Updating parentRoomId:', asset.parentRoomId?.slice(-8) || 'none', '->', newParentRoomId?.slice(-8) || 'none');
+          updateElement(asset.id, { 
+            parentRoomId: newParentRoomId,
+            parentRoomOffset: newParentRoomOffset,
+          });
+        } else if (newParentRoom && newParentRoomOffset) {
+          // Same room, but update offset (asset was dragged within room)
+          updateElement(asset.id, { parentRoomOffset: newParentRoomOffset });
+        }
+      }
+    }
+    
+    // Update multi-dragged assets' parentRoomId and offset
+    if (draggedMultiple && scene && selectedElementIds.length > 0) {
+      const modularRooms = getModularRooms(scene.elements);
+      
+      selectedElementIds.forEach(id => {
+        const element = scene.elements.find(el => el.id === id);
+        if (element && element.type === 'asset') {
+          const asset = element as AssetElement;
+          
+          // Find if asset is now inside any modular room
+          const newParentRoom = modularRooms.find(room => {
+            const roomLeft = room.x;
+            const roomRight = room.x + room.tilesW * MODULAR_TILE_PX;
+            const roomTop = room.y;
+            const roomBottom = room.y + room.tilesH * MODULAR_TILE_PX;
+            return asset.x >= roomLeft && asset.x <= roomRight && 
+                   asset.y >= roomTop && asset.y <= roomBottom;
+          });
+          
+          const newParentRoomId = newParentRoom?.id || undefined;
+          const newParentRoomOffset = newParentRoom 
+            ? { x: asset.x - newParentRoom.x, y: asset.y - newParentRoom.y }
+            : undefined;
+          
+          if (asset.parentRoomId !== newParentRoomId || (newParentRoom && newParentRoomOffset)) {
+            updateElement(asset.id, { 
+              parentRoomId: newParentRoomId,
+              parentRoomOffset: newParentRoomOffset,
+            });
+          }
+        }
+      });
     }
 
     // Clear drag/resize/rotate states
@@ -8421,15 +8977,24 @@ const Canvas = ({
   };
 
   const findElementAtPosition = (x: number, y: number, elements: MapElement[]): MapElement | null => {
-    // Sort elements by z-index (highest first) to check top elements first
-    const sortedElements = [...elements].sort((a, b) => {
-      const aZ = (a as any).zIndex || 0;
-      const bZ = (b as any).zIndex || 0;
-      return bZ - aZ; // Descending order (highest z-index first)
+    // Create array with original indices to preserve render order
+    const elementsWithIndex = elements.map((el, idx) => ({ element: el, originalIndex: idx }));
+    
+    // Sort elements by type-layer (highest first = check tokens before assets before walls)
+    // Then by array position (later = on top, check first)
+    const sortedElements = elementsWithIndex.sort((a, b) => {
+      // Type layer: higher = rendered on top = check first
+      const aTypeLayer = getTypeLayerOrder(a.element.type);
+      const bTypeLayer = getTypeLayerOrder(b.element.type);
+      if (bTypeLayer !== aTypeLayer) {
+        return bTypeLayer - aTypeLayer; // Higher type-layer first (tokens before assets)
+      }
+      // Same type: later elements (higher index) are on top, check them first
+      return b.originalIndex - a.originalIndex;
     });
 
     for (let i = 0; i < sortedElements.length; i++) {
-      const element = sortedElements[i];
+      const element = sortedElements[i].element;
       
       // Handle room elements (polygon-based) - for selection only
       if (element.type === 'room') {
@@ -8522,6 +9087,37 @@ const Canvas = ({
         
         if (x >= rect.x && x <= rect.x + rect.w && y >= rect.y && y <= rect.y + rect.h) {
           return element;
+        }
+      } else if (element.type === 'asset') {
+        // Handle asset elements - rectangle hit test with rotation
+        const asset = element as AssetElement;
+        const halfSize = asset.size / 2;
+        const rotation = asset.rotation || 0;
+        
+        if (rotation === 0) {
+          // Simple rectangle check when not rotated
+          if (x >= asset.x - halfSize && x <= asset.x + halfSize &&
+              y >= asset.y - halfSize && y <= asset.y + halfSize) {
+            return element;
+          }
+        } else {
+          // Transform click point to asset's local coordinate system
+          const cos = Math.cos(-rotation * Math.PI / 180);
+          const sin = Math.sin(-rotation * Math.PI / 180);
+          
+          // Translate point relative to asset center
+          const dx = x - asset.x;
+          const dy = y - asset.y;
+          
+          // Rotate point
+          const localX = dx * cos - dy * sin;
+          const localY = dx * sin + dy * cos;
+          
+          // Check if rotated point is inside unrotated rectangle
+          if (localX >= -halfSize && localX <= halfSize &&
+              localY >= -halfSize && localY <= halfSize) {
+            return element;
+          }
         }
       } else if ('x' in element && 'y' in element && 'size' in element) {
         // Handle circular elements (annotations and tokens)
@@ -8814,6 +9410,17 @@ const Canvas = ({
         }}
         onDrop={handleDrop}
       >
+        {/* Empty state - no scene selected */}
+        {!scene && (
+          <div className="w-full h-full flex items-center justify-center bg-dm-dark">
+            <div className="text-center text-gray-500">
+              <div className="text-6xl mb-4">🗺️</div>
+              <div className="text-xl font-medium mb-2">No Map Selected</div>
+              <div className="text-sm">Create a new map or canvas from the left panel</div>
+            </div>
+          </div>
+        )}
+        
         {/* ...no token submenu rendered... */}
         {scene && (() => {
           // Check if this is canvas mode (transparent background SVG)
@@ -9050,8 +9657,10 @@ const Canvas = ({
                   }}
                 >
                   {/* Other elements (wall elements, tokens, annotations, etc.) */}
+                  {/* Sorted by type-layer first, then by array position (later = on top) */}
                   {scene.elements
-                    .filter(el => {
+                    .map((el, originalIndex) => ({ element: el, originalIndex }))
+                    .filter(({ element: el }) => {
                       if (el.type === 'room') return false;
                       // Hide tokens that are linked to ANY room in the drag group (they're shown in the ghost preview)
                       if (el.type === 'token' && modularRoomDragPreview) {
@@ -9070,16 +9679,14 @@ const Canvas = ({
                       return true;
                     })
                     .sort((a, b) => {
-                      const getLayerOffset = (el: MapElement) => {
-                        if (el.type === 'wall') return 0;
-                        return 0; // All at same level within this layer
-                      };
-                      const aLayer = getLayerOffset(a);
-                      const bLayer = getLayerOffset(b);
-                      if (aLayer !== bLayer) return aLayer - bLayer;
-                      return ((a as any).zIndex || 0) - ((b as any).zIndex || 0);
+                      // Sort by type-layer first (walls < assets < tokens < annotations)
+                      const aTypeLayer = getTypeLayerOrder(a.element.type);
+                      const bTypeLayer = getTypeLayerOrder(b.element.type);
+                      if (aTypeLayer !== bTypeLayer) return aTypeLayer - bTypeLayer;
+                      // Same type: use array position (higher index = rendered on top)
+                      return a.originalIndex - b.originalIndex;
                     })
-                    .map(element => (
+                    .map(({ element }) => (
                       <MapElementComponent
                         key={element.id}
                         element={element}
@@ -9296,8 +9903,10 @@ const Canvas = ({
             {/* Layer 6: TOKENS & OTHER ELEMENTS */}
             <div style={{ position: 'relative', zIndex: Z_TOKENS }}>
               {/* Other elements (wall elements, tokens, annotations, etc.) */}
+              {/* Sorted by type-layer first, then by array position (later = on top) */}
               {scene.elements
-                .filter(el => {
+                .map((el, originalIndex) => ({ element: el, originalIndex }))
+                .filter(({ element: el }) => {
                   if (el.type === 'room') return false;
                   // Hide tokens that are linked to ANY room in the drag group (they're shown in the ghost preview)
                   if (el.type === 'token' && modularRoomDragPreview) {
@@ -9316,16 +9925,14 @@ const Canvas = ({
                   return true;
                 })
                 .sort((a, b) => {
-                  const getLayerOffset = (el: MapElement) => {
-                    if (el.type === 'wall') return 0;
-                    return 0; // All at same level within this layer
-                  };
-                  const aLayer = getLayerOffset(a);
-                  const bLayer = getLayerOffset(b);
-                  if (aLayer !== bLayer) return aLayer - bLayer;
-                  return ((a as any).zIndex || 0) - ((b as any).zIndex || 0);
+                  // Sort by type-layer first (walls < assets < tokens < annotations)
+                  const aTypeLayer = getTypeLayerOrder(a.element.type);
+                  const bTypeLayer = getTypeLayerOrder(b.element.type);
+                  if (aTypeLayer !== bTypeLayer) return aTypeLayer - bTypeLayer;
+                  // Same type: use array position (higher index = rendered on top)
+                  return a.originalIndex - b.originalIndex;
                 })
-                .map(element => (
+                .map(({ element }) => (
                   <MapElementComponent
                     key={element.id}
                     element={element}
@@ -10080,6 +10687,291 @@ const Canvas = ({
               />
             )}
 
+        {/* Multi-selection group bounding box with transform handles */}
+        {scene && selectedElementIds.length > 1 && !draggedMultiple && !groupRotating && !groupScaling && (() => {
+          // Calculate bounding box of all selected elements
+          const selectedElements = scene.elements.filter(el => selectedElementIds.includes(el.id));
+          if (selectedElements.length === 0) return null;
+          
+          let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+          
+          selectedElements.forEach(el => {
+            if (el.type === 'token') {
+              const token = el as TokenElement;
+              const size = token.size || 40;
+              // Token x,y is center point
+              const left = token.x - size / 2;
+              const top = token.y - size / 2;
+              const right = token.x + size / 2;
+              const bottom = token.y + size / 2;
+              minX = Math.min(minX, left);
+              minY = Math.min(minY, top);
+              maxX = Math.max(maxX, right);
+              maxY = Math.max(maxY, bottom);
+            } else if (el.type === 'asset') {
+              const asset = el as AssetElement;
+              const assetSize = asset.size || 50;
+              // Asset x,y is CENTER point (same as token)
+              const halfSize = assetSize / 2;
+              minX = Math.min(minX, asset.x - halfSize);
+              minY = Math.min(minY, asset.y - halfSize);
+              maxX = Math.max(maxX, asset.x + halfSize);
+              maxY = Math.max(maxY, asset.y + halfSize);
+            } else if (el.type === 'modularRoom') {
+              const room = el as ModularRoomElement;
+              const rect = getRoomPixelRect(room);
+              minX = Math.min(minX, rect.x);
+              minY = Math.min(minY, rect.y);
+              maxX = Math.max(maxX, rect.x + rect.w);
+              maxY = Math.max(maxY, rect.y + rect.h);
+            } else if (el.type === 'room') {
+              const room = el as RoomElement;
+              if (room.vertices && room.vertices.length > 0) {
+                room.vertices.forEach(v => {
+                  minX = Math.min(minX, v.x);
+                  minY = Math.min(minY, v.y);
+                  maxX = Math.max(maxX, v.x);
+                  maxY = Math.max(maxY, v.y);
+                });
+              }
+            } else if (el.type === 'annotation') {
+              const annotation = el as AnnotationElement;
+              const size = annotation.size || 30;
+              minX = Math.min(minX, annotation.x - size / 2);
+              minY = Math.min(minY, annotation.y - size / 2);
+              maxX = Math.max(maxX, annotation.x + size / 2);
+              maxY = Math.max(maxY, annotation.y + size / 2);
+            }
+          });
+          
+          if (!isFinite(minX) || !isFinite(minY) || !isFinite(maxX) || !isFinite(maxY)) return null;
+          
+          // Check if ALL selected elements are assets (rotation only works for assets)
+          const allAssets = selectedElements.every(el => el.type === 'asset');
+          
+          const padding = 8; // Small padding around the group
+          
+          const boxLeft = minX - padding;
+          const boxTop = minY - padding;
+          const boxWidth = (maxX - minX) + padding * 2;
+          const boxHeight = (maxY - minY) + padding * 2;
+          
+          // Calculate group center (in world coordinates)
+          const groupCenterX = (minX + maxX) / 2;
+          const groupCenterY = (minY + maxY) / 2;
+          
+          // Small handles like regular selection (6px)
+          const handleSize = 6;
+          
+          // Convert world coordinates to screen coordinates
+          const screenLeft = viewport.x + boxLeft * viewport.zoom;
+          const screenTop = viewport.y + boxTop * viewport.zoom;
+          const screenWidth = boxWidth * viewport.zoom;
+          const screenHeight = boxHeight * viewport.zoom;
+          
+          // Handler for starting group scaling from a corner
+          const startGroupScaling = (corner: 'tl' | 'tr' | 'bl' | 'br', e: React.MouseEvent) => {
+            e.stopPropagation();
+            e.preventDefault();
+            
+            // Calculate distance from center to mouse in world coordinates
+            const mouseX = (e.clientX - viewport.x) / viewport.zoom;
+            const mouseY = (e.clientY - viewport.y) / viewport.zoom;
+            const startDistance = Math.hypot(mouseX - groupCenterX, mouseY - groupCenterY);
+            
+            // Store initial positions and sizes for all selected elements
+            const initialPositions = new Map<string, { x: number; y: number; size?: number; width?: number; height?: number }>();
+            selectedElements.forEach(el => {
+              if (el.type === 'token') {
+                const token = el as TokenElement;
+                initialPositions.set(el.id, { x: token.x, y: token.y, size: token.size || 40 });
+              } else if (el.type === 'asset') {
+                const asset = el as AssetElement;
+                initialPositions.set(el.id, { x: asset.x, y: asset.y, size: asset.size || 50 });
+              }
+            });
+            
+            saveToHistory();
+            setGroupScaling({
+              centerX: groupCenterX,
+              centerY: groupCenterY,
+              startDistance,
+              corner,
+              initialPositions
+            });
+          };
+          
+          // Handler for starting group rotation (only for assets)
+          const startGroupRotation = (e: React.MouseEvent) => {
+            e.stopPropagation();
+            e.preventDefault();
+            
+            // Calculate starting angle from center to mouse in world coordinates
+            const mouseX = (e.clientX - viewport.x) / viewport.zoom;
+            const mouseY = (e.clientY - viewport.y) / viewport.zoom;
+            const startAngle = Math.atan2(mouseY - groupCenterY, mouseX - groupCenterX);
+            
+            // Store initial positions and rotations for all selected assets
+            const initialPositions = new Map<string, { x: number; y: number; rotation?: number }>();
+            selectedElements.forEach(el => {
+              if (el.type === 'asset') {
+                const asset = el as AssetElement;
+                initialPositions.set(el.id, { x: asset.x, y: asset.y, rotation: asset.rotation || 0 });
+              }
+            });
+            
+            saveToHistory();
+            setGroupRotating({
+              centerX: groupCenterX,
+              centerY: groupCenterY,
+              startAngle,
+              initialPositions
+            });
+          };
+          
+          // Rotation cursor (same as for individual assets)
+          const rotateCursor = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'><path d='M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2'/></svg>") 12 12, grabbing`;
+          
+          // Rotation handle size and offset (distance from corners)
+          const rotationHandleSize = 20;
+          const rotationHandleOffset = 12;
+          
+          return (
+            <div
+              style={{
+                position: 'absolute',
+                left: screenLeft,
+                top: screenTop,
+                width: screenWidth,
+                height: screenHeight,
+                border: '2px dashed #22c55e',
+                pointerEvents: 'none',
+                zIndex: 1000,
+                boxSizing: 'border-box'
+              }}
+            >
+              {/* Rotation zones at corners - only shown when all elements are assets */}
+              {allAssets && (
+                <>
+                  {/* Top-left rotation zone */}
+                  <div
+                    onMouseDown={startGroupRotation}
+                    style={{
+                      position: 'absolute',
+                      left: -rotationHandleOffset - rotationHandleSize,
+                      top: -rotationHandleOffset - rotationHandleSize,
+                      width: rotationHandleSize,
+                      height: rotationHandleSize,
+                      cursor: rotateCursor,
+                      pointerEvents: 'auto'
+                    }}
+                  />
+                  {/* Top-right rotation zone */}
+                  <div
+                    onMouseDown={startGroupRotation}
+                    style={{
+                      position: 'absolute',
+                      right: -rotationHandleOffset - rotationHandleSize,
+                      top: -rotationHandleOffset - rotationHandleSize,
+                      width: rotationHandleSize,
+                      height: rotationHandleSize,
+                      cursor: rotateCursor,
+                      pointerEvents: 'auto'
+                    }}
+                  />
+                  {/* Bottom-left rotation zone */}
+                  <div
+                    onMouseDown={startGroupRotation}
+                    style={{
+                      position: 'absolute',
+                      left: -rotationHandleOffset - rotationHandleSize,
+                      bottom: -rotationHandleOffset - rotationHandleSize,
+                      width: rotationHandleSize,
+                      height: rotationHandleSize,
+                      cursor: rotateCursor,
+                      pointerEvents: 'auto'
+                    }}
+                  />
+                  {/* Bottom-right rotation zone */}
+                  <div
+                    onMouseDown={startGroupRotation}
+                    style={{
+                      position: 'absolute',
+                      right: -rotationHandleOffset - rotationHandleSize,
+                      bottom: -rotationHandleOffset - rotationHandleSize,
+                      width: rotationHandleSize,
+                      height: rotationHandleSize,
+                      cursor: rotateCursor,
+                      pointerEvents: 'auto'
+                    }}
+                  />
+                </>
+              )}
+              {/* Corner handles - small white squares like regular selection */}
+              {/* Top-left */}
+              <div
+                onMouseDown={(e) => startGroupScaling('tl', e)}
+                style={{
+                  position: 'absolute',
+                  left: -handleSize / 2,
+                  top: -handleSize / 2,
+                  width: handleSize,
+                  height: handleSize,
+                  backgroundColor: '#fff',
+                  border: '1px solid #22c55e',
+                  pointerEvents: 'auto',
+                  cursor: 'nwse-resize'
+                }}
+              />
+              {/* Top-right */}
+              <div
+                onMouseDown={(e) => startGroupScaling('tr', e)}
+                style={{
+                  position: 'absolute',
+                  right: -handleSize / 2,
+                  top: -handleSize / 2,
+                  width: handleSize,
+                  height: handleSize,
+                  backgroundColor: '#fff',
+                  border: '1px solid #22c55e',
+                  pointerEvents: 'auto',
+                  cursor: 'nesw-resize'
+                }}
+              />
+              {/* Bottom-left */}
+              <div
+                onMouseDown={(e) => startGroupScaling('bl', e)}
+                style={{
+                  position: 'absolute',
+                  left: -handleSize / 2,
+                  bottom: -handleSize / 2,
+                  width: handleSize,
+                  height: handleSize,
+                  backgroundColor: '#fff',
+                  border: '1px solid #22c55e',
+                  pointerEvents: 'auto',
+                  cursor: 'nesw-resize'
+                }}
+              />
+              {/* Bottom-right */}
+              <div
+                onMouseDown={(e) => startGroupScaling('br', e)}
+                style={{
+                  position: 'absolute',
+                  right: -handleSize / 2,
+                  bottom: -handleSize / 2,
+                  width: handleSize,
+                  height: handleSize,
+                  backgroundColor: '#fff',
+                  border: '1px solid #22c55e',
+                  pointerEvents: 'auto',
+                  cursor: 'nwse-resize'
+                }}
+              />
+            </div>
+          );
+        })()}
+
         {/* Merge Rooms Button - works for both canvas and maps */}
         {scene && (() => {
               
@@ -10308,16 +11200,18 @@ const Canvas = ({
               <div
                 style={{
                   position: 'absolute',
-                  left: viewport.x + cursorPosition.x * viewport.zoom - (MODULAR_TILE_PX / 2) * viewport.zoom,
-                  top: viewport.y + cursorPosition.y * viewport.zoom - (MODULAR_TILE_PX / 2) * viewport.zoom,
-                  width: MODULAR_TILE_PX * viewport.zoom,
-                  height: MODULAR_TILE_PX * viewport.zoom,
+                  left: viewport.x + cursorPosition.x * viewport.zoom - (MODULAR_TILE_PX / 2),
+                  top: viewport.y + cursorPosition.y * viewport.zoom - (MODULAR_TILE_PX / 2),
+                  width: MODULAR_TILE_PX,
+                  height: MODULAR_TILE_PX,
                   pointerEvents: 'none',
                   opacity: 0.8,
                   zIndex: 50,
                   border: '2px solid #60a5fa',
                   borderRadius: '4px',
                   backgroundColor: 'rgba(30, 41, 59, 0.5)',
+                  transform: `scale(${viewport.zoom})`,
+                  transformOrigin: 'center center',
                 }}
               >
                 <img 
@@ -10563,6 +11457,59 @@ const Canvas = ({
         );
       })()}
 
+      {/* Delete Confirmation Dialog for Modular Rooms with linked tokens/assets */}
+      {deleteConfirmDialog?.isOpen && (
+        <div 
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50"
+          onClick={() => setDeleteConfirmDialog(null)}
+        >
+          <div 
+            className="bg-dm-panel border border-dm-border rounded-lg shadow-2xl p-6 max-w-md w-full mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-semibold text-white mb-2 flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-yellow-500" />
+              {deleteConfirmDialog.title}
+            </h3>
+            <div className="text-gray-300 text-sm mb-4">
+              {deleteConfirmDialog.message}
+            </div>
+            <div className="text-gray-400 text-xs mb-4">
+              {deleteConfirmDialog.linkedTokens.length > 0 && (
+                <div>• {deleteConfirmDialog.linkedTokens.length} token{deleteConfirmDialog.linkedTokens.length > 1 ? 's' : ''}</div>
+              )}
+              {deleteConfirmDialog.linkedAssets.length > 0 && (
+                <div>• {deleteConfirmDialog.linkedAssets.length} asset{deleteConfirmDialog.linkedAssets.length > 1 ? 's' : ''}</div>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setDeleteConfirmDialog(null)}
+                className="flex-1 px-4 py-2 bg-dm-dark hover:bg-dm-border text-gray-300 hover:text-white rounded transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  deleteConfirmDialog.onConfirm(false);
+                }}
+                className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
+              >
+                Keep Elements
+              </button>
+              <button
+                onClick={() => {
+                  deleteConfirmDialog.onConfirm(true);
+                }}
+                className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded transition-colors"
+              >
+                Delete All
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Debug Panel - Top Right (left of right panel) */}
       {(() => {
         const modularRooms = scene ? getModularRooms(scene.elements) : [];
@@ -10627,6 +11574,7 @@ const Canvas = ({
         onUndo={undo}
         onRedo={redo}
         onDuplicate={handleDuplicate}
+        onToggleGroup={handleToggleGroup}
         onDelete={handleDelete}
         onLayerUp={handleLayerUp}
         onLayerDown={handleLayerDown}
@@ -10635,6 +11583,27 @@ const Canvas = ({
         canUndo={historyIndex > 0}
         canRedo={historyIndex < history.length - 1}
         hasSelection={selectedElementId !== null || selectedElementIds.length > 0}
+        hasMultipleSelection={selectedElementIds.length >= 2}
+        isGrouped={(() => {
+          // Check if selected elements are all in the same permanent group
+          if (!scene) return false;
+          const selectedIds = selectedElementIds.length > 0 
+            ? selectedElementIds 
+            : selectedElementId 
+              ? [selectedElementId] 
+              : [];
+          if (selectedIds.length === 0) return false;
+          
+          const selectedElements = scene.elements.filter(el => selectedIds.includes(el.id));
+          if (selectedElements.length === 0) return false;
+          
+          const firstGroupId = (selectedElements[0] as TokenElement | AssetElement).groupId;
+          if (!firstGroupId) return false;
+          
+          return selectedElements.every(el => 
+            (el as TokenElement | AssetElement).groupId === firstGroupId
+          );
+        })()}
         showTokenBadges={showTokenBadges}
         selectedTokenHasBadge={
           selectedElementId && scene

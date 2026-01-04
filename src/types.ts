@@ -73,6 +73,7 @@ export interface TokenElement {
   playlistObject?: boolean; // Display in game mode playlist
   parentRoomId?: string; // Link to modular room - token moves with room
   parentRoomOffset?: { x: number; y: number }; // Relative offset from room's top-left corner
+  groupId?: string; // Permanent group ID - elements with same groupId move together
 }
 
 export interface AssetElement {
@@ -81,6 +82,7 @@ export interface AssetElement {
   x: number;
   y: number;
   size: number;
+  height?: number; // Optional height for non-square assets
   name: string;
   imageUrl: string;
   notes: string;
@@ -93,6 +95,7 @@ export interface AssetElement {
   playlistObject?: boolean; // Display in game mode playlist
   parentRoomId?: string; // Link to modular room - asset moves with room
   parentRoomOffset?: { x: number; y: number }; // Relative offset from room's top-left corner
+  groupId?: string; // Permanent group ID - elements with same groupId move together
 }
 
 // Legacy WallGap (deprecated - keeping for reference during migration)

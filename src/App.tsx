@@ -9,8 +9,9 @@ import InfoBox from './components/gameMode/InfoBox';
 import InfoBoxConnector from './components/gameMode/InfoBoxConnector';
 import LoginDialog from './components/LoginDialog';
 import { useAuth } from './auth/AuthContext';
-import { saveSceneToSupabase, loadScenesFromSupabase, deleteSceneFromSupabase } from './services/sceneService';
+import { saveSceneToSupabase, loadScenesFromSupabase } from './services/sceneService';
 import { saveUserSettings, loadUserSettings } from './services/userSettingsService';
+import { moveSceneToTrash, moveCollectionToTrash, getDeletedItemIds } from './services/deletedItemsService';
 
 // Generate UUID v4
 const generateUUID = (): string => {
@@ -35,6 +36,9 @@ function App() {
   const [scenes, setScenes] = useState<Scene[]>([]);
   const [activeSceneId, setActiveSceneId] = useState<string | null>(null);
   const [hasLoadedFromCloud, setHasLoadedFromCloud] = useState(false);
+  
+  // Track if we just loaded from cloud (to skip auto-save immediately after load)
+  const justLoadedFromCloudRef = useRef(false);
   
   // Collection state
   const [collections, setCollections] = useState<Collection[]>([]);
@@ -209,32 +213,56 @@ function App() {
     const loadUserData = async () => {
       console.log('[APP] Loading user data from cloud for user:', user.id);
       
-      // Load scenes and settings in parallel
-      const [scenesResult, settingsResult] = await Promise.all([
+      // Set flag to prevent auto-save from running immediately after load
+      justLoadedFromCloudRef.current = true;
+      
+      // Load scenes, settings, AND deleted item IDs in parallel
+      const [scenesResult, settingsResult, deletedResult] = await Promise.all([
         loadScenesFromSupabase(user.id),
         loadUserSettings(user.id),
+        getDeletedItemIds(user.id),
       ]);
       
       // Mark as loaded from cloud (even on error, don't retry)
       setHasLoadedFromCloud(true);
+      
+      // Get deleted IDs for filtering
+      const { deletedSceneIds, deletedCollectionIds } = deletedResult;
 
-      // Handle scenes
+      // Handle scenes - filter out any that are in deleted_items
       if (scenesResult.error) {
         console.error('[APP] Failed to load cloud scenes:', scenesResult.error);
       } else if (scenesResult.scenes && scenesResult.scenes.length > 0) {
-        console.log('[APP] Loaded', scenesResult.scenes.length, 'scenes from cloud');
-        setScenes(scenesResult.scenes);
+        const filteredScenes = scenesResult.scenes.filter(s => !deletedSceneIds.has(s.id));
+        console.log('[APP] Loaded', filteredScenes.length, 'scenes from cloud (filtered', scenesResult.scenes.length - filteredScenes.length, 'deleted)');
+        setScenes(filteredScenes);
       }
 
-      // Handle settings (collections, active scene, etc.)
+      // Handle settings (collections, active scene, etc.) - filter out deleted collections
       if (settingsResult.error) {
         console.error('[APP] Failed to load user settings:', settingsResult.error);
       } else if (settingsResult.settings) {
         console.log('[APP] Loaded user settings from cloud');
         
-        // Restore collections
+        // Restore collections - filter out any that are in deleted_items
         if (settingsResult.settings.collections.length > 0) {
-          setCollections(settingsResult.settings.collections);
+          const filteredCollections = settingsResult.settings.collections.filter(
+            c => !deletedCollectionIds.has(c.id)
+          );
+          console.log('[APP] Loaded', filteredCollections.length, 'collections (filtered', 
+            settingsResult.settings.collections.length - filteredCollections.length, 'deleted)');
+          setCollections(filteredCollections);
+          
+          // If we filtered out collections, save the updated list immediately
+          if (filteredCollections.length < settingsResult.settings.collections.length) {
+            console.log('[APP] Saving cleaned up collections list');
+            await saveUserSettings(user.id, {
+              collections: filteredCollections,
+              activeSceneId: settingsResult.settings.activeSceneId,
+              hiddenToolbarButtons: settingsResult.settings.hiddenToolbarButtons,
+              customKeybinds: settingsResult.settings.customKeybinds,
+            }, user.handle, user.authProvider);
+          }
         }
         
         // Restore hidden toolbar buttons
@@ -251,9 +279,8 @@ function App() {
         // Each scene should center itself when opened based on its map dimensions.
         // Restoring a global viewport causes issues when switching between scenes.
         
-        // Restore active scene ONLY if user had one saved - don't auto-select first scene
-        // This prevents issues where a corrupted scene auto-loads and blocks the user
-        if (settingsResult.settings.activeSceneId) {
+        // Restore active scene ONLY if user had one saved and it's not deleted
+        if (settingsResult.settings.activeSceneId && !deletedSceneIds.has(settingsResult.settings.activeSceneId)) {
           const sceneExists = scenesResult.scenes?.some(s => s.id === settingsResult.settings!.activeSceneId);
           if (sceneExists) {
             setActiveSceneId(settingsResult.settings.activeSceneId);
@@ -295,9 +322,17 @@ function App() {
   useEffect(() => {
     // Only save if logged in and we've already loaded from cloud
     if (!user || !hasLoadedFromCloud) return;
+    
+    // Skip auto-save immediately after loading from cloud
+    if (justLoadedFromCloudRef.current) {
+      console.log('[AUTO-SAVE] Skipping - just loaded from cloud');
+      justLoadedFromCloudRef.current = false;
+      return;
+    }
 
     // Debounce auto-save (wait 500ms after last change)
     const timeoutId = setTimeout(async () => {
+      console.log('[AUTO-SAVE] Saving user settings with', collections.length, 'collections');
       await saveUserSettings(user.id, {
         collections,
         activeSceneId,
@@ -419,8 +454,12 @@ function App() {
     }
   }, [activeTokenTemplate]);
 
-  // Create default hidden canvas on startup
+  // Create default hidden canvas on startup (only if not logged in, or after cloud load shows empty)
   useEffect(() => {
+    // If user is logged in, wait for cloud data to load first
+    if (user && !hasLoadedFromCloud) return;
+    
+    // Only create default if both scenes and collections are empty
     if (scenes.length === 0 && collections.length === 0) {
       const defaultCollectionId = `collection-${Date.now()}`;
       const defaultCollection: Collection = {
@@ -446,7 +485,7 @@ function App() {
       setScenes([defaultCanvas]);
       setActiveSceneId(defaultCanvas.id);
     }
-  }, []);
+  }, [user, hasLoadedFromCloud, scenes.length, collections.length]);
 
   // Get active scene
   const activeScene = scenes.find(s => s.id === activeSceneId) || null;
@@ -765,16 +804,24 @@ function App() {
     setScenes(prev => prev.map(s => s.id === sceneId ? { ...s, name: newName } : s));
   };
 
-  // Delete scene
+  // Delete scene (moves to trash)
   const deleteScene = async (sceneId: string) => {
+    const sceneToDelete = scenes.find(s => s.id === sceneId);
+    
+    // Remove from local state immediately
     setScenes(prev => prev.filter(s => s.id !== sceneId));
     if (activeSceneId === sceneId) {
       setActiveSceneId(null);
     }
     
-    // Delete from Supabase if user is logged in
-    if (user) {
-      await deleteSceneFromSupabase(sceneId, user.id);
+    // Move to trash in Supabase if user is logged in
+    if (user && sceneToDelete) {
+      const { error } = await moveSceneToTrash(sceneToDelete, user.id);
+      if (error) {
+        console.error('[APP] Failed to move scene to trash:', error);
+      } else {
+        console.log('[APP] Scene moved to trash:', sceneToDelete.name);
+      }
     }
   };
 
@@ -809,9 +856,10 @@ function App() {
     }));
   };
 
-  // Delete collection and all scenes within it
-  const deleteCollection = (collectionId: string) => {
-    // Get all scene IDs in this collection
+  // Delete collection and all scenes within it (moves to trash)
+  const deleteCollection = async (collectionId: string) => {
+    // Get collection and all scenes in it
+    const collectionToDelete = collections.find(c => c.id === collectionId);
     const scenesInCollection = scenes.filter(s => s.collectionId === collectionId);
     const sceneIdsToDelete = scenesInCollection.map(s => s.id);
     
@@ -821,11 +869,36 @@ function App() {
       setActiveSceneId(remainingScenes.length > 0 ? remainingScenes[0].id : null);
     }
     
-    // Delete all scenes in the collection
+    // Move collection (with scenes) to trash in Supabase
+    if (user && collectionToDelete) {
+      const { error } = await moveCollectionToTrash(collectionToDelete, scenesInCollection, user.id);
+      if (error) {
+        console.error('[APP] Failed to move collection to trash:', error);
+      }
+    }
+    
+    // Remove all scenes in the collection from local state
     setScenes(prev => prev.filter(s => s.collectionId !== collectionId));
     
-    // Delete the collection itself
-    setCollections(prev => prev.filter(c => c.id !== collectionId));
+    // Remove the collection from local state
+    // This triggers auto-save useEffect which will update user_settings in Supabase
+    setCollections(prev => {
+      const newCollections = prev.filter(c => c.id !== collectionId);
+      console.log('[APP] Collections after delete:', newCollections.length, 'remaining');
+      return newCollections;
+    });
+    
+    // Force immediate save to ensure collection is removed from user_settings
+    if (user) {
+      const remainingCollections = collections.filter(c => c.id !== collectionId);
+      console.log('[APP] Force saving user_settings with', remainingCollections.length, 'collections');
+      await saveUserSettings(user.id, {
+        collections: remainingCollections,
+        activeSceneId: sceneIdsToDelete.includes(activeSceneId || '') ? null : activeSceneId,
+        hiddenToolbarButtons: Array.from(hiddenToolbarButtons),
+        customKeybinds: customKeybinds,
+      }, user.handle, user.authProvider);
+    }
   };
 
   // Move scene to different collection
@@ -1147,6 +1220,10 @@ function App() {
             onRecentTokensChange={setRecentTokens}
             activeTool={activeTool}
             onCenterElement={handleCenterElement}
+            onSelectElement={(elementId) => {
+              setSelectedElementId(elementId);
+              setSelectedElementIds([]);
+            }}
             selectedTerrainBrush={selectedTerrainBrush}
             onSelectTerrainBrush={setSelectedTerrainBrush}
             backgroundBrushSize={backgroundBrushSize}

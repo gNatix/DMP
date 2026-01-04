@@ -8,7 +8,7 @@ export const gameModeLockButtonConfig: ToolButtonConfig = {
   enabled: true,
   enabledInGameMode: true,      // Only visible in game mode
   enabledInPlanningMode: false, // Hidden in planning mode
-  category: 'utilities',
+  category: 'gameMode',
   weight: 1.5, // Between lock (1) and badge toggle
   
   icon: <Lock size={18} />,

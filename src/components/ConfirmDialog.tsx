@@ -5,7 +5,7 @@ interface ConfirmDialogProps {
   isOpen: boolean;
   title: string;
   message: React.ReactNode;
-  onConfirm: () => void;
+  onConfirm: () => void | Promise<void>;
   onCancel: () => void;
   confirmText?: string;
   cancelText?: string;
@@ -55,8 +55,8 @@ const ConfirmDialog = ({
               {cancelText}
             </button>
             <button
-              onClick={() => {
-                onConfirm();
+              onClick={async () => {
+                await onConfirm();
                 onCancel();
               }}
               className={`px-4 py-2 rounded text-white transition-colors ${typeColors[type]}`}

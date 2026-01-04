@@ -3,20 +3,26 @@
 // ========================================
 // Includes: Drawing tools, pointer, layers, grid, lock, colors
 // Hides: Navigation tools, history, some toggles
+// 
+// NOTE: Buttons marked as 'required' in their config (Pointer, Token, 
+// Asset, Terrain, Modular Room, Door) cannot be hidden regardless of 
+// these settings. They will always be visible in the toolbar.
 // ========================================
 
 // ========== TOGGLE BUTTONS ON/OFF ==========
 // Set to TRUE to HIDE the button, FALSE to SHOW it
+// NOTE: Required buttons are always visible regardless of these settings
 // ============================================
 
-const HIDE_POINTER = false;           // Main selection tool
-const HIDE_TOKEN = false;             // Token placement
-const HIDE_TERRAIN = false;           // Terrain brush
+const HIDE_POINTER = false;           // Main selection tool (REQUIRED)
+const HIDE_TOKEN = false;             // Token placement (REQUIRED)
+const HIDE_ASSET = false;             // Asset placement (REQUIRED)
+const HIDE_TERRAIN = false;           // Terrain brush (REQUIRED)
 const HIDE_ROOM = true;               // Legacy room builder (deprecated - use Modular Rooms)
-const HIDE_MODULAR_ROOM = false;      // Modular room tool
+const HIDE_MODULAR_ROOM = false;      // Modular room tool (REQUIRED)
 const HIDE_WALL = true;               // Legacy wall tool (deprecated - use Modular Rooms)
 const HIDE_WALL_CUTTER = true;        // Legacy wall cutter (deprecated - use Door tool)
-const HIDE_DOOR = false;              // Door tool
+const HIDE_DOOR = false;              // Door tool (REQUIRED)
 
 const HIDE_PAN = true;                // Pan tool (use middle-click instead)
 const HIDE_ZOOM = true;               // Zoom tool (use scroll instead)
@@ -40,9 +46,11 @@ const HIDE_BADGE_TOGGLE = true;       // Name badges
 // ========================================
 
 // Build the hidden buttons array from toggles
+// NOTE: Required buttons will be ignored by Toolbox even if listed here
 export const ADVANCED_HIDDEN_BUTTONS: string[] = [
   ...(HIDE_POINTER ? ['pointer'] : []),
   ...(HIDE_TOKEN ? ['token'] : []),
+  ...(HIDE_ASSET ? ['asset'] : []),
   ...(HIDE_TERRAIN ? ['terrain'] : []),
   ...(HIDE_ROOM ? ['room'] : []),
   ...(HIDE_MODULAR_ROOM ? ['modularRoom'] : []),

@@ -3,8 +3,10 @@
 
 import PointerButton, { pointerButtonConfig } from './PointerButton';
 import TokenButton, { tokenButtonConfig } from './TokenButton';
+import AssetButton, { assetButtonConfig } from './AssetButton';
 import TerrainButton, { terrainButtonConfig } from './TerrainButton';
 import RoomButton, { roomButtonConfig } from './RoomButton';
+import ModularRoomButton, { modularRoomButtonConfig } from './ModularRoomButton';
 import WallButton, { wallButtonConfig } from './WallButton';
 import DoorToolButton, { doorToolButtonConfig } from './DoorToolButton';
 import WallCutterToolButton, { wallCutterToolButtonConfig } from './WallCutterToolButton';
@@ -13,16 +15,65 @@ import ZoomButton, { zoomButtonConfig } from './ZoomButton';
 import UndoButton, { undoButtonConfig } from './UndoButton';
 import RedoButton, { redoButtonConfig } from './RedoButton';
 import DuplicateButton, { duplicateButtonConfig } from './DuplicateButton';
+import GroupButton, { groupButtonConfig } from './GroupButton';
 import DeleteButton, { deleteButtonConfig } from './DeleteButton';
 import LayerUpButton, { layerUpButtonConfig } from './LayerUpButton';
 import LayerDownButton, { layerDownButtonConfig } from './LayerDownButton';
 import BadgeToggleButton, { badgeToggleButtonConfig } from './BadgeToggleButton';
 import LockButton, { lockButtonConfig } from './LockButton';
+import GameModeLockButton, { gameModeLockButtonConfig } from './GameModeLockButton';
 import GridButton, { gridButtonConfig } from './GridButton';
 import ColorPickerButton, { colorPickerButtonConfig } from './ColorPickerButton';
 import FitToViewButton, { fitToViewButtonConfig } from './FitToViewButton';
 import XLabButton, { xLabButtonConfig } from './XLabButton';
 import InfoButton, { infoButtonConfig } from './InfoButton';
+
+// All button configs - used by SettingsTab to auto-generate categories
+export const ALL_BUTTON_CONFIGS = [
+  pointerButtonConfig,
+  tokenButtonConfig,
+  assetButtonConfig,
+  terrainButtonConfig,
+  // roomButtonConfig, // LEGACY - Archived
+  modularRoomButtonConfig,
+  // wallButtonConfig, // LEGACY - Archived
+  doorToolButtonConfig,
+  // wallCutterToolButtonConfig, // LEGACY - Archived
+  panButtonConfig,
+  zoomButtonConfig,
+  undoButtonConfig,
+  redoButtonConfig,
+  duplicateButtonConfig,
+  groupButtonConfig,
+  deleteButtonConfig,
+  layerUpButtonConfig,
+  layerDownButtonConfig,
+  badgeToggleButtonConfig,
+  lockButtonConfig,
+  gameModeLockButtonConfig,
+  gridButtonConfig,
+  colorPickerButtonConfig,
+  fitToViewButtonConfig,
+  xLabButtonConfig,
+  infoButtonConfig,
+];
+
+// Category display names
+export const CATEGORY_LABELS: Record<string, string> = {
+  'selection': 'Selection',
+  'drawing': 'Drawing Tools',
+  'navigation': 'Navigation',
+  'history': 'History',
+  'layers': 'Layer Tools',
+  'toggle': 'Toggles',
+  'view': 'View',
+  'utilities': 'Utilities',
+  'gameMode': 'Game Mode',
+  'experimental': 'Experimental',
+};
+
+// Category order for display
+export const CATEGORY_ORDER = ['selection', 'drawing', 'navigation', 'history', 'layers', 'toggle', 'utilities', 'gameMode', 'view', 'experimental'];
 
 export const toolButtons = [
   // Selection tools
@@ -30,8 +81,10 @@ export const toolButtons = [
   
   // Drawing tools
   { component: TokenButton, config: tokenButtonConfig },
+  { component: AssetButton, config: assetButtonConfig },
   { component: TerrainButton, config: terrainButtonConfig },
   { component: RoomButton, config: roomButtonConfig },
+  { component: ModularRoomButton, config: modularRoomButtonConfig },
   { component: WallButton, config: wallButtonConfig },
   { component: DoorToolButton, config: doorToolButtonConfig },
   { component: WallCutterToolButton, config: wallCutterToolButtonConfig },
@@ -46,21 +99,21 @@ export const toolButtons = [
   
   // Layer tools
   { component: DuplicateButton, config: duplicateButtonConfig },
+  { component: GroupButton, config: groupButtonConfig },
   { component: DeleteButton, config: deleteButtonConfig },
   { component: LayerUpButton, config: layerUpButtonConfig },
   { component: LayerDownButton, config: layerDownButtonConfig },
   
-  // Utilities
-  { component: BadgeToggleButton, config: badgeToggleButtonConfig },
-  { component: LockButton, config: lockButtonConfig },
-  { component: ColorPickerButton, config: colorPickerButtonConfig },
-  
   // Toggle
-  { component: InfoButton, config: infoButtonConfig },
-  
-  // View tools
+  { component: LockButton, config: lockButtonConfig },
+  { component: GameModeLockButton, config: gameModeLockButtonConfig },
   { component: GridButton, config: gridButtonConfig },
   { component: FitToViewButton, config: fitToViewButtonConfig },
+  { component: InfoButton, config: infoButtonConfig },
+  
+  // Utilities
+  { component: BadgeToggleButton, config: badgeToggleButtonConfig },
+  { component: ColorPickerButton, config: colorPickerButtonConfig },
   
   // Experimental
   { component: XLabButton, config: xLabButtonConfig },
@@ -75,9 +128,7 @@ export const getButtonsByCategory = (category: string) => {
 
 // Helper to get all enabled buttons grouped by category
 export const getButtonsGroupedByCategory = () => {
-  const categories = ['selection', 'drawing', 'navigation', 'history', 'layers', 'toggle', 'view', 'utilities'];
-  
-  return categories
+  return CATEGORY_ORDER
     .map(category => ({
       category,
       buttons: getButtonsByCategory(category)
@@ -88,8 +139,10 @@ export * from './types';
 export {
   PointerButton,
   TokenButton,
+  AssetButton,
   TerrainButton,
   RoomButton,
+  ModularRoomButton,
   WallButton,
   DoorToolButton,
   WallCutterToolButton,
@@ -98,11 +151,13 @@ export {
   UndoButton,
   RedoButton,
   DuplicateButton,
+  GroupButton,
   DeleteButton,
   LayerUpButton,
   LayerDownButton,
   BadgeToggleButton,
   LockButton,
+  GameModeLockButton,
   GridButton,
   ColorPickerButton,
   FitToViewButton,

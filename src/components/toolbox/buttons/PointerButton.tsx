@@ -19,6 +19,7 @@ export const pointerButtonConfig: ToolButtonConfig = {
   
   tool: 'pointer',
   hasSubmenu: false,
+  required: true,               // Pointer is essential - cannot be hidden
 };
 // ==========================================
 

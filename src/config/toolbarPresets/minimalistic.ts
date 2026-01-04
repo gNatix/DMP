@@ -1,22 +1,29 @@
 // ========================================
 // MINIMALISTIC PRESET - Essential tools only
 // ========================================
-// Includes: Pointer, Token, Wall, Terrain, Room, Modular Room, Wall Cutter, Lock
+// Includes: Pointer, Token, Asset, Terrain, Modular Room, Door, Lock
 // Hides: Most other tools for a clean interface
+// 
+// NOTE: Buttons marked as 'required' in their config (Pointer, Token, 
+// Asset, Terrain, Modular Room, Door) cannot be hidden regardless of 
+// these settings. They will always be visible in the toolbar.
 // ========================================
 
 // ========== TOGGLE BUTTONS ON/OFF ==========
 // Set to TRUE to HIDE the button, FALSE to SHOW it
+// NOTE: Required buttons (Pointer, Token, Asset, Terrain, ModularRoom, Door) 
+// are always visible regardless of these settings
 // ============================================
 
-const HIDE_POINTER = false;           // Main selection tool ✓
-const HIDE_TOKEN = false;             // Token placement ✓
-const HIDE_TERRAIN = false;           // Terrain brush ✓
+const HIDE_POINTER = false;           // Main selection tool ✓ (REQUIRED)
+const HIDE_TOKEN = false;             // Token placement ✓ (REQUIRED)
+const HIDE_ASSET = false;             // Asset placement ✓ (REQUIRED)
+const HIDE_TERRAIN = false;           // Terrain brush ✓ (REQUIRED)
 const HIDE_ROOM = true;               // Legacy room builder (deprecated)
-const HIDE_MODULAR_ROOM = false;      // Modular room tool ✓
+const HIDE_MODULAR_ROOM = false;      // Modular room tool ✓ (REQUIRED)
 const HIDE_WALL = true;               // Legacy wall tool (deprecated)
 const HIDE_WALL_CUTTER = true;        // Legacy wall cutter (deprecated)
-const HIDE_DOOR = true;               // Door tool
+const HIDE_DOOR = false;              // Door tool ✓ (REQUIRED)
 
 const HIDE_PAN = true;                // Pan tool
 const HIDE_ZOOM = true;               // Zoom tool
@@ -40,9 +47,11 @@ const HIDE_BADGE_TOGGLE = true;       // Name badges
 // ========================================
 
 // Build the hidden buttons array from toggles
+// NOTE: Required buttons will be ignored by Toolbox even if listed here
 export const MINIMALISTIC_HIDDEN_BUTTONS: string[] = [
   ...(HIDE_POINTER ? ['pointer'] : []),
   ...(HIDE_TOKEN ? ['token'] : []),
+  ...(HIDE_ASSET ? ['asset'] : []),
   ...(HIDE_TERRAIN ? ['terrain'] : []),
   ...(HIDE_ROOM ? ['room'] : []),
   ...(HIDE_MODULAR_ROOM ? ['modularRoom'] : []),

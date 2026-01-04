@@ -190,34 +190,11 @@ const AssetsTab = ({
     e.dataTransfer.setData('application/asset', JSON.stringify(asset));
     e.dataTransfer.effectAllowed = 'copy';
     
-    // Create a custom drag image (asset preview)
-    const dragPreview = document.createElement('div');
-    dragPreview.style.width = '64px';
-    dragPreview.style.height = '64px';
-    dragPreview.style.backgroundColor = '#1a1a2e';
-    dragPreview.style.border = '2px solid #60a5fa';
-    dragPreview.style.borderRadius = '4px';
-    dragPreview.style.position = 'absolute';
-    dragPreview.style.top = '-1000px';
-    dragPreview.style.display = 'flex';
-    dragPreview.style.alignItems = 'center';
-    dragPreview.style.justifyContent = 'center';
-    dragPreview.style.overflow = 'hidden';
-    
-    const img = document.createElement('img');
-    img.src = asset.imageUrl;
-    img.style.width = '100%';
-    img.style.height = '100%';
-    img.style.objectFit = 'contain';
-    dragPreview.appendChild(img);
-    
-    document.body.appendChild(dragPreview);
-    e.dataTransfer.setDragImage(dragPreview, 32, 32);
-    
-    // Remove preview element after a short delay
-    setTimeout(() => {
-      document.body.removeChild(dragPreview);
-    }, 0);
+    // Create a transparent 1x1 drag image to hide browser's default drag preview
+    // The actual preview is rendered by Canvas.tsx when dragging over the canvas
+    const transparentImg = document.createElement('img');
+    transparentImg.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+    e.dataTransfer.setDragImage(transparentImg, 0, 0);
     
     // Notify parent that we're starting a drag
     if (onStartDragAsset) {

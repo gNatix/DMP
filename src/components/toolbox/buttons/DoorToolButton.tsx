@@ -20,6 +20,7 @@ export const doorToolButtonConfig: ToolButtonConfig = {
   
   tool: 'doorTool',
   hasSubmenu: false,
+  required: true,               // Drawing tools are essential
 };
 // ==========================================
 

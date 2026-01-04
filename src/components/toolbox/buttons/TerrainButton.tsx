@@ -20,6 +20,7 @@ export const terrainButtonConfig: ToolButtonConfig = {
   
   tool: 'background',
   hasSubmenu: true,
+  required: true,               // Drawing tools are essential
 };
 // ==========================================
 

@@ -58,6 +58,9 @@ export const saveUserSettings = async (
       updated_at: new Date().toISOString(),
     };
 
+    console.log('[UserSettings] Saving with', settings.collections.length, 'collections:', 
+      settings.collections.map(c => c.name));
+
     const { error } = await supabase
       .from('user_settings')
       .upsert(settingsData, { onConflict: 'user_id' });
@@ -67,7 +70,7 @@ export const saveUserSettings = async (
       return { error };
     }
 
-    console.log('[UserSettings] Saved successfully');
+    console.log('[UserSettings] Saved successfully with', settings.collections.length, 'collections');
     return { error: null };
   } catch (error) {
     console.error('[UserSettings] Save exception:', error);

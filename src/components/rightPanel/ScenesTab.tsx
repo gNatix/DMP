@@ -19,9 +19,11 @@ interface ScenesTabProps {
   addCollection: (name: string) => string;
   updateCollectionName: (collectionId: string, newName: string) => void;
   updateCollectionAppearance: (collectionId: string, appearance?: CollectionAppearance) => void;
-  deleteCollection: (collectionId: string) => void;
+  deleteCollection: (collectionId: string) => Promise<void>;
   deleteElement: (elementId: string) => void;
+  updateElement: (elementId: string, updates: Partial<MapElement>) => void;
   onCenterElement?: (elementId: string) => void;
+  onSelectElement?: (elementId: string) => void;
 }
 
 const ScenesTab = ({
@@ -40,7 +42,9 @@ const ScenesTab = ({
   updateCollectionAppearance,
   deleteCollection,
   deleteElement,
-  onCenterElement
+  updateElement,
+  onCenterElement,
+  onSelectElement
 }: ScenesTabProps) => {
   const [expandedCollections, setExpandedCollections] = useState<Set<string>>(new Set());
   const [expandedScenes, setExpandedScenes] = useState<Set<string>>(new Set());
@@ -74,6 +78,9 @@ const ScenesTab = ({
   
   const [editingCollectionId, setEditingCollectionId] = useState<string | null>(null);
   const [editingCollectionName, setEditingCollectionName] = useState('');
+  
+  const [editingElementId, setEditingElementId] = useState<string | null>(null);
+  const [editingElementLabel, setEditingElementLabel] = useState('');
   
   const [gradientPickerCollectionId, setGradientPickerCollectionId] = useState<string | null>(null);
 
@@ -236,6 +243,20 @@ const ScenesTab = ({
     }
     setEditingCollectionId(null);
     setEditingCollectionName('');
+  };
+
+  const handleStartEditElement = (element: MapElement, currentLabel: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingElementId(element.id);
+    setEditingElementLabel(currentLabel);
+  };
+
+  const handleSaveElementLabel = () => {
+    if (editingElementId && editingElementLabel.trim()) {
+      updateElement(editingElementId, { label: editingElementLabel.trim() });
+    }
+    setEditingElementId(null);
+    setEditingElementLabel('');
   };
 
   const renderScene = (scene: Scene) => {
@@ -416,17 +437,40 @@ const ScenesTab = ({
                     name: el.label || el.notes || 'Annotation',
                     type: 'Marker'
                   };
+                } else if (el.type === 'modularRoom') {
+                  const modRoom = el as any;
+                  const size = `${modRoom.tilesW || '?'}x${modRoom.tilesH || '?'}`;
+                  return {
+                    icon: <div className="w-full h-full bg-emerald-500/30 border border-emerald-400/50 rounded"></div>,
+                    name: modRoom.label || `Room ${size}`,
+                    type: 'Modular Room'
+                  };
+                } else if (el.type === 'asset') {
+                  const asset = el as any;
+                  return {
+                    icon: asset.imageUrl ? <img src={asset.imageUrl} alt={asset.name} className="w-full h-full object-contain" draggable={false} /> : null,
+                    name: asset.name || 'Unnamed Asset',
+                    type: 'Asset'
+                  };
                 }
                 return { icon: null, name: 'Element', type: 'Unknown' };
               };
               
               const display = getElementDisplay(element);
+              const isEditingElement = editingElementId === element.id;
+              const canEditLabel = element.type === 'modularRoom' || element.type === 'asset';
               
               return (
                 <div
                   key={element.id}
-                  className="flex items-center gap-2 p-1.5 rounded bg-dm-dark/30 hover:bg-dm-dark/50 transition-colors"
-                  onClick={(e) => e.stopPropagation()}
+                  className="flex items-center gap-2 p-1.5 rounded bg-dm-dark/30 hover:bg-dm-dark/50 transition-colors cursor-pointer"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onSelectElement) {
+                      setActiveSceneId(scene.id);
+                      setTimeout(() => onSelectElement(element.id), 50);
+                    }
+                  }}
                 >
                   {/* Element preview */}
                   <div className="w-6 h-6 rounded bg-dm-border flex-shrink-0 overflow-hidden">
@@ -435,12 +479,41 @@ const ScenesTab = ({
 
                   {/* Element name and type */}
                   <div className="flex-1 min-w-0">
-                    <span className="text-xs text-gray-300 truncate block">{display.name}</span>
+                    {isEditingElement ? (
+                      <input
+                        type="text"
+                        value={editingElementLabel}
+                        onChange={(e) => setEditingElementLabel(e.target.value)}
+                        onBlur={handleSaveElementLabel}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            handleSaveElementLabel();
+                          } else if (e.key === 'Escape') {
+                            setEditingElementId(null);
+                            setEditingElementLabel('');
+                          }
+                        }}
+                        className="w-full px-1 py-0.5 text-xs bg-dm-dark border border-dm-highlight rounded text-gray-200 focus:outline-none"
+                        autoFocus
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    ) : (
+                      <span className="text-xs text-gray-300 truncate block">{display.name}</span>
+                    )}
                     <span className="text-xs text-gray-500">{display.type}</span>
                   </div>
 
                   {/* Actions */}
                   <div className="flex gap-0.5">
+                    {canEditLabel && !isEditingElement && (
+                      <button
+                        onClick={(e) => handleStartEditElement(element, display.name, e)}
+                        className="p-1 hover:bg-dm-panel rounded transition-colors"
+                        title="Edit label"
+                      >
+                        <Edit2 size={12} className="text-gray-400 hover:text-gray-300" />
+                      </button>
+                    )}
                     {onCenterElement && (
                       <button
                         onClick={() => {
@@ -674,7 +747,7 @@ const ScenesTab = ({
                     </p>
                   </>
                 ),
-                onConfirm: () => deleteCollection(collection.id)
+                onConfirm: async () => await deleteCollection(collection.id)
               });
             }}
             className="p-1 hover:bg-dm-panel rounded transition-colors relative z-10"

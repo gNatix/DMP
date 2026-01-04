@@ -2,6 +2,7 @@ import { User, LogOut, Mail, Lock, Monitor, UserCircle, FlaskConical, ChevronDow
 import { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '../../auth/AuthContext';
 import { TOOLBAR_PRESETS, detectMatchingPreset, getPresetById, ToolbarPresetId } from '../../config/toolbarPresets';
+import { ALL_BUTTON_CONFIGS, CATEGORY_LABELS, CATEGORY_ORDER } from '../toolbox/buttons';
 
 interface SettingsTabProps {
   hiddenToolbarButtons?: Set<string>;
@@ -19,10 +20,11 @@ const LOCKED_BUTTONS = new Set([
   'redo',        // Ctrl+Y/Ctrl+Shift+Z - Universal redo
   'delete',      // Delete/Backspace - Universal delete
   'duplicate',   // Ctrl+D - Common duplicate
+  'group',       // Ctrl+G - Group/Ungroup
 ]);
 
 // ========== TOOLBAR KEYBIND DEFINITIONS ==========
-// Organized by category matching Toolbox.tsx categories
+// Now auto-generated from button configs!
 interface KeybindItem {
   id: string;
   label: string;
@@ -38,74 +40,47 @@ interface KeybindCategory {
   items: KeybindItem[];
 }
 
-const KEYBIND_CATEGORIES: KeybindCategory[] = [
-  {
-    id: 'selection',
-    label: 'Selection',
-    items: [
-      { id: 'pointer', label: 'Pointer Tool', keybind: 'V', canToggle: false },
-    ],
-  },
-  {
-    id: 'drawing',
-    label: 'Drawing Tools',
-    items: [
-      { id: 'token', label: 'Token Tool', keybind: 'Q', canToggle: false, tip: 'Press Q again or scroll on button to cycle tokens' },
-      { id: 'asset', label: 'Asset Tool', keybind: 'A', canToggle: false, tip: 'Place furniture, decorations and interactive objects' },
-      { id: 'terrain', label: 'Terrain Brush', keybind: 'E', canToggle: false, tip: 'Press E again or scroll on button to cycle brushes' },
-      // LEGACY TOOLS - Archived (replaced by Modular Rooms)
-      // { id: 'room', label: 'Room Builder', keybind: 'R', canToggle: false },
-      { id: 'modularRoom', label: 'Modular Room', keybind: 'M', canToggle: false },
-      // { id: 'wall', label: 'Wall Tool', keybind: 'W', canToggle: false, tip: 'Press W again or scroll on button to cycle textures' },
-      // { id: 'wallCutterTool', label: 'Wall Cutter', keybind: 'A', canToggle: true },
-      { id: 'doorTool', label: 'Door Tool', keybind: 'D', canToggle: true },
-    ],
-  },
-  {
-    id: 'navigation',
-    label: 'Navigation',
-    items: [
-      { id: 'pan', label: 'Pan Tool', keybind: 'H', canToggle: true, tip: 'Middle-click + drag to pan anytime' },
-      { id: 'zoom', label: 'Zoom Tool', keybind: 'Z', canToggle: true, tip: 'Scroll anywhere to zoom in/out' },
-    ],
-  },
-  {
-    id: 'history',
-    label: 'History',
-    items: [
-      { id: 'undo', label: 'Undo', keybind: 'Ctrl+Z', canToggle: false, locked: true },
-      { id: 'redo', label: 'Redo', keybind: 'Ctrl+Y', canToggle: false, locked: true },
-    ],
-  },
-  {
-    id: 'layers',
-    label: 'Layer Tools',
-    items: [
-      { id: 'duplicate', label: 'Duplicate', keybind: 'Ctrl+D', canToggle: false, locked: true },
-      { id: 'delete', label: 'Delete', keybind: 'Del', canToggle: false, locked: true },
-      { id: 'layer-up', label: 'Layer Up', keybind: 'Ctrl+↑', canToggle: true },
-      { id: 'layer-down', label: 'Layer Down', keybind: 'Ctrl+↓', canToggle: true },
-    ],
-  },
-  {
-    id: 'toggle',
-    label: 'Toggles',
-    items: [
-      { id: 'grid', label: 'Toggle Grid', keybind: 'G', canToggle: true, tip: 'Scroll on button to resize grid' },
-      { id: 'fit-to-view', label: 'Fit to View', keybind: 'F', canToggle: true },
-      { id: 'info', label: 'Info Panel', keybind: 'I', canToggle: true },
-      { id: 'lock', label: 'Lock Element', keybind: 'L', canToggle: false },
-    ],
-  },
-  {
-    id: 'utilities',
-    label: 'Utilities',
-    items: [
-      { id: 'color-picker', label: 'Color Picker', keybind: 'C', canToggle: true, tip: 'Press C again or scroll on button to cycle colors' },
-      { id: 'badge-toggle', label: 'Name Badges', keybind: 'N', canToggle: true, tip: 'Toggle name badges on all tokens globally' },
-    ],
-  },
-];
+// Generate KEYBIND_CATEGORIES dynamically from button configs
+const generateKeybindCategories = (): KeybindCategory[] => {
+  const categoriesMap = new Map<string, KeybindItem[]>();
+  
+  // Group buttons by category
+  // Auto-detect game-mode-only buttons and put them in 'gameMode' category
+  ALL_BUTTON_CONFIGS.forEach(config => {
+    if (!config.enabled) return;
+    
+    // Auto-assign to 'gameMode' category if it's game-mode-only
+    const isGameModeOnly = config.enabledInGameMode === true && config.enabledInPlanningMode === false;
+    const category = isGameModeOnly ? 'gameMode' : config.category;
+    if (!categoriesMap.has(category)) {
+      categoriesMap.set(category, []);
+    }
+    
+    categoriesMap.get(category)!.push({
+      id: config.id,
+      label: config.label,
+      keybind: config.shortcutKey || '',
+      canToggle: config.required !== true, // Required buttons cannot be toggled off
+      locked: LOCKED_BUTTONS.has(config.id),
+      tip: undefined, // Tips can be added to buttonConfig if needed
+    });
+  });
+  
+  // Sort by weight within each category and build final array
+  return CATEGORY_ORDER
+    .filter(catId => categoriesMap.has(catId))
+    .map(catId => ({
+      id: catId,
+      label: CATEGORY_LABELS[catId] || catId,
+      items: categoriesMap.get(catId)!.sort((a, b) => {
+        const configA = ALL_BUTTON_CONFIGS.find(c => c.id === a.id);
+        const configB = ALL_BUTTON_CONFIGS.find(c => c.id === b.id);
+        return (configA?.weight || 0) - (configB?.weight || 0);
+      })
+    }));
+};
+
+const KEYBIND_CATEGORIES: KeybindCategory[] = generateKeybindCategories();
 
 const SettingsTab = ({ 
   hiddenToolbarButtons = new Set(), 

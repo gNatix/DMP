@@ -18,6 +18,7 @@ export const modularRoomButtonConfig: ToolButtonConfig = {
   
   tool: 'modularRoom',
   hasSubmenu: false, // No submenu needed - we use the Modules tab in RightPanel
+  required: true,               // Drawing tools are essential
 };
 // ==========================================
 

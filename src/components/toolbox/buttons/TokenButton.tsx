@@ -21,6 +21,7 @@ export const tokenButtonConfig: ToolButtonConfig = {
   
   tool: 'token',
   hasSubmenu: true,
+  required: true,               // Drawing tools are essential
 };
 // ==========================================
 

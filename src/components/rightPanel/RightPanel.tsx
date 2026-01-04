@@ -23,12 +23,14 @@ interface RightPanelProps {
   addCollection: (name: string) => string;
   updateCollectionName: (collectionId: string, newName: string) => void;
   updateCollectionAppearance: (collectionId: string, appearance?: CollectionAppearance) => void;
-  deleteCollection: (collectionId: string) => void;
+  deleteCollection: (collectionId: string) => Promise<void>;
   selectedElement: MapElement | null;
   selectedElementIds?: string[];
   updateElement: (id: string, updates: Partial<MapElement>) => void;
   deleteElement: (id: string) => void;
   allElements?: MapElement[]; // All elements in active scene
+  onCenterElement?: (elementId: string) => void;
+  onSelectElement?: (elementId: string) => void;
   tokenTemplates: TokenTemplate[];
   addTokenTemplate: (name: string, imageUrl: string) => void;
   setActiveTool: (tool: ToolType) => void;
@@ -38,7 +40,6 @@ interface RightPanelProps {
   onSelectAsset: (asset: AssetTemplate) => void;
   onRecentTokensChange?: (tokens: TokenTemplate[]) => void;
   activeTool: ToolType;
-  onCenterElement?: (elementId: string) => void;
   // Environment tab props
   selectedTerrainBrush: string | null;
   onSelectTerrainBrush: (url: string) => void;
@@ -90,6 +91,8 @@ const RightPanel = ({
   updateElement,
   deleteElement,
   allElements = [],
+  onCenterElement,
+  onSelectElement,
   tokenTemplates,
   addTokenTemplate,
   setActiveTool,
@@ -99,7 +102,6 @@ const RightPanel = ({
   onSelectAsset,
   onRecentTokensChange,
   activeTool,
-  onCenterElement,
   selectedTerrainBrush,
   onSelectTerrainBrush,
   backgroundBrushSize,
@@ -246,7 +248,9 @@ const RightPanel = ({
             updateCollectionAppearance={updateCollectionAppearance}
             deleteCollection={deleteCollection}
             deleteElement={deleteElement}
+            updateElement={updateElement}
             onCenterElement={onCenterElement}
+            onSelectElement={onSelectElement}
           />
         )}
         {activeTab === 'tokens' && (
