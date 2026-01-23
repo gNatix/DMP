@@ -61,7 +61,7 @@ const ScenesTab = ({
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [selectedMapUrl, setSelectedMapUrl] = useState('');
   const [selectedMapName, setSelectedMapName] = useState('');
-  const [mapRotation, setMapRotation] = useState<0 | 90 | 180 | 270>(0);
+  const [mapRotation, setMapRotation] = useState(0); // Continuous rotation for smooth animation
   const [newSceneName, setNewSceneName] = useState('');
   const [selectedCollectionId, setSelectedCollectionId] = useState<string>('');
   const [newCollectionName, setNewCollectionName] = useState('');
@@ -190,7 +190,9 @@ const ScenesTab = ({
     
     if (!finalCollectionId) return;
     
-    addScene(newSceneName.trim(), selectedMapUrl, selectedMapName, finalCollectionId, mapRotation);
+    // Normalize rotation to 0, 90, 180, or 270 when saving
+    const normalizedRotation = ((mapRotation % 360) + 360) % 360 as 0 | 90 | 180 | 270;
+    addScene(newSceneName.trim(), selectedMapUrl, selectedMapName, finalCollectionId, normalizedRotation);
     setShowAddDialog(false);
     setNewSceneName('');
     setSelectedCollectionId('');
@@ -909,15 +911,15 @@ const ScenesTab = ({
                   <label className="text-sm text-gray-300 mb-2 block">Orientation</label>
                   <div className="flex items-center gap-3">
                     <button
-                      onClick={() => setMapRotation(prev => ((prev - 90 + 360) % 360) as 0 | 90 | 180 | 270)}
+                      onClick={() => setMapRotation(prev => prev - 90)}
                       className="p-2 bg-dm-dark hover:bg-dm-border rounded-lg transition-colors border border-dm-border"
                       title="Rotate left 90°"
                     >
                       <RotateCcw size={18} className="text-gray-300" />
                     </button>
-                    <span className="text-sm text-gray-300 min-w-[50px] text-center font-medium">{mapRotation}°</span>
+                    <span className="text-sm text-gray-300 min-w-[50px] text-center font-medium">{((mapRotation % 360) + 360) % 360}°</span>
                     <button
-                      onClick={() => setMapRotation(prev => ((prev + 90) % 360) as 0 | 90 | 180 | 270)}
+                      onClick={() => setMapRotation(prev => prev + 90)}
                       className="p-2 bg-dm-dark hover:bg-dm-border rounded-lg transition-colors border border-dm-border"
                       title="Rotate right 90°"
                     >
