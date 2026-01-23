@@ -866,11 +866,11 @@ const ScenesTab = ({
           />
           <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
           
-          {/* Dialog content */}
-          <div className="relative w-full max-w-2xl mx-4 flex gap-4">
-            {/* Map preview with rotation controls */}
-            <div className="flex flex-col gap-2">
-              <div className="w-64 h-64 flex-shrink-0 rounded-xl overflow-hidden border-2 border-dm-border shadow-2xl flex items-center justify-center bg-dm-dark">
+          {/* Dialog content - two column layout */}
+          <div className="relative w-full max-w-3xl mx-4 bg-dm-panel/95 backdrop-blur rounded-xl border border-dm-border shadow-2xl flex overflow-hidden">
+            {/* Left: Map preview box */}
+            <div className="w-80 flex-shrink-0 bg-dm-dark/50 p-4 flex items-center justify-center border-r border-dm-border">
+              <div className="w-full aspect-square rounded-lg overflow-hidden border border-dm-border flex items-center justify-center bg-dm-dark">
                 <img 
                   src={selectedMapUrl} 
                   alt={selectedMapName}
@@ -879,33 +879,19 @@ const ScenesTab = ({
                   draggable={false}
                 />
               </div>
-              {/* Rotation controls */}
-              <div className="flex items-center justify-center gap-2">
-                <button
-                  onClick={() => setMapRotation(prev => ((prev - 90 + 360) % 360) as 0 | 90 | 180 | 270)}
-                  className="p-2 bg-dm-dark hover:bg-dm-border rounded-lg transition-colors"
-                  title="Rotate left 90°"
-                >
-                  <RotateCcw size={18} className="text-gray-300" />
-                </button>
-                <span className="text-xs text-gray-400 min-w-[40px] text-center">{mapRotation}°</span>
-                <button
-                  onClick={() => setMapRotation(prev => ((prev + 90) % 360) as 0 | 90 | 180 | 270)}
-                  className="p-2 bg-dm-dark hover:bg-dm-border rounded-lg transition-colors"
-                  title="Rotate right 90°"
-                >
-                  <RotateCw size={18} className="text-gray-300" />
-                </button>
-              </div>
             </div>
             
-            {/* Form */}
-            <div className="flex-1 bg-dm-panel/95 backdrop-blur rounded-xl border border-dm-border shadow-2xl">
+            {/* Right: Settings box */}
+            <div className="flex-1 flex flex-col">
+              {/* Header */}
               <div className="p-4 border-b border-dm-border">
                 <h3 className="text-lg font-bold text-gray-100">Add Map to Collection</h3>
                 <p className="text-sm text-gray-400 mt-1">{selectedMapName}</p>
               </div>
-              <div className="p-4 space-y-4">
+              
+              {/* Settings content */}
+              <div className="p-4 space-y-4 flex-1">
+                {/* Map Name */}
                 <div>
                   <label className="text-sm text-gray-300 mb-2 block">Map Name</label>
                   <input
@@ -917,6 +903,30 @@ const ScenesTab = ({
                     autoFocus
                   />
                 </div>
+                
+                {/* Orientation */}
+                <div>
+                  <label className="text-sm text-gray-300 mb-2 block">Orientation</label>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => setMapRotation(prev => ((prev - 90 + 360) % 360) as 0 | 90 | 180 | 270)}
+                      className="p-2 bg-dm-dark hover:bg-dm-border rounded-lg transition-colors border border-dm-border"
+                      title="Rotate left 90°"
+                    >
+                      <RotateCcw size={18} className="text-gray-300" />
+                    </button>
+                    <span className="text-sm text-gray-300 min-w-[50px] text-center font-medium">{mapRotation}°</span>
+                    <button
+                      onClick={() => setMapRotation(prev => ((prev + 90) % 360) as 0 | 90 | 180 | 270)}
+                      className="p-2 bg-dm-dark hover:bg-dm-border rounded-lg transition-colors border border-dm-border"
+                      title="Rotate right 90°"
+                    >
+                      <RotateCw size={18} className="text-gray-300" />
+                    </button>
+                  </div>
+                </div>
+                
+                {/* Collection */}
                 <div>
                   <div className="flex items-center gap-2 mb-3">
                     <input
@@ -969,6 +979,8 @@ const ScenesTab = ({
                   </p>
                 </div>
               </div>
+              
+              {/* Footer buttons */}
               <div className="p-4 border-t border-dm-border flex gap-2">
                 <button
                   onClick={handleAddScene}
