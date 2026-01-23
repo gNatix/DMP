@@ -402,7 +402,8 @@ const Canvas = ({
     clickOffsetX: number; // Offset from room's top-left corner to click position
     clickOffsetY: number;
   } | null>(null);
-  const [shouldRotateMap, setShouldRotateMap] = useState(false);
+  const [mapRotation, setMapRotation] = useState<0 | 90 | 180 | 270>(0);
+  const shouldRotateMap = mapRotation === 90 || mapRotation === 270; // For dimension swapping
   const [isErasing, setIsErasing] = useState(false);
   const [mergeNotification, setMergeNotification] = useState<string | null>(null);
   const [lockedElementError, setLockedElementError] = useState<string | null>(null);
@@ -881,7 +882,7 @@ const Canvas = ({
           const canvasPadding = 0;
           
           setMapDimensions({ width: canvasWidth, height: canvasHeight, padding: canvasPadding });
-          setShouldRotateMap(false);
+          setMapRotation(0);
           
           // For canvas, center viewport on (0,0) in world space
           if (!fitToViewLocked && !hasInitializedViewport) {
@@ -898,9 +899,13 @@ const Canvas = ({
             setHasInitializedViewport(true);
           }
         } else {
-          // Check if image is landscape (width > height) - just set rotation flag
-          const isLandscape = width > height;
-          setShouldRotateMap(isLandscape);
+          // Use rotation from scene (user's choice when adding map)
+          // If no rotation specified, default to 0
+          const rotation = scene.backgroundMapRotation || 0;
+          setMapRotation(rotation);
+          
+          // Check if rotation causes dimension swap (90 or 270 degrees)
+          const dimensionsSwapped = rotation === 90 || rotation === 270;
           
           // Use actual image dimensions - rotation is purely visual via CSS
           const padding = Math.max(width, height) * 0.2;
@@ -913,8 +918,8 @@ const Canvas = ({
           if (!fitToViewLocked && !hasInitializedViewport) {
             // Center the map in viewport only on initial load when not locked
             const containerRect = container.getBoundingClientRect();
-            const visualWidth = isLandscape ? height : width;
-            const visualHeight = isLandscape ? width : height;
+            const visualWidth = dimensionsSwapped ? height : width;
+            const visualHeight = dimensionsSwapped ? width : height;
             const totalWidth = visualWidth + padding * 2;
             const totalHeight = visualHeight + padding * 2;
             
@@ -9808,7 +9813,6 @@ const Canvas = ({
                 src={scene.backgroundMapUrl}
                 alt={scene.name}
                 draggable={false}
-                className={shouldRotateMap ? 'rotate-90' : ''}
                 style={{ 
                   userSelect: 'none', 
                   pointerEvents: 'none',
@@ -9817,7 +9821,8 @@ const Canvas = ({
                   top: shouldRotateMap ? mapDimensions.padding + (mapDimensions.width - mapDimensions.height) / 2 : mapDimensions.padding,
                   width: mapDimensions.width,
                   height: mapDimensions.height,
-                  zIndex: Z_MAP
+                  zIndex: Z_MAP,
+                  transform: mapRotation !== 0 ? `rotate(${mapRotation}deg)` : undefined
                 }}
               />
             )}

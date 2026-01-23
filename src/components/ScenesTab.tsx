@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Scene, Collection, CollectionAppearance, MapElement } from '../types';
-import { Plus, ChevronDown, ChevronRight, Trash2, Palette, Edit2, MapPin, Copy } from 'lucide-react';
+import { Plus, ChevronDown, ChevronRight, Trash2, Palette, Edit2, MapPin, Copy, RotateCcw, RotateCw } from 'lucide-react';
 import MapSelectorModal from './rightPanel/MapSelectorModal';
 import ConfirmDialog from './ConfirmDialog';
 import { DEFAULT_COLLECTION_NAME, DEFAULT_CANVAS_NAME, DEFAULT_NAMED_CANVAS_PREFIX } from '../constants';
@@ -9,7 +9,7 @@ interface ScenesTabProps {
   scenes: Scene[];
   activeSceneId: string | null;
   setActiveSceneId: (id: string | null) => void;
-  addScene: (name: string, backgroundMapUrl: string, backgroundMapName: string, collectionId?: string) => void;
+  addScene: (name: string, backgroundMapUrl: string, backgroundMapName: string, collectionId?: string, backgroundMapRotation?: 0 | 90 | 180 | 270) => void;
   addCanvasScene: (collectionId?: string) => string | undefined;
   updateSceneName: (sceneId: string, newName: string) => void;
   deleteScene: (id: string) => void;
@@ -57,6 +57,7 @@ const ScenesTab = ({
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [selectedMapUrl, setSelectedMapUrl] = useState('');
   const [selectedMapName, setSelectedMapName] = useState('');
+  const [mapRotation, setMapRotation] = useState<0 | 90 | 180 | 270>(0);
   const [newSceneName, setNewSceneName] = useState('');
   const [selectedCollectionId, setSelectedCollectionId] = useState<string>('');
   const [newCollectionName, setNewCollectionName] = useState('');
@@ -143,6 +144,7 @@ const ScenesTab = ({
     setSelectedMapName(mapName);
     setIsMapSelectorOpen(false);
     setShowAddDialog(true);
+    setMapRotation(0); // Reset rotation when selecting new map
     
     // Set default map name from filename
     setNewSceneName(mapName);
@@ -181,11 +183,12 @@ const ScenesTab = ({
     
     if (!finalCollectionId) return;
     
-    addScene(newSceneName.trim(), selectedMapUrl, selectedMapName, finalCollectionId);
+    addScene(newSceneName.trim(), selectedMapUrl, selectedMapName, finalCollectionId, mapRotation);
     setShowAddDialog(false);
     setNewSceneName('');
     setSelectedCollectionId('');
     setNewCollectionName('');
+    setMapRotation(0);
   };
 
   const handleCancelAdd = () => {
@@ -811,13 +814,35 @@ const ScenesTab = ({
           
           {/* Dialog content */}
           <div className="relative w-full max-w-2xl mx-4 flex gap-4">
-            {/* Map preview */}
-            <div className="w-64 flex-shrink-0 rounded-xl overflow-hidden border-2 border-dm-border shadow-2xl">
-              <img 
-                src={selectedMapUrl} 
-                alt={selectedMapName}
-                className="w-full h-full object-cover"
-              />
+            {/* Map preview with rotation controls */}
+            <div className="flex flex-col gap-2">
+              <div className="w-64 h-64 flex-shrink-0 rounded-xl overflow-hidden border-2 border-dm-border shadow-2xl flex items-center justify-center bg-dm-dark">
+                <img 
+                  src={selectedMapUrl} 
+                  alt={selectedMapName}
+                  className="max-w-full max-h-full object-contain transition-transform duration-200"
+                  style={{ transform: `rotate(${mapRotation}deg)` }}
+                  draggable={false}
+                />
+              </div>
+              {/* Rotation controls */}
+              <div className="flex items-center justify-center gap-2">
+                <button
+                  onClick={() => setMapRotation(prev => ((prev - 90 + 360) % 360) as 0 | 90 | 180 | 270)}
+                  className="p-2 bg-dm-dark hover:bg-dm-border rounded-lg transition-colors"
+                  title="Rotate left 90°"
+                >
+                  <RotateCcw size={18} className="text-gray-300" />
+                </button>
+                <span className="text-xs text-gray-400 min-w-[40px] text-center">{mapRotation}°</span>
+                <button
+                  onClick={() => setMapRotation(prev => ((prev + 90) % 360) as 0 | 90 | 180 | 270)}
+                  className="p-2 bg-dm-dark hover:bg-dm-border rounded-lg transition-colors"
+                  title="Rotate right 90°"
+                >
+                  <RotateCw size={18} className="text-gray-300" />
+                </button>
+              </div>
             </div>
             
             {/* Form */}

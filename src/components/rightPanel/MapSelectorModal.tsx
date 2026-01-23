@@ -5,7 +5,7 @@ interface StockMap {
   id: string;
   name: string;
   imageUrl: string;
-  category: 'dungeons' | 'indoors' | 'outdoors' | 'taverns' | 'other';
+  category: 'dungeons' | 'indoors' | 'outdoors' | 'taverns' | 'ntx' | 'other';
   width: number;
   height: number;
 }
@@ -49,7 +49,7 @@ const MapSelectorModal = ({ isOpen, onClose, onSelectMap }: MapSelectorModalProp
         const configResponse = await fetch('/config.json');
         const config = await configResponse.json();
         
-        const categories = ['dungeons', 'indoors', 'outdoors', 'taverns', 'other'];
+        const categories = ['dungeons', 'indoors', 'outdoors', 'taverns', 'ntx', 'other'];
         const allMaps: StockMap[] = [];
         
         for (const category of categories) {
@@ -99,6 +99,7 @@ const MapSelectorModal = ({ isOpen, onClose, onSelectMap }: MapSelectorModalProp
         indoors: indoorMaps.length,
         outdoors: outdoorMaps.length,
         taverns: tavernMaps.length,
+        ntx: ntxMaps.length,
         other: otherMaps.length
       };
       
@@ -121,6 +122,7 @@ const MapSelectorModal = ({ isOpen, onClose, onSelectMap }: MapSelectorModalProp
   const indoorMaps = stockMaps.filter(m => m.category === 'indoors');
   const outdoorMaps = stockMaps.filter(m => m.category === 'outdoors');
   const tavernMaps = stockMaps.filter(m => m.category === 'taverns');
+  const ntxMaps = stockMaps.filter(m => m.category === 'ntx');
   const otherMaps = stockMaps.filter(m => m.category === 'other');
 
   const handleMapClick = (map: StockMap) => {
@@ -223,6 +225,16 @@ const MapSelectorModal = ({ isOpen, onClose, onSelectMap }: MapSelectorModalProp
             }`}
           >
             Taverns ({tavernMaps.length})
+          </button>
+          <button
+            onClick={() => setSelectedCategory('ntx')}
+            className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
+              selectedCategory === 'ntx'
+                ? 'bg-dm-highlight text-white'
+                : 'bg-dm-dark/50 text-gray-300 hover:bg-dm-dark'
+            }`}
+          >
+            NTX ({ntxMaps.length})
           </button>
           <button
             onClick={() => setSelectedCategory('other')}

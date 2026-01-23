@@ -744,7 +744,7 @@ function App() {
   };
 
   // Add new scene
-  const addScene = (name: string, backgroundMapUrl: string, backgroundMapName: string, collectionId?: string) => {
+  const addScene = (name: string, backgroundMapUrl: string, backgroundMapName: string, collectionId?: string, backgroundMapRotation?: 0 | 90 | 180 | 270) => {
     // Check if this is a transparent canvas (SVG with transparent fill)
     const isTransparentCanvas = backgroundMapUrl.includes('fill="transparent"');
     
@@ -753,6 +753,7 @@ function App() {
       name,
       backgroundMapUrl,
       backgroundMapName,
+      backgroundMapRotation: backgroundMapRotation || 0,
       elements: [],
       width: isTransparentCanvas ? 50000 : 0,
       height: isTransparentCanvas ? 50000 : 0,

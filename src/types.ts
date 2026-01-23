@@ -465,6 +465,7 @@ export interface Scene {
   name: string;
   backgroundMapUrl: string;
   backgroundMapName: string;
+  backgroundMapRotation?: 0 | 90 | 180 | 270; // Map rotation in degrees
   elements: MapElement[];
   backgroundTiles?: BackgroundTile[]; // Painted background tiles
   terrainStamps?: Array<{ x: number; y: number; size: number; textureUrl: string }>; // Terrain brush stamps (deprecated - use terrainTiles)
