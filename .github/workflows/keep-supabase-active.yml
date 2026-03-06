@@ -1,0 +1,37 @@
+name: Keep Supabase Active
+
+on:
+  schedule:
+    # Kører hver dag kl. 12:00 UTC (13:00/14:00 dansk tid afhængig af sommer/vintertid)
+    - cron: '0 12 * * *'
+  workflow_dispatch: # Tillader manuel kørsel fra GitHub UI
+
+jobs:
+  ping-database:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Ping Supabase Database
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          # Lav et simpelt REST API kald til Supabase
+          response=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            "$SUPABASE_URL/rest/v1/")
+          
+          echo "Response status: $response"
+          
+          if [ $response -eq 200 ] || [ $response -eq 401 ]; then
+            echo "✅ Supabase is active and responding"
+            exit 0
+          else
+            echo "⚠️ Unexpected response: $response"
+            exit 1
+          fi
+      
+      - name: Log Success
+        if: success()
+        run: echo "Supabase keepalive successful on $(date)"
